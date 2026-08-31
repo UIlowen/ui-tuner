@@ -101,4 +101,28 @@ describe("SelectionTracker", () => {
     expect(document.querySelectorAll(`[${UI_TUNER_ID_ATTR}]`)).toHaveLength(0);
     expect(tracker.selected).toBeNull();
   });
+
+  it("keeps ids of elements with preview changes when the selection moves (plan §11/§12)", () => {
+    const tracker = new SelectionTracker({ keepId: () => true });
+    tracker.select(button);
+    const buttonId = button.getAttribute(UI_TUNER_ID_ATTR)!;
+
+    tracker.moveToParent();
+
+    // The override CSS targets this attribute — it must survive the move.
+    expect(button.getAttribute(UI_TUNER_ID_ATTR)).toBe(buttonId);
+    expect(tracker.selected).toBe(section);
+  });
+
+  it("re-selecting an element with a kept id reuses that id", () => {
+    const tracker = new SelectionTracker({ keepId: () => true });
+    tracker.select(button);
+    const buttonId = button.getAttribute(UI_TUNER_ID_ATTR)!;
+    tracker.moveToParent();
+
+    tracker.select(button);
+
+    expect(button.getAttribute(UI_TUNER_ID_ATTR)).toBe(buttonId);
+    expect(tracker.selected!.getAttribute(UI_TUNER_ID_ATTR)).toBe(buttonId);
+  });
 });

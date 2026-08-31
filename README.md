@@ -8,7 +8,8 @@
 ## 当前状态
 
 - **Milestone 1 完成**：Monorepo + MV3 扩展 + Side Panel + Content Script + 双向消息通道（真机验收通过）
-- **Milestone 2 完成**：Element Picker（hover 高亮 / 点击选中 / ⌘↑ 父级 / Breadcrumb / Esc）
+- **Milestone 2 完成**：Element Picker（hover 高亮 / 点击选中 / ⌘↑ 父级 / Breadcrumb / Esc，真机验收通过）
+- **Milestone 3 完成**：Style Inspector（三 Tab / ScrubInput 拖拽调值 / 实时 Preview / 变更记录）
 
 ## 环境要求
 
@@ -22,7 +23,7 @@
 pnpm install    # 安装依赖
 pnpm build      # 构建所有包（protocol/inspector → extension 三个产物）
 pnpm dev        # watch 模式构建扩展（Chrome 里加载的 dist 持续可用）
-pnpm test       # vitest（turbo 编排，47 例）
+pnpm test       # vitest（turbo 编排，106 例）
 pnpm typecheck  # tsc --noEmit
 pnpm lint       # eslint
 pnpm format     # prettier
@@ -45,6 +46,16 @@ pnpm page       # 测试页 http://localhost:8000（绑定 127.0.0.1）
 
 ## 验收
 
+### Milestone 3 — Style Inspector
+
+1. `pnpm build` → `chrome://extensions` 刷新扩展 → 刷新 localhost 页面 → 重开 Side Panel。
+2. 选取「立即订阅」按钮 → 面板出现 **Style / Agent / Changes** 三 Tab，Style 默认展开各分组。
+3. **Size → Height**：按住数值左右拖动 → 页面按钮高度实时变化（Shift 拖 ×10，Option 拖 ×0.1，↑↓ 键 ±1，双击可键入 `36px`）。
+4. **Typography → Size / Color**：拖字号、点色板换文字色，实时生效。
+5. 切到 **Changes** Tab → 每次提交的修改都列出（`height 41px → 36px` 等），Tab 标签显示计数。
+6. DevTools Elements 里可见 `<style id="ui-tuner-preview-style">`，规则形如 `[data-ui-tuner-id="ut-000001"] { height: 36px !important; }`（不写元素内联样式）。
+7. 刷新页面 → 预览修改全部消失（Preview 只在浏览器，不动源码）。
+
 ### Milestone 2 — Element Picker
 
 1. 仓库根目录 `pnpm page`，访问 `http://localhost:8000`。
@@ -64,7 +75,7 @@ Ping page 出现 RTT 与 `→ sidepanel.ping` / `← content.pong` 日志。
 ```txt
 apps/chrome-extension     Chrome MV3 扩展（Side Panel / Content Script / Background）
 packages/protocol         跨上下文共享消息协议
-packages/inspector        Element Picker / Overlay / Selection（DOM 能力，chrome-free）
+packages/inspector        Picker / Overlay / Selection / PreviewEngine / ChangeTracker（chrome-free）
 dev/                      localhost 测试页
 docs/                     architecture / handover / backlog
 ```

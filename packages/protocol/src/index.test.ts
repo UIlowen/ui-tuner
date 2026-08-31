@@ -3,19 +3,23 @@ import {
   createContentPong,
   createContentReady,
   createPickerState,
+  createPreviewChanged,
   createSelectionChanged,
   createSelectionCleared,
   createSidepanelPing,
   createSidepanelPicking,
   createSidepanelSelectAncestor,
+  createSidepanelStylePreview,
   isContentPongMessage,
   isContentReadyMessage,
   isPickerStateMessage,
+  isPreviewChangedMessage,
   isSelectionChangedMessage,
   isSelectionClearedMessage,
   isSidepanelPingMessage,
   isSidepanelPickingMessage,
   isSidepanelSelectAncestorMessage,
+  isSidepanelStylePreviewMessage,
   isUiTunerMessage,
   UI_TUNER_PORT_NAME,
   type UiTunerMessage,
@@ -42,10 +46,29 @@ function createEveryMessage(): UiTunerMessage[] {
         { tagName: "div", id: "ut-000002" },
         { tagName: "body", id: "ut-000003" },
       ],
+      styles: { "font-size": "16px", gap: "24px" },
+      dom: { outerHTML: "<button>立即订阅</button>" },
       pickedAt: 1_000,
     }),
     createSelectionCleared(),
     createSidepanelSelectAncestor("ut-000002"),
+    createSidepanelStylePreview({
+      uiTunerId: "ut-000001",
+      property: "gap",
+      value: "16px",
+      committed: false,
+    }),
+    createPreviewChanged([
+      {
+        id: "ch-000001",
+        elementId: "ut-000001",
+        property: "gap",
+        previousValue: "24px",
+        nextValue: "16px",
+        source: "manual",
+        createdAt: 1_000,
+      },
+    ]),
   ];
 }
 
@@ -101,6 +124,7 @@ describe("creators", () => {
         bounds: { x: 0, y: 0, width: 100, height: 50 },
       },
       breadcrumb: [{ tagName: "div", id: "ut-000001" }],
+      styles: {},
       pickedAt: 5,
     });
     expect(changed.type).toBe("selection.changed");
@@ -110,6 +134,34 @@ describe("creators", () => {
     expect(createSidepanelSelectAncestor("ut-000003")).toEqual({
       type: "sidepanel.selectAncestor",
       payload: { uiTunerId: "ut-000003" },
+    });
+  });
+
+  it("creates style preview messages", () => {
+    expect(
+      createSidepanelStylePreview({
+        uiTunerId: "ut-000001",
+        property: "padding-top",
+        value: null,
+        committed: true,
+      }),
+    ).toEqual({
+      type: "sidepanel.stylePreview",
+      payload: { uiTunerId: "ut-000001", property: "padding-top", value: null, committed: true },
+    });
+
+    const change = {
+      id: "ch-000002",
+      elementId: "ut-000001",
+      property: "height",
+      previousValue: "40px",
+      nextValue: "36px",
+      source: "manual" as const,
+      createdAt: 9,
+    };
+    expect(createPreviewChanged([change])).toEqual({
+      type: "preview.changed",
+      payload: { changes: [change] },
     });
   });
 });
@@ -148,6 +200,8 @@ describe("per-type guards", () => {
     expect(messages.filter(isSelectionChangedMessage)).toHaveLength(1);
     expect(messages.filter(isSelectionClearedMessage)).toHaveLength(1);
     expect(messages.filter(isSidepanelSelectAncestorMessage)).toHaveLength(1);
+    expect(messages.filter(isSidepanelStylePreviewMessage)).toHaveLength(1);
+    expect(messages.filter(isPreviewChangedMessage)).toHaveLength(1);
   });
 });
 

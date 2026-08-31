@@ -7,6 +7,7 @@
  *
  * M1: Side Panel ⇄ Content Script channel (connect / ping).
  * M2: Element Picker (pick mode, selection, breadcrumb).
+ * M3: Style Inspector (computed styles, live preview, change records).
  * Later milestones add Bridge / Agent messages (plan §17).
  */
 
@@ -45,7 +46,29 @@ export interface BreadcrumbItem {
 export interface SelectionPayload {
   element: SelectionElement;
   breadcrumb: BreadcrumbItem[];
+  /** Whitelisted computed styles at pick time (plan §7/§18). */
+  styles: Record<string, string>;
+  /** Truncated DOM snapshot (plan §3.1); for later milestones' agent context. */
+  dom?: DomSnapshot;
   pickedAt: number;
+}
+
+/** DOM snapshot with a total character budget (plan §3.1, MAX_HTML_LENGTH). */
+export interface DomSnapshot {
+  outerHTML: string;
+  parentHTML?: string;
+  childrenHTML?: string[];
+}
+
+/** One recorded style override (plan §12). */
+export interface StyleChange {
+  id: string;
+  elementId: string;
+  property: string;
+  previousValue: string;
+  nextValue: string;
+  source: "manual" | "agent";
+  createdAt: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +146,34 @@ export interface SidepanelSelectAncestorMessage {
 }
 
 // ---------------------------------------------------------------------------
+// M3 — style inspector messages
+// ---------------------------------------------------------------------------
+
+/**
+ * Side Panel → Content. Set one CSS property on the selected element via the
+ * preview `<style>` override (plan §11). `committed: false` frames arrive
+ * while scrubbing; `committed: true` on release records a StyleChange.
+ * `value: null` removes the override.
+ */
+export interface SidepanelStylePreviewMessage {
+  type: "sidepanel.stylePreview";
+  payload: {
+    uiTunerId: string;
+    property: string;
+    value: string | null;
+    committed: boolean;
+  };
+}
+
+/** Content → Side Panel. The page-side change list changed (plan §12/§13). */
+export interface PreviewChangedMessage {
+  type: "preview.changed";
+  payload: {
+    changes: StyleChange[];
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Union + guards
 // ---------------------------------------------------------------------------
 
@@ -134,7 +185,9 @@ export type UiTunerMessage =
   | PickerStateMessage
   | SelectionChangedMessage
   | SelectionClearedMessage
-  | SidepanelSelectAncestorMessage;
+  | SidepanelSelectAncestorMessage
+  | SidepanelStylePreviewMessage
+  | PreviewChangedMessage;
 
 export type UiTunerMessageType = UiTunerMessage["type"];
 
@@ -147,6 +200,8 @@ const MESSAGE_TYPES: readonly UiTunerMessageType[] = [
   "selection.changed",
   "selection.cleared",
   "sidepanel.selectAncestor",
+  "sidepanel.stylePreview",
+  "preview.changed",
 ];
 
 export function isUiTunerMessageType(value: unknown): value is UiTunerMessageType {
@@ -202,6 +257,16 @@ export function isSidepanelSelectAncestorMessage(
   return value.type === "sidepanel.selectAncestor";
 }
 
+export function isSidepanelStylePreviewMessage(
+  value: UiTunerMessage,
+): value is SidepanelStylePreviewMessage {
+  return value.type === "sidepanel.stylePreview";
+}
+
+export function isPreviewChangedMessage(value: UiTunerMessage): value is PreviewChangedMessage {
+  return value.type === "preview.changed";
+}
+
 // ---------------------------------------------------------------------------
 // Creators
 // ---------------------------------------------------------------------------
@@ -238,4 +303,14 @@ export function createSelectionCleared(): SelectionClearedMessage {
 
 export function createSidepanelSelectAncestor(uiTunerId: string): SidepanelSelectAncestorMessage {
   return { type: "sidepanel.selectAncestor", payload: { uiTunerId } };
+}
+
+export function createSidepanelStylePreview(
+  payload: SidepanelStylePreviewMessage["payload"],
+): SidepanelStylePreviewMessage {
+  return { type: "sidepanel.stylePreview", payload };
+}
+
+export function createPreviewChanged(changes: StyleChange[]): PreviewChangedMessage {
+  return { type: "preview.changed", payload: { changes } };
 }

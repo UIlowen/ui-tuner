@@ -1,6 +1,6 @@
 export { Picker, type PickerCallbacks } from "./picker/Picker";
 export { Overlay } from "./overlay/Overlay";
-export { SelectionTracker } from "./dom/selection";
+export { SelectionTracker, type SelectionTrackerOptions } from "./dom/selection";
 export {
   assignUiTunerId,
   cssSelectorFor,
@@ -9,4 +9,20 @@ export {
   textPreview,
   UI_TUNER_ID_ATTR,
 } from "./dom/identity";
+export { domSnapshotFor, MAX_HTML_LENGTH } from "./dom/snapshot";
 export { boundsFromRect, formatDimensions } from "./measurement/rect";
+
+export { STYLE_PROPERTIES, isStyleProperty, type StyleProperty } from "./styles/whitelist";
+export { pickStyles, type StyleSource } from "./styles/computed";
+export {
+  parseCssValue,
+  formatCssValue,
+  formatNumber,
+  scrubMultiplier,
+  clamp,
+  type ParsedCssValue,
+} from "./styles/parse";
+export { rgbToHex } from "./styles/color";
+
+export { PreviewEngine } from "./preview/PreviewEngine";
+export { ChangeTracker } from "./changes/ChangeTracker";

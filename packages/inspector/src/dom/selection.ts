@@ -1,5 +1,6 @@
 import type { BreadcrumbItem, SelectionPayload } from "@ui-tuner/protocol";
 import { boundsFromRect } from "../measurement/rect";
+import { pickStyles } from "../styles/computed";
 import { assignUiTunerId, cssSelectorFor, releaseUiTunerId, textPreview } from "./identity";
 
 /**
@@ -7,11 +8,22 @@ import { assignUiTunerId, cssSelectorFor, releaseUiTunerId, textPreview } from "
  * its breadcrumb ancestors, builds protocol payloads, and releases the
  * attributes when the selection moves or clears.
  */
+export interface SelectionTrackerOptions {
+  /**
+   * Return true to keep an element's `data-ui-tuner-id` when the selection
+   * moves away — required for elements carrying preview overrides (plan §11:
+   * the override CSS targets that attribute) or change records (plan §12).
+   */
+  keepId?: (uiTunerId: string) => boolean;
+}
+
 export class SelectionTracker {
   /** uiTunerId → element, for the current selection chain only. */
   private readonly registry = new Map<string, Element>();
 
   private current: Element | null = null;
+
+  constructor(private readonly options: SelectionTrackerOptions = {}) {}
 
   get selected(): Element | null {
     return this.current;
@@ -30,6 +42,7 @@ export class SelectionTracker {
         bounds: boundsFromRect(element.getBoundingClientRect()),
       },
       breadcrumb,
+      styles: pickStyles(getComputedStyle(element)),
       pickedAt: Date.now(),
     };
   }
@@ -67,7 +80,8 @@ export class SelectionTracker {
   }
 
   private releaseAll(): void {
-    for (const element of this.registry.values()) {
+    for (const [id, element] of this.registry) {
+      if (this.options.keepId?.(id)) continue; // keep the attribute for preview overrides
       releaseUiTunerId(element);
     }
     this.registry.clear();

@@ -3,12 +3,15 @@ import {
   createSidepanelPing,
   createSidepanelPicking,
   createSidepanelSelectAncestor,
+  createSidepanelStylePreview,
   isContentPongMessage,
   isContentReadyMessage,
   isPickerStateMessage,
+  isPreviewChangedMessage,
   isSelectionChangedMessage,
   isSelectionClearedMessage,
   type SelectionPayload,
+  type StyleChange,
   type UiTunerMessage,
 } from "@ui-tuner/protocol";
 import { Channel } from "../messaging/channel";
@@ -36,6 +39,10 @@ interface SidepanelState {
   picking: boolean;
   /** Current selection, or null when nothing is selected. */
   selection: SelectionPayload | null;
+  /** Committed style values for the selected element — scrub frames don't touch this. */
+  styleValues: Record<string, string> | null;
+  /** Page-side change records (content is the source of truth, plan §12). */
+  changes: StyleChange[];
 
   /** Wire an already-opened channel (App owns chrome.tabs lookup). */
   connect: (channel: Channel) => void;
@@ -46,6 +53,12 @@ interface SidepanelState {
   setPicking: (enabled: boolean) => void;
   /** Breadcrumb jump: select the ancestor with this uiTunerId. */
   selectAncestor: (uiTunerId: string) => void;
+  /**
+   * Send one style value for the selected element (plan §10/§11). Preview
+   * frames (committed=false) only hit the page; commits also update
+   * `styleValues` locally.
+   */
+  updateStyle: (property: string, value: string | null, committed: boolean) => void;
   /** Drop the channel and return to idle. */
   reset: () => void;
 }
@@ -68,6 +81,8 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
   log: [],
   picking: false,
   selection: null,
+  styleValues: null,
+  changes: [],
 
   connect: (nextChannel) => {
     channel = nextChannel;
@@ -80,6 +95,8 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       log: [],
       picking: false,
       selection: null,
+      styleValues: null,
+      changes: [],
     });
     nextChannel.onDisconnect(() => {
       if (channel === nextChannel)
@@ -97,9 +114,11 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
     } else if (isPickerStateMessage(message)) {
       set({ picking: message.payload.enabled });
     } else if (isSelectionChangedMessage(message)) {
-      set({ selection: message.payload, picking: false });
+      set({ selection: message.payload, styleValues: message.payload.styles, picking: false });
     } else if (isSelectionClearedMessage(message)) {
-      set({ selection: null });
+      set({ selection: null, styleValues: null });
+    } else if (isPreviewChangedMessage(message)) {
+      set({ changes: message.payload.changes });
     }
   },
 
@@ -124,6 +143,26 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
     set((state) => ({ log: appendLog(state.log, "out", message) }));
   },
 
+  updateStyle: (property, value, committed) => {
+    const elementId = get().selection?.element.id;
+    if (!channel || !elementId) return;
+    const message = createSidepanelStylePreview({
+      uiTunerId: elementId,
+      property,
+      value,
+      committed,
+    });
+    channel.send(message);
+    set((state) => {
+      const log = appendLog(state.log, "out", message);
+      if (!committed || !state.styleValues) return { log };
+      const styleValues = { ...state.styleValues };
+      if (value === null) delete styleValues[property];
+      else styleValues[property] = value;
+      return { log, styleValues };
+    });
+  },
+
   reset: () => {
     channel = null;
     set({
@@ -135,6 +174,8 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       log: [],
       picking: false,
       selection: null,
+      styleValues: null,
+      changes: [],
     });
   },
 }));
@@ -151,5 +192,7 @@ export function reportConnectFailure(reason: string): void {
     log: [],
     picking: false,
     selection: null,
+    styleValues: null,
+    changes: [],
   });
 }

@@ -1,10 +1,12 @@
-import { Fragment, useCallback, useEffect } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { Channel } from "../messaging/channel";
 import {
   reportConnectFailure,
   useSidepanelStore,
   type ConnectionStatus,
 } from "../state/sidepanel-store";
+import { ChangesTab } from "./components/ChangesTab";
+import { StylePanel } from "./components/StylePanel";
 
 function isLocalhostUrl(url: string): boolean {
   try {
@@ -36,6 +38,8 @@ function StatusPill({ status }: { status: ConnectionStatus }) {
   );
 }
 
+type TabId = "style" | "agent" | "changes";
+
 function SelectionCard() {
   const selection = useSidepanelStore((s) => s.selection);
   const selectAncestor = useSidepanelStore((s) => s.selectAncestor);
@@ -51,8 +55,13 @@ function SelectionCard() {
           {element.tagName}
           {">"}
         </span>
-        <span className="shrink-0 font-mono text-[11px] text-zinc-400 tabular-nums">
-          {element.bounds.width} × {element.bounds.height}
+        <span className="flex shrink-0 items-baseline gap-2">
+          <span className="rounded bg-zinc-800 px-1 py-px text-[9px] text-zinc-500">
+            Preview only
+          </span>
+          <span className="font-mono text-[11px] text-zinc-400 tabular-nums">
+            {element.bounds.width} × {element.bounds.height}
+          </span>
         </span>
       </div>
       <p className="mt-0.5 truncate font-mono text-[10px] text-zinc-500" title={element.selector}>
@@ -89,8 +98,9 @@ function SelectionCard() {
 }
 
 /**
- * Milestone 2 Side Panel: Select element → hover overlay → click to select →
- * breadcrumb / ⌘↑ parent navigation. Style Inspector arrives in Milestone 3.
+ * Milestone 3 Side Panel: select element → Style Inspector tabs
+ * (Style / Agent / Changes) with live preview scrubbing (plan §8/§9/§10/§11).
+ * Agent tab is a placeholder until Milestone 7.
  */
 export function App() {
   const status = useSidepanelStore((s) => s.status);
@@ -101,7 +111,9 @@ export function App() {
   const log = useSidepanelStore((s) => s.log);
   const picking = useSidepanelStore((s) => s.picking);
   const selection = useSidepanelStore((s) => s.selection);
+  const changes = useSidepanelStore((s) => s.changes);
   const setPicking = useSidepanelStore((s) => s.setPicking);
+  const [tab, setTab] = useState<TabId>("style");
 
   const openChannel = useCallback(async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -130,6 +142,12 @@ export function App() {
   }, [openChannel]);
 
   const pickButtonLabel = picking ? "取消选取 (Esc)" : selection ? "重新选取" : "选取元素";
+
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "style", label: "Style" },
+    { id: "agent", label: "Agent" },
+    { id: "changes", label: changes.length > 0 ? `Changes ${changes.length}` : "Changes" },
+  ];
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -178,58 +196,112 @@ export function App() {
           </section>
         ) : null}
 
-        <section className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2.5">
-          <p className="text-[10px] font-medium tracking-wider text-zinc-500 uppercase">Page</p>
-          {pageTitle !== null ? (
-            <>
-              <p className="mt-1 truncate text-[12px] font-medium" title={pageTitle}>
-                {pageTitle}
-              </p>
-              <p className="mt-0.5 truncate text-[11px] text-zinc-400" title={pageUrl ?? undefined}>
-                {pageUrl}
-              </p>
-            </>
-          ) : (
-            <p className="mt-1 text-[12px] text-zinc-500">Waiting for page…</p>
-          )}
-        </section>
+        <nav
+          className="flex gap-1 rounded-md bg-zinc-900/60 p-1 ring-1 ring-zinc-800"
+          role="tablist"
+        >
+          {tabs.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.id}
+              onClick={() => setTab(item.id)}
+              className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+                tab === item.id
+                  ? "bg-zinc-700/80 text-zinc-100"
+                  : "text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-300"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
 
-        <section className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => useSidepanelStore.getState().ping()}
-            disabled={status !== "connected"}
-            className="flex-1 rounded-md bg-zinc-800 px-3 py-1.5 text-[12px] font-medium text-zinc-300 enabled:hover:bg-zinc-700 disabled:opacity-40"
-          >
-            Ping page
-          </button>
-          {lastRttMs !== null && (
-            <span className="rounded bg-zinc-800 px-2 py-1 text-[11px] text-emerald-400 tabular-nums">
-              {lastRttMs} ms
-            </span>
-          )}
-        </section>
-
-        <section className="min-h-0">
-          <p className="mb-1.5 text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
-            Messages
-          </p>
-          {log.length === 0 ? (
-            <p className="text-[11px] text-zinc-600">No messages yet.</p>
+        {tab === "style" &&
+          (selection ? (
+            <StylePanel />
           ) : (
-            <ul className="space-y-1">
-              {log.map((entry) => (
-                <li key={entry.id} className="flex items-center gap-2 font-mono text-[11px]">
-                  <span className={entry.direction === "out" ? "text-sky-400" : "text-emerald-400"}>
-                    {entry.direction === "out" ? "→" : "←"}
-                  </span>
-                  <span className="text-zinc-300">{entry.type}</span>
-                  <span className="ml-auto text-zinc-600 tabular-nums">{formatTime(entry.at)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+            <section className="rounded-md border border-dashed border-zinc-800 px-3 py-4 text-center text-[11px] leading-relaxed text-zinc-600">
+              选取页面元素后在此调整样式
+              <br />
+              拖动数值实时预览 · 只改浏览器，不动源码
+            </section>
+          ))}
+
+        {tab === "agent" && (
+          <section className="rounded-md border border-dashed border-zinc-800 px-3 py-4 text-center text-[11px] leading-relaxed text-zinc-600">
+            Agent 在 Milestone 7 上线
+            <br />
+            届时可把调整交给 Coding Agent 落到源码
+          </section>
+        )}
+
+        {tab === "changes" && <ChangesTab />}
+
+        {tab === "style" && (
+          <>
+            <section className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2.5">
+              <p className="text-[10px] font-medium tracking-wider text-zinc-500 uppercase">Page</p>
+              {pageTitle !== null ? (
+                <>
+                  <p className="mt-1 truncate text-[12px] font-medium" title={pageTitle}>
+                    {pageTitle}
+                  </p>
+                  <p
+                    className="mt-0.5 truncate text-[11px] text-zinc-400"
+                    title={pageUrl ?? undefined}
+                  >
+                    {pageUrl}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-[12px] text-zinc-500">Waiting for page…</p>
+              )}
+            </section>
+
+            <section className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => useSidepanelStore.getState().ping()}
+                disabled={status !== "connected"}
+                className="flex-1 rounded-md bg-zinc-800 px-3 py-1.5 text-[12px] font-medium text-zinc-300 enabled:hover:bg-zinc-700 disabled:opacity-40"
+              >
+                Ping page
+              </button>
+              {lastRttMs !== null && (
+                <span className="rounded bg-zinc-800 px-2 py-1 text-[11px] text-emerald-400 tabular-nums">
+                  {lastRttMs} ms
+                </span>
+              )}
+            </section>
+
+            <section className="min-h-0">
+              <p className="mb-1.5 text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
+                Messages
+              </p>
+              {log.length === 0 ? (
+                <p className="text-[11px] text-zinc-600">No messages yet.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {log.map((entry) => (
+                    <li key={entry.id} className="flex items-center gap-2 font-mono text-[11px]">
+                      <span
+                        className={entry.direction === "out" ? "text-sky-400" : "text-emerald-400"}
+                      >
+                        {entry.direction === "out" ? "→" : "←"}
+                      </span>
+                      <span className="text-zinc-300">{entry.type}</span>
+                      <span className="ml-auto text-zinc-600 tabular-nums">
+                        {formatTime(entry.at)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </>
+        )}
       </main>
     </div>
   );
