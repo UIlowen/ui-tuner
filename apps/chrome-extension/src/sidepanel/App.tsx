@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { Fragment, useCallback, useEffect } from "react";
 import { Channel } from "../messaging/channel";
 import {
   reportConnectFailure,
@@ -36,11 +36,61 @@ function StatusPill({ status }: { status: ConnectionStatus }) {
   );
 }
 
+function SelectionCard() {
+  const selection = useSidepanelStore((s) => s.selection);
+  const selectAncestor = useSidepanelStore((s) => s.selectAncestor);
+
+  if (!selection) return null;
+  const { element, breadcrumb } = selection;
+
+  return (
+    <section className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="truncate font-mono text-[13px] font-semibold text-violet-300">
+          {"<"}
+          {element.tagName}
+          {">"}
+        </span>
+        <span className="shrink-0 font-mono text-[11px] text-zinc-400 tabular-nums">
+          {element.bounds.width} × {element.bounds.height}
+        </span>
+      </div>
+      <p className="mt-0.5 truncate font-mono text-[10px] text-zinc-500" title={element.selector}>
+        {element.selector}
+      </p>
+      {element.text && (
+        <p className="mt-1 truncate text-[11px] text-zinc-400" title={element.text}>
+          “{element.text}”
+        </p>
+      )}
+
+      <div className="mt-2 flex items-center gap-1 overflow-x-auto pb-0.5">
+        {breadcrumb.map((item, index) => (
+          <Fragment key={item.id}>
+            {index > 0 && <span className="shrink-0 text-[10px] text-zinc-600">↑</span>}
+            <button
+              type="button"
+              onClick={() => selectAncestor(item.id)}
+              title={`选择 ${item.tagName}`}
+              className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] ${
+                index === 0
+                  ? "bg-violet-500/20 text-violet-300"
+                  : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+              }`}
+            >
+              {item.tagName}
+            </button>
+          </Fragment>
+        ))}
+      </div>
+      <p className="mt-1.5 text-[10px] text-zinc-600">⌘↑ 选父级 · Esc 取消选中</p>
+    </section>
+  );
+}
+
 /**
- * Milestone 1 Side Panel: proves the bidirectional channel between the Side
- * Panel and the Content Script (connect → page info, ping → pong with RTT).
- * Element Picker (Milestone 2) replaces the Ping playground with the Style
- * Inspector.
+ * Milestone 2 Side Panel: Select element → hover overlay → click to select →
+ * breadcrumb / ⌘↑ parent navigation. Style Inspector arrives in Milestone 3.
  */
 export function App() {
   const status = useSidepanelStore((s) => s.status);
@@ -49,6 +99,9 @@ export function App() {
   const pageUrl = useSidepanelStore((s) => s.pageUrl);
   const lastRttMs = useSidepanelStore((s) => s.lastRttMs);
   const log = useSidepanelStore((s) => s.log);
+  const picking = useSidepanelStore((s) => s.picking);
+  const selection = useSidepanelStore((s) => s.selection);
+  const setPicking = useSidepanelStore((s) => s.setPicking);
 
   const openChannel = useCallback(async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -76,6 +129,8 @@ export function App() {
     return () => useSidepanelStore.getState().reset();
   }, [openChannel]);
 
+  const pickButtonLabel = picking ? "取消选取 (Esc)" : selection ? "重新选取" : "选取元素";
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-3 py-2.5">
@@ -96,6 +151,32 @@ export function App() {
             </button>
           </section>
         )}
+
+        <section>
+          <button
+            type="button"
+            onClick={() => setPicking(!picking)}
+            disabled={status !== "connected"}
+            className={`w-full rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+              picking
+                ? "bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/60"
+                : "bg-zinc-100 text-zinc-900 enabled:hover:bg-white disabled:opacity-40"
+            }`}
+          >
+            {pickButtonLabel}
+          </button>
+          {picking && status === "connected" && (
+            <p className="mt-1.5 text-center text-[10px] text-sky-300/80">点击页面中的元素</p>
+          )}
+        </section>
+
+        {selection ? (
+          <SelectionCard />
+        ) : status === "connected" && !picking ? (
+          <section className="rounded-md border border-dashed border-zinc-800 px-3 py-2.5 text-center text-[11px] text-zinc-600">
+            未选中元素
+          </section>
+        ) : null}
 
         <section className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2.5">
           <p className="text-[10px] font-medium tracking-wider text-zinc-500 uppercase">Page</p>
@@ -118,7 +199,7 @@ export function App() {
             type="button"
             onClick={() => useSidepanelStore.getState().ping()}
             disabled={status !== "connected"}
-            className="flex-1 rounded-md bg-zinc-100 px-3 py-1.5 text-[12px] font-semibold text-zinc-900 enabled:hover:bg-white disabled:opacity-40"
+            className="flex-1 rounded-md bg-zinc-800 px-3 py-1.5 text-[12px] font-medium text-zinc-300 enabled:hover:bg-zinc-700 disabled:opacity-40"
           >
             Ping page
           </button>

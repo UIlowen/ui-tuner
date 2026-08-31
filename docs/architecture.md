@@ -1,82 +1,89 @@
-# UI Tuner — Architecture（Milestone 1）
+# UI Tuner — Architecture（Milestone 2）
 
-> 状态：Milestone 1 完成（基础插件）。本文档只描述**已实现**的部分，随每个 Milestone 更新。
+> 状态：Milestone 2 完成（Element Picker）。本文档只描述**已实现**的部分，随每个 Milestone 更新。
 > 完整产品规划见根目录 `UI_TUNER_EXECUTION_PLAN.md`。
 
 ## 1. 当前范围
 
-Milestone 1 交付：
+Milestone 1 交付：pnpm + Turborepo + TypeScript monorepo、Chrome Extension（MV3）、React Side Panel、Content Script（仅 localhost）、双向消息通道。
 
-- pnpm + Turborepo + TypeScript monorepo
-- Chrome Extension（Manifest V3）
-- React Side Panel
-- Content Script（仅 localhost）
-- Side Panel ⇄ Content Script 双向消息通道
+Milestone 2 交付：
 
-**验收标准**：Side Panel 可以和页面通信（connect → 页面信息，ping → pong + RTT）。
+- **Element Picker**：Edit Mode 下 hover 高亮（≥30fps）、点击选中、`⌘↑` 选父级、Breadcrumb 回跳、Esc 取消/清除
+- **Overlay**：独立层（Shadow DOM 隔离），显示边框 + `tag  W × H` 标签，滚动/resize/布局位移每帧自动校正
+- **Selection 身份**：`data-ui-tuner-id`（ut-xxxxxx）+ 唯一 CSS selector + nearest-first Breadcrumb
 
-不在本阶段：Element Picker、Overlay、Style Inspector、ChangeSet、Bridge、Source Resolver、Agent/MCP（M2–M8）。
+**M2 验收标准**：可以稳定选择页面元素。
+
+不在本阶段：Style Inspector / Scrub Input（M3）、ChangeSet（M4）、Bridge（M5）、Source Resolver（M6，组件名暂不显示）、Agent/MCP（M7）。
 
 ## 2. Repo 结构
 
 ```txt
 ui-tuner/
+  dev/index.html                 # localhost 测试页（pnpm page 启动 :8000）
   apps/
-    chrome-extension/        # MV3 扩展（本阶段唯一应用）
-      public/manifest.json   # 静态 manifest，构建时拷贝到 dist
-      sidepanel.html         # Side Panel HTML 入口（包根，保证输出在 dist 根）
-      vite.config.*.ts       # 三个独立构建配置（见 §4）
-      scripts/dev.mjs        # 并行 watch 三个构建
-      src/
-        background/          # service worker：点击图标打开 Side Panel
-        content/             # 内容脚本：接受端口、应答 ping
-        sidepanel/           # React 应用（App.tsx / main.tsx）
-        messaging/           # Channel：对 chrome.runtime.Port 的类型化封装
-        state/               # zustand store（sidepanel-store.ts）
-        styles/              # Tailwind 入口 + 基础样式
+    chrome-extension/            # MV3 扩展
+    ├ public/manifest.json       # 静态 manifest，构建时拷贝到 dist
+    ├ sidepanel.html             # Side Panel HTML 入口（包根 → dist 根）
+    ├ vite.config.*.ts           # 三个独立构建（见 §4）
+    ├ scripts/dev.mjs            # 并行 watch 三个构建
+    └ src/
+        background/              # service worker：点击图标打开 Side Panel
+        content/                 # 内容脚本：接线 inspector ↔ Port（chrome 知识只在这里）
+        sidepanel/               # React 应用（App.tsx / main.tsx）
+        messaging/               # Channel：chrome.runtime.Port 类型化封装
+        state/                   # zustand store（连接 + 选取状态）
+        styles/                  # Tailwind 入口 + 基础样式
   packages/
-    protocol/                # 共享消息协议：类型 + 类型守卫 + 构造器
+    protocol/                    # 共享消息协议：类型 + 守卫 + 构造器
+    inspector/                   # DOM 检查能力（chrome-free，可单测）
+    ├ src/picker/Picker.ts       #   Edit Mode 控制器（rAF 合并 mousemove）
+    ├ src/overlay/Overlay.ts     #   独立高亮层（Shadow DOM + rAF 跟踪）
+    ├ src/dom/identity.ts        #   uiTunerId / 唯一 selector / 文本预览
+    ├ src/dom/selection.ts       #   SelectionTracker（身份注册 + breadcrumb）
+    ├ src/measurement/rect.ts    #   Bounds 快照
+    └ src/styles/overlay.ts      #   Overlay 样式常量（唯一样式来源）
   docs/
-    architecture.md          # 本文档
+    architecture.md              # 本文档
+    handover.md                  # 交接文档（每里程碑更新）
+    backlog.md                   # 顺延项 / scope 外需求
 ```
-
-后续 Milestone 将增加 `apps/bridge`、`packages/inspector`、`packages/change-set`、`packages/source-resolver`、`examples/*`（见执行计划 §4）。
 
 ## 3. 运行时架构
 
 ```txt
-┌─────────────────────────── Chrome ───────────────────────────┐
-│                                                              │
-│  localhost 页面          Side Panel (React)                  │
-│  ┌────────────────┐      ┌──────────────────────┐            │
-│  │ Content Script │◄────►│ zustand store        │            │
-│  │ content.js     │ port │ Channel              │            │
-│  └────────────────┘      └──────────▲───────────┘            │
-│           ▲                          │ tabs.connect(tabId)   │
-│           │ manifest 注入            │                        │
-│  ┌────────┴─────────┐     ┌──────────┴───────────┐            │
-│  │ background.js    │     │ action 点击 →        │            │
-│  │ (service worker) │────►│ setPanelBehavior     │            │
-│  └──────────────────┘     └──────────────────────┘            │
-└──────────────────────────────────────────────────────────────┘
+┌───────────────────────────────── Chrome ─────────────────────────────────┐
+│                                                                          │
+│  localhost 页面                          Side Panel (React)              │
+│  ┌───────────────────────────┐          ┌────────────────────┐           │
+│  │ Content Script            │  port    │ zustand store      │           │
+│  │ ├ Picker (edit mode)      │◄────────►│ picking/selection  │           │
+│  │ ├ Overlay (shadow root)   │          │ Channel            │           │
+│  │ └ SelectionTracker        │          └─────────▲──────────┘           │
+│  └──────────┬────────────────┘                    │ tabs.connect         │
+│             │ manifest 注入                        │                      │
+│  ┌──────────┴──────────┐        ┌──────────────────┴─────────┐            │
+│  │ background.js (SW)  │───────►│ action 点击 → open panel   │            │
+│  └─────────────────────┘        └────────────────────────────┘            │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 消息流（M1）
+### 选取流程（M2）
 
-1. 用户点击工具栏图标 → background `setPanelBehavior({ openPanelOnActionClick: true })` 打开 Side Panel。
-2. Side Panel 挂载 → `chrome.tabs.query` 找到当前 tab → 校验 localhost → `Channel.connectToTab(tabId)` 建立 `chrome.runtime.Port`（名称 `ui-tuner`）。
-3. Content Script 收到 `onConnect` → 立即发送 `content.ready`（url / title）→ Side Panel 状态变为 **Connected** 并显示页面信息。
-4. 用户点击 "Ping page" → Side Panel 发送 `sidepanel.ping`（带 `sentAt`）→ Content Script 回 `content.pong` → Side Panel 计算并显示 RTT。
+1. Side Panel 点「选取元素」→ `sidepanel.picking {enabled:true}` → Content Script 启动 Picker，回 `picker.state` 同步状态。
+2. Picker rAF 循环：`elementFromPoint`（mousemove 只更新坐标缓存，一帧一次）→ hover 变化时 Overlay 画蓝框 + `tag  W × H` 标签。
+3. 点击（capture 阶段拦截，阻止页面响应）→ Picker 停止 → `SelectionTracker.select()`：打 `data-ui-tuner-id`、生成唯一 selector、构建 breadcrumb → `selection.changed` → Side Panel 显示选中卡片，Overlay 画紫框。
+4. `⌘↑` / breadcrumb 点击 → `SelectionTracker.moveToParent/moveToAncestor` → 新的 `selection.changed`。
+5. Esc：picking 中 → Picker 自身处理取消；已选中 → Content Script 全局 keydown 清除 → `selection.cleared`。
+6. 选中元素被移出 DOM（HMR 等）→ Overlay 检测 `isConnected` → 立即隐藏并发 `selection.cleared`（不静默错选）。
+7. Port 断开（面板关闭/导航）→ Content Script 清理 Picker/Overlay/Tracker，面板重开时重建。
 
-M1 的 Ping 是通道验收工具；M2 起 `selection.changed` 等消息沿用同一条 Port 通道。
+### 性能（计划 §33 红线）
 
-### 为什么不经 background 中转
-
-Side Panel 与 Content Script 之间用 `chrome.tabs.connect` 直连 Port：
-
-- 少一跳中转，实时性更好（符合性能要求 §33 的方向）；
-- background service worker 会被 Chrome 闲置回收，作为常驻中转会引入掉线复杂度；
-- background 只承担"打开面板"等生命周期职责。
+- mousemove 处理器只写坐标缓存（passive listener），`elementFromPoint` 每帧至多一次。
+- Overlay 持有 Element 引用，每帧仅 `getBoundingClientRect` + 少量 style 写入；无目标时 rAF 自动停止。
+- 选取后（非 picking）没有任何循环开销。
 
 ## 4. 构建管线
 
@@ -90,52 +97,61 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 
 关键约束：
 
-- sidepanel 构建先执行且是唯一 `emptyOutDir: true` 的构建；content / background 以 `emptyOutDir: false` 追加，避免互相清空。
-- `public/manifest.json` 由 Vite `publicDir` 拷贝进 dist，引用固定的 `content.js` / `background.js` / `sidepanel.html` 文件名。
-- protocol 包先经 `tsc` 构建出 `dist/`，扩展构建时由 Vite 打进产物（IIFE 内联）。
+- sidepanel 构建先执行且是唯一 `emptyOutDir: true` 的构建；content / background 以 `emptyOutDir: false` 追加。
+- `public/manifest.json` 由 Vite `publicDir` 拷贝进 dist，引用固定文件名 `content.js` / `background.js` / `sidepanel.html`。
+- protocol 与 inspector 包先经 `tsc` 构建出 `dist/`，扩展构建时由 Vite 打进产物（IIFE 内联）。turbo `^build` 保证顺序。
 
-`pnpm dev`（`scripts/dev.mjs`）并行跑三个 `vite build --watch`，Chrome 里加载的 `dist/` 保持可用，改动后回到 `chrome://extensions` 点刷新即可。
+`pnpm dev` 并行跑三个 `vite build --watch`；改动后在 `chrome://extensions` 刷新扩展即可。
 
 ## 5. 协议（packages/protocol）
 
-所有跨上下文消息的类型唯一定义在 `@ui-tuner/protocol`（执行计划规则 6）。M1 消息：
+所有跨上下文消息唯一定义在 `@ui-tuner/protocol`（规则 6）。当前消息：
 
-```ts
-type UiTunerMessage =
-  | { type: "content.ready"; payload: { url; title; connectedAt } } // Content → SidePanel
-  | { type: "sidepanel.ping"; payload: { sentAt } } // SidePanel → Content
-  | { type: "content.pong"; payload: { sentAt; receivedAt; url; title; userAgent } };
-```
+| type                              | 方向          | payload 要点                                                                               |
+| --------------------------------- | ------------- | ------------------------------------------------------------------------------------------ |
+| `content.ready`                   | CS→SP         | url / title / connectedAt（连接即发）                                                      |
+| `sidepanel.ping` / `content.pong` | SP→CS / CS→SP | RTT 探针（通道验收工具）                                                                   |
+| `sidepanel.picking`               | SP→CS         | `{enabled}` 进入/退出选取模式                                                              |
+| `picker.state`                    | CS→SP         | `{enabled}` 实际状态（Esc 等以这里为准）                                                   |
+| `selection.changed`               | CS→SP         | `{element, breadcrumb, pickedAt}`；element 对齐计划 §18（id/tagName/selector/text/bounds） |
+| `selection.cleared`               | CS→SP         | `{}`                                                                                       |
+| `sidepanel.selectAncestor`        | SP→CS         | `{uiTunerId}` breadcrumb 回跳                                                              |
 
 约定：
 
-- 每条消息都是 `{ type, payload }`，`payload` 恒为对象。
-- 边界处用 `isUiTunerMessage()` 收窄：`Channel.onMessage` 丢弃一切非法消息，业务代码只见类型化消息。
+- 每条消息 `{ type, payload }`，payload 恒为**非数组对象**；边界处 `isUiTunerMessage()` 收窄，非法消息在 `Channel.onMessage` 静默丢弃。
 - Bridge / Agent 消息（`preview.changed`、`changes.apply` 等，计划 §17）在 M5 扩展进同一个包。
 
 ## 6. 关键设计决策
 
-| 决策                                                                                         | 理由                                                                  |
-| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| TypeScript 锁 5.9（未用 TS 7）                                                               | typescript-eslint 8.68 尚不支持 TS 7；稳定性优先（计划 §53）          |
-| 手写 Vite 多构建，不用 CRXJS 插件                                                            | 依赖少、行为可控；插件链路出问题时易排查                              |
-| Content Script 用 manifest 静态注入，不用 `scripting.executeScript`                          | localhost match patterns 即可覆盖；M2 Picker 需要 content script 常驻 |
-| 权限最小化：`activeTab` / `scripting` / `sidePanel` / `storage` + localhost host permissions | 计划 §1.2/§38 安全边界                                                |
-| zustand 管理 Side Panel 状态                                                                 | 计划技术栈 §3.2；M3 Style Inspector 状态会显著增长                    |
-| `Channel` 依赖 `PortLike` 结构接口而非 chrome 类型                                           | 单测无需 mock 全局 chrome（channel.test.ts 用内存假端口对测）         |
+| 决策                                                                                | 理由                                                                    |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| TypeScript 锁 5.9（未用 TS 7）                                                      | typescript-eslint 8.x 尚不支持 TS 7；稳定性优先（计划 §53）             |
+| 手写 Vite 多构建，不用 CRXJS 插件                                                   | 依赖少、行为可控、易排查                                                |
+| Picker / Overlay / SelectionTracker 放独立包 `packages/inspector`，不 import chrome | 对齐计划 §4 结构；jsdom 可单测（26 例）；chrome 接线只在 content script |
+| Overlay 用 Shadow DOM 隔离 + 样式只存在于 `styles/overlay.ts`                       | 页面 CSS 无法破坏高亮层；样式单一来源                                   |
+| Overlay 每帧从 Element 引用重测 rect（而非缓存坐标/监听 scroll/resize）             | 滚动、resize、布局位移一次解决；无目标时 rAF 自动停                     |
+| 点击拦截用 document capture + preventDefault                                        | 选取时页面不触发跳转/聚焦/拖选                                          |
+| `picker.state` 以 content 回报为准（非面板乐观更新）                                | Esc 等面板外路径不会造成状态漂移                                        |
+| 组件名不在 M2 显示                                                                  | Source Resolver 属 M6；不得伪造（计划 §20）                             |
+| 权限最小化：`activeTab`/`scripting`/`sidePanel`/`storage` + localhost host          | 计划 §1.2/§38 安全边界                                                  |
 
 ## 7. 测试
 
-- `packages/protocol`：消息构造器 + 类型守卫（8 个用例）。
-- `chrome-extension`：
-  - `messaging/channel.test.ts`：内存端口对验证双向投递、非法消息丢弃、退订、断连通知。
-  - `state/sidepanel-store.test.ts`：连接状态机、RTT 计算、日志截断、reset。
-- Playwright E2E（计划 §40 Test 01–07）在后续 Milestone 引入对应能力后补充。
-- 真机验收：加载扩展到 Chrome，在 localhost 页面确认 Connected + Ping RTT（见 README）。
+- `packages/protocol`（10 例）：构造器、守卫（含数组 payload 拒绝）、按类型收窄。
+- `packages/inspector`（26 例，jsdom）：
+  - identity：id 分配/释放、selector 唯一性回查（querySelector 往返）、文本预览
+  - selection：payload 构建、breadcrumb、moveToParent/moveToAncestor（含失效 id 拒绝）、clear 清理属性
+  - picker：hover 去重、mouseleave 置空、click 捕获且可 preventDefault、Esc 取消、stop 解绑、不解析进自身 overlay
+  - overlay：mount/shadow root、绘制、清除、元素移出 DOM 即上报丢失并隐藏
+- `chrome-extension`（11 例）：Channel 内存端口对（投递/丢弃/退订/断连）；store 状态机（连接、RTT、picking ack、selection 路由、日志截断、reset）。
+- Playwright E2E（计划 §40 Test 01–07）见 backlog，能力齐备后统一补。
 
 ## 8. 已知限制 / 风险
 
-- 页面导航或刷新后 Port 断开，Side Panel 显示 Disconnected，需手动 Reconnect。自动重连与状态持久化（计划 §37）放后续 Milestone。
-- Side Panel 打开在非 localhost 页面时会显示引导信息（host permission 之外拿不到 url，也无法连接）。
-- `chrome.tabs.query` 在多窗口场景取 `currentWindow`；标签页切换后需 Reconnect。
+- 页面导航/刷新后 Port 断开需手动 Reconnect；自动重连与状态持久化（计划 §37）在 backlog。
+- Multi Select（Shift+Click）顺延（计划 Task 2.5，backlog）。
+- `⌘↑` 连按会一路走到 `<body>` 即止（`<html>` 排除）；`⌘↓` 未实现（backlog）。
+- hover 高亮不进入 iframe / closed shadow root 内部元素（V0.1 边界，计划 §1.2）。
+- `document.elementFromPoint` 命中纯文本节点的父元素即选中该元素；inline 文本片段的高亮框可能与预期略有出入（M3 前不处理）。
 - StrictMode 下开发环境会建立两次 Port（生产构建无此现象）。
