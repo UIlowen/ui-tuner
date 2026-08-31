@@ -77,7 +77,7 @@ pnpm dev          # 扩展三个构建并行 watch
 pnpm page         # 测试页 http://localhost:8000（绑定 127.0.0.1）
 ```
 
-**真机验证循环**：改代码 → `pnpm build` → Chrome `chrome://extensions` 点扩展卡片刷新 → 在 `http://localhost:8000` 上操作。加载目录：`apps/chrome-extension/dist`（⌘⇧G 粘贴路径最快）。
+**真机验证循环**：改代码 → `pnpm build` → `chrome://extensions` 点扩展卡片刷新 → **刷新 localhost 页面**（content script 只在页面加载时注入，旧页面不会换新脚本）→ 重开 Side Panel → 在 `http://localhost:8000` 上操作。加载目录：`apps/chrome-extension/dist`（⌘⇧G 粘贴路径最快）。
 
 ## 6. 已交付摘要
 

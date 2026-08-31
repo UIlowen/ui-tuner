@@ -41,7 +41,7 @@ pnpm page       # 测试页 http://localhost:8000（绑定 127.0.0.1）
    ```
 
 > 扩展只在 `http://localhost/*` 与 `http://127.0.0.1/*` 生效（安全边界，计划 §38）。
-> 修改代码后：`pnpm build` → `chrome://extensions` 点扩展卡片上的刷新。
+> 修改代码后的完整循环：`pnpm build` → `chrome://extensions` 点扩展卡片刷新 → **刷新 localhost 页面**（content script 只在页面加载时注入）→ 重开 Side Panel。
 
 ## 验收
 
