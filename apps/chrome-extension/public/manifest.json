@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "UI Tuner",
+  "version": "0.1.0",
+  "description": "Select → Tune → Prompt → Apply to Code",
+  "minimum_chrome_version": "116",
+  "action": {
+    "default_title": "Open UI Tuner"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost/*", "http://127.0.0.1/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
+  "permissions": ["activeTab", "scripting", "sidePanel", "storage"]
+}

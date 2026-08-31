@@ -1,0 +1,23 @@
+{
+  "name": "ui-tuner",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Select \u2192 Tune \u2192 Prompt \u2192 Apply to Code \u2014 Chrome UI tuning toolkit for AI coding workflows",
+  "packageManager": "pnpm@11.24.0",
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.9.1",
+    "prettier": "^3.9.6",
+    "turbo": "^2.10.12",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.68.0"
+  }
+}

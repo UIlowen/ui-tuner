@@ -1,0 +1,26 @@
+{
+  "name": "@ui-tuner/protocol",
+  "version": "0.1.0",
+  "description": "Shared message protocol for UI Tuner (extension \u2194 content script \u2194 bridge \u2194 agent)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.11"
+  }
+}
