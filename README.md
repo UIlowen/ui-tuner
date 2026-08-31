@@ -40,7 +40,7 @@ pnpm format     # prettier
 
 ## 验收（Milestone 1）
 
-1. 随便起一个本地页面，例如在任意目录执行 `python3 -m http.server 8000`，然后访问 `http://localhost:8000`。
+1. 起一个本地测试页：仓库根目录执行 `pnpm page`（等价于 `python3 -m http.server 8000 --bind 127.0.0.1 --directory dev`），然后访问 `http://localhost:8000`。
 2. 点击工具栏的 UI Tuner 图标 → 打开 Side Panel。
 3. Side Panel 显示 **Connected**，并显示页面 title / URL。
 4. 点击 **Ping page** → 显示 RTT（毫秒），Messages 列表出现 `→ sidepanel.ping` / `← content.pong`。
