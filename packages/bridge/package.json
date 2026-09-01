@@ -1,0 +1,36 @@
+{
+  "name": "@ui-tuner/bridge",
+  "version": "0.1.0",
+  "description": "UI Tuner local bridge: WebSocket server + project detection (no browser APIs, rule 8)",
+  "type": "module",
+  "bin": {
+    "ui-tuner": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "bridge": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@ui-tuner/protocol": "workspace:*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

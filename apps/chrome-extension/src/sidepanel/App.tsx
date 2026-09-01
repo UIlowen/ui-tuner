@@ -1,8 +1,10 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { Channel } from "../messaging/channel";
+import { BridgeChannel } from "../messaging/bridge-channel";
 import {
   reportConnectFailure,
   useSidepanelStore,
+  type BridgeStatus,
   type ConnectionStatus,
 } from "../state/sidepanel-store";
 import { ChangesTab } from "./components/ChangesTab";
@@ -28,6 +30,12 @@ const STATUS_META: Record<ConnectionStatus, { label: string; dot: string; text: 
   disconnected: { label: "Disconnected", dot: "bg-red-400", text: "text-red-300" },
 };
 
+const BRIDGE_META: Record<BridgeStatus, { label: string; dot: string; text: string }> = {
+  connecting: { label: "Connecting…", dot: "bg-amber-400", text: "text-amber-300" },
+  connected: { label: "Connected", dot: "bg-emerald-400", text: "text-emerald-300" },
+  offline: { label: "Offline", dot: "bg-zinc-600", text: "text-zinc-500" },
+};
+
 function StatusPill({ status }: { status: ConnectionStatus }) {
   const meta = STATUS_META[status];
   return (
@@ -36,6 +44,72 @@ function StatusPill({ status }: { status: ConnectionStatus }) {
       {meta.label}
     </span>
   );
+}
+
+/** Local bridge status line (plan §35: offline never blocks preview editing). */
+function BridgeCard() {
+  const bridgeStatus = useSidepanelStore((s) => s.bridgeStatus);
+  const bridgeProject = useSidepanelStore((s) => s.bridgeProject);
+  const bridgeDevServerUrl = useSidepanelStore((s) => s.bridgeDevServerUrl);
+
+  if (bridgeStatus === "connected") {
+    return (
+      <section className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+        <span className="text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
+          Bridge
+        </span>
+        <span className="font-mono text-[11px] text-zinc-300">{bridgeProject?.framework}</span>
+        {bridgeDevServerUrl && (
+          <span
+            className="ml-auto truncate font-mono text-[10px] text-zinc-500"
+            title={bridgeDevServerUrl}
+          >
+            {bridgeDevServerUrl.replace("http://", "")}
+          </span>
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
+          Bridge
+        </span>
+        <span className={`text-[11px] font-medium ${BRIDGE_META[bridgeStatus].text}`}>
+          {BRIDGE_META[bridgeStatus].label}
+        </span>
+      </div>
+      <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">
+        Local Bridge 未连接。Preview 调整不受影响。
+      </p>
+      <div className="mt-1.5 flex items-center gap-2">
+        <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+          npx ui-tuner
+        </code>
+        <button
+          type="button"
+          onClick={() => dialBridge()}
+          disabled={bridgeStatus === "connecting"}
+          className="rounded border border-zinc-700 px-2 py-0.5 text-[10px] font-medium text-zinc-300 enabled:hover:bg-zinc-800 disabled:opacity-40"
+        >
+          Reconnect
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** Dial the local bridge from the side panel (plan §16; §38 loopback only). */
+function dialBridge(): void {
+  const { pageUrl } = useSidepanelStore.getState();
+  useSidepanelStore
+    .getState()
+    .attachBridge(BridgeChannel.connect(), {
+      extensionVersion: chrome.runtime.getManifest().version,
+      pageUrl,
+    });
 }
 
 type TabId = "style" | "agent" | "changes";
@@ -138,6 +212,7 @@ export function App() {
 
   useEffect(() => {
     void openChannel();
+    dialBridge();
     return () => useSidepanelStore.getState().reset();
   }, [openChannel]);
 
@@ -195,6 +270,8 @@ export function App() {
             未选中元素
           </section>
         ) : null}
+
+        <BridgeCard />
 
         <nav
           className="flex gap-1 rounded-md bg-zinc-900/60 p-1 ring-1 ring-zinc-800"

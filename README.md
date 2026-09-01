@@ -10,7 +10,8 @@
 - **Milestone 1 完成**：Monorepo + MV3 扩展 + Side Panel + Content Script + 双向消息通道（真机验收通过）
 - **Milestone 2 完成**：Element Picker（hover 高亮 / 点击选中 / ⌘↑ 父级 / Breadcrumb / Esc，真机验收通过）
 - **Milestone 3 完成**：Style Inspector（三 Tab / ScrubInput 拖拽调值 / 实时 Preview / 变更记录，真机验收通过）
-- **Milestone 4 完成**：ChangeSet（单条 Revert / 元素 Revert / Reset All / Changes Tab 完整化）
+- **Milestone 4 完成**：ChangeSet（单条 Revert / 元素 Revert / Reset All / Changes Tab 完整化，真机验收通过）
+- **Milestone 5 完成**：Local Bridge（`npx ui-tuner` 本地服务 + WebSocket + 项目检测 + Bridge Offline 提示）
 
 ## 环境要求
 
@@ -24,11 +25,12 @@
 pnpm install    # 安装依赖
 pnpm build      # 构建所有包（protocol/inspector → extension 三个产物）
 pnpm dev        # watch 模式构建扩展（Chrome 里加载的 dist 持续可用）
-pnpm test       # vitest（turbo 编排，111 例）
+pnpm test       # vitest（turbo 编排，127 例）
 pnpm typecheck  # tsc --noEmit
 pnpm lint       # eslint
 pnpm format     # prettier
 pnpm page       # 测试页 http://localhost:8000（绑定 127.0.0.1）
+pnpm bridge     # 启动 Local Bridge ws://127.0.0.1:47321（等价 npx ui-tuner）
 ```
 
 ## 在 Chrome 中加载扩展
@@ -46,6 +48,15 @@ pnpm page       # 测试页 http://localhost:8000（绑定 127.0.0.1）
 > 修改代码后的完整循环：`pnpm build` → `chrome://extensions` 点扩展卡片刷新 → **刷新 localhost 页面**（content script 只在页面加载时注入）→ 重开 Side Panel。
 
 ## 验收
+
+### Milestone 5 — Local Bridge
+
+1. `pnpm build` → `chrome://extensions` 刷新扩展 → 刷新 localhost 页面 → 重开 Side Panel。
+2. 不启动 Bridge 时：面板显示 **Bridge · Offline** 卡（`npx ui-tuner` 提示 + Reconnect），选取/调样式全部正常（§35）。
+3. 另开终端，进入**你的项目目录**执行 `npx ui-tuner`（或仓库根 `pnpm bridge`）→ 终端打印 §15 横幅（框架 / root / dev server / 监听地址）。
+4. 面板点 **Reconnect**（或重开面板）→ Bridge 卡变为 `Bridge · Connected`，显示框架名 + dev server 地址。
+5. 选取元素、改几处样式 → Bridge 终端不报错；`curl http://127.0.0.1:47321/health` 返回项目 JSON。
+6. Ctrl-C 停掉 Bridge → 面板回到 Offline，Preview 依旧可编辑。
 
 ### Milestone 4 — ChangeSet
 
@@ -87,6 +98,7 @@ Ping page 出现 RTT 与 `→ sidepanel.ping` / `← content.pong` 日志。
 apps/chrome-extension     Chrome MV3 扩展（Side Panel / Content Script / Background）
 packages/protocol         跨上下文共享消息协议
 packages/inspector        Picker / Overlay / Selection / PreviewEngine / ChangeTracker（chrome-free）
+packages/bridge           Local Bridge：WebSocket 服务 + 项目检测（CLI: npx ui-tuner）
 dev/                      localhost 测试页
 docs/                     architecture / handover / backlog
 ```

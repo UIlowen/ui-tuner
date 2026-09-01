@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  createBridgeHello,
+  createBridgeSync,
+  createBridgeWelcome,
   createContentPong,
   createContentReady,
   createPickerState,
@@ -13,6 +16,9 @@ import {
   createSidepanelRevertElement,
   createSidepanelSelectAncestor,
   createSidepanelStylePreview,
+  isBridgeHelloMessage,
+  isBridgeSyncMessage,
+  isBridgeWelcomeMessage,
   isContentPongMessage,
   isContentReadyMessage,
   isPickerStateMessage,
@@ -78,6 +84,13 @@ function createEveryMessage(): UiTunerMessage[] {
     createSidepanelRevertChange("ch-000001"),
     createSidepanelRevertElement("ut-000001"),
     createSidepanelResetChanges(),
+    createBridgeHello({ extensionVersion: "0.1.0", pageUrl: "http://localhost:5173/" }),
+    createBridgeWelcome({
+      bridgeVersion: "0.1.0",
+      project: { name: "demo", framework: "Vite", root: "/tmp/demo" },
+      devServerUrl: "http://localhost:5173",
+    }),
+    createBridgeSync({ selection: null, changes: [] }),
   ];
 }
 
@@ -188,6 +201,24 @@ describe("creators", () => {
       payload: {},
     });
   });
+
+  it("creates bridge messages (plan §15/§16)", () => {
+    expect(createBridgeHello({ extensionVersion: "0.1.0", pageUrl: null })).toEqual({
+      type: "bridge.hello",
+      payload: { extensionVersion: "0.1.0", pageUrl: null },
+    });
+
+    const project = { name: "demo", framework: "Next.js", root: "/tmp/demo" };
+    expect(createBridgeWelcome({ bridgeVersion: "0.1.0", project, devServerUrl: null })).toEqual({
+      type: "bridge.welcome",
+      payload: { bridgeVersion: "0.1.0", project, devServerUrl: null },
+    });
+
+    expect(createBridgeSync({ selection: null, changes: [] })).toEqual({
+      type: "bridge.sync",
+      payload: { selection: null, changes: [] },
+    });
+  });
 });
 
 describe("isUiTunerMessage", () => {
@@ -205,7 +236,7 @@ describe("isUiTunerMessage", () => {
   });
 
   it("rejects unknown types and malformed payloads", () => {
-    expect(isUiTunerMessage({ type: "bridge.sync", payload: {} })).toBe(false);
+    expect(isUiTunerMessage({ type: "bridge.shutdown", payload: {} })).toBe(false);
     expect(isUiTunerMessage({ type: "content.ready" })).toBe(false);
     expect(isUiTunerMessage({ type: "content.ready", payload: null })).toBe(false);
     expect(isUiTunerMessage({ type: "content.ready", payload: "str" })).toBe(false);
@@ -229,6 +260,9 @@ describe("per-type guards", () => {
     expect(messages.filter(isSidepanelRevertChangeMessage)).toHaveLength(1);
     expect(messages.filter(isSidepanelRevertElementMessage)).toHaveLength(1);
     expect(messages.filter(isSidepanelResetChangesMessage)).toHaveLength(1);
+    expect(messages.filter(isBridgeHelloMessage)).toHaveLength(1);
+    expect(messages.filter(isBridgeWelcomeMessage)).toHaveLength(1);
+    expect(messages.filter(isBridgeSyncMessage)).toHaveLength(1);
   });
 });
 

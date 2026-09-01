@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createBridgeWelcome,
   createContentPong,
   createContentReady,
   createPickerState,
@@ -8,7 +9,10 @@ import {
   createSelectionCleared,
   type StyleChange,
 } from "@ui-tuner/protocol";
-import { Channel, type PortLike } from "../messaging/channel";
+import { BridgeChannel } from "../messaging/bridge-channel";
+import type { WebSocketLike } from "../messaging/bridge-channel";
+import { Channel } from "../messaging/channel";
+import type { PortLike } from "../messaging/channel";
 import { useSidepanelStore } from "./sidepanel-store";
 
 function resetStore() {
@@ -226,4 +230,80 @@ describe("sidepanel store", () => {
       { type: "sidepanel.resetChanges", payload: {} },
     ]);
   });
+
+  it("handshakes the bridge and mirrors selection + changes (M5 acceptance)", () => {
+    resetStore();
+    const socket = new FakeSocket();
+    const bridge = BridgeChannel.accept(socket);
+    useSidepanelStore.getState().attachBridge(bridge, {
+      extensionVersion: "0.1.0",
+      pageUrl: "http://localhost:5173/",
+    });
+    expect(useSidepanelStore.getState().bridgeStatus).toBe("connecting");
+
+    socket.open();
+    // hello goes out on open, followed by the initial (empty) sync.
+    expect(socket.sent).toEqual([
+      {
+        type: "bridge.hello",
+        payload: { extensionVersion: "0.1.0", pageUrl: "http://localhost:5173/" },
+      },
+      { type: "bridge.sync", payload: { selection: null, changes: [] } },
+    ]);
+    expect(useSidepanelStore.getState().bridgeStatus).toBe("connected");
+
+    // welcome fills in the project card.
+    socket.message(
+      JSON.stringify(
+        createBridgeWelcome({
+          bridgeVersion: "0.1.0",
+          project: { name: "demo", framework: "Vite", root: "/tmp/demo" },
+          devServerUrl: "http://localhost:5173",
+        }),
+      ),
+    );
+    const state = useSidepanelStore.getState();
+    expect(state.bridgeProject?.framework).toBe("Vite");
+    expect(state.bridgeDevServerUrl).toBe("http://localhost:5173");
+
+    // page-side events are mirrored to the bridge.
+    socket.sent.length = 0;
+    selectElement({ gap: "24px" });
+    expect(socket.sent.at(-1)).toMatchObject({ type: "bridge.sync" });
+    expect(
+      (socket.sent.at(-1) as { payload: { selection: { element: { id: string } } } }).payload
+        .selection.element.id,
+    ).toBe("ut-000001");
+
+    // closing the socket never blocks preview editing (plan §35).
+    socket.close();
+    const offline = useSidepanelStore.getState();
+    expect(offline.bridgeStatus).toBe("offline");
+    expect(offline.bridgeProject).toBeNull();
+  });
 });
+
+/** Minimal WebSocketLike fake capturing everything the store sends. */
+class FakeSocket implements WebSocketLike {
+  readonly sent: unknown[] = [];
+  onopen: (() => void) | null = null;
+  onclose: (() => void) | null = null;
+  onmessage: ((event: { data: unknown }) => void) | null = null;
+  onerror: (() => void) | null = null;
+
+  send(data: string): void {
+    this.sent.push(JSON.parse(data));
+  }
+
+  close(): void {
+    this.onclose?.();
+  }
+
+  open(): void {
+    this.onopen?.();
+  }
+
+  message(data: string): void {
+    this.onmessage?.({ data });
+  }
+}

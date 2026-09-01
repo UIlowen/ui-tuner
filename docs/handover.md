@@ -10,9 +10,9 @@
 
 | 项       | 状态                                                                                                                            |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| 里程碑   | **M1/M2/M3/M4 完成**（均真机验收通过，2026-09-01）                                                                             |
+| 里程碑   | **M1–M4 完成**（真机验收通过）；**M5 完成**（待真机验收）                                                                       |
 | 分支     | `main`（本地仓库，无远端，直接提交 main）                                                                                       |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（111 例测试）                                                                       |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（127 例测试）                                                                       |
 | 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1） |
 
 ## 2. 三十秒上下文
@@ -37,6 +37,8 @@ UI Tuner/
     protocol/                  跨上下文消息类型（公共类型只放这里，规则 6）
     inspector/                 chrome-free DOM 能力：Picker / Overlay / Selection /
                                styles(白名单/解析/取色) / PreviewEngine / ChangeTracker / snapshot
+    bridge/                    本地 Bridge：CLI(bin ui-tuner, :47321 仅 127.0.0.1) + WebSocket
+                               服务 + 项目/dev server 检测；不 import 浏览器 API（规则 8）
   apps/
     chrome-extension/
       public/manifest.json     MV3 manifest（content script 仅 localhost）
@@ -52,24 +54,26 @@ UI Tuner/
 
 ## 4. 技术决策与约束（勿推翻，除非有硬理由）
 
-| 约束                                                                                                                                              | 原因                                                      |
-| ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| TypeScript **锁 5.9.x**                                                                                                                           | typescript-eslint 8.x 不支持 TS 7；稳定性优先（计划 §53） |
-| 三个 Vite 构建：sidepanel(ES) 先跑且唯一 `emptyOutDir`；content 必须 **IIFE**；background ES 单文件                                               | MV3 产物格式硬约束；详见 architecture.md §4               |
-| Side Panel ↔ Content Script 用 `chrome.tabs.connect` **直连 Port**（`ui-tuner`），不经 background 中转                                            | 实时性 + 避免 SW 回收复杂度                               |
-| 消息一律 `{ type, payload }`（payload 非数组对象），边界处 `isUiTunerMessage()` 收窄，非法消息静默丢弃                                            | protocol 包守卫，channel.ts 统一执行                      |
-| `Channel` 依赖 `PortLike` 结构接口；inspector 不 import chrome                                                                                    | 单测免 mock chrome；新逻辑照此模式保持可测                |
-| bridge 不得 import 浏览器 API（规则 8）                                                                                                           | 包边界                                                    |
-| Overlay：Shadow DOM 隔离 + 持 Element 引用每帧重测 rect + 无目标即停 rAF；样式只在 `inspector/src/styles/overlay.ts`                              | 滚动/resize/布局位移天然正确（计划 §2.2/§33）             |
-| Picker：mousemove 只写坐标缓存（passive），`elementFromPoint` 每帧至多一次；点击在 document capture 拦截                                          | 计划 §33 性能红线                                         |
-| 选取状态以 content 回报的 `picker.state` 为准（面板不做乐观更新）                                                                                 | Esc 等面板外路径不产生状态漂移                            |
-| **Preview 只走 `<style id="ui-tuner-preview-style">` 生成 `[data-ui-tuner-id=…] { prop: value !important }`，禁止写 `element.style`（计划 §11）** | 可整块撤销、不动页面内联状态；与源码隔离（§2.3）          |
-| 样式读写只走 `STYLE_PROPERTIES` 白名单（计划 §7）；PreviewEngine 拒绝白名单外属性                                                                 | 永不读/写完整 computed style                              |
-| ChangeSet 真相在 content script（ChangeTracker）；面板只镜像 `preview.changed` 回报                                                               | 页面刷新即清空，符合 §37 in-memory 原则                   |
-| 有 change 记录的元素在选中转移时保留 `data-ui-tuner-id`（SelectionTracker `keepId`）                                                              | 否则 Preview override CSS 与元素失联                      |
-| ScrubInput 拖动帧只发 `onPreview`（rAF 节流、DOM 直写不触发 React 渲染）；释放才 `onCommit`（计划 §10）                                           | 拖拽 60fps 不重渲染面板                                   |
-| pnpm 11 + Turborepo 2；`onlyBuiltDependencies: [esbuild]` 在 pnpm-workspace.yaml                                                                  | pnpm ≥10 默认拦截构建脚本                                 |
-| UI 风格：克制、高信息密度、Figma/Linear/Raycast 质感（计划 §48）；已用 zinc 暗色 + Tailwind 4                                                     | 禁渐变堆砌/游戏化                                         |
+| 约束                                                                                                                                              | 原因                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| TypeScript **锁 5.9.x**                                                                                                                           | typescript-eslint 8.x 不支持 TS 7；稳定性优先（计划 §53）                           |
+| 三个 Vite 构建：sidepanel(ES) 先跑且唯一 `emptyOutDir`；content 必须 **IIFE**；background ES 单文件                                               | MV3 产物格式硬约束；详见 architecture.md §4                                         |
+| Side Panel ↔ Content Script 用 `chrome.tabs.connect` **直连 Port**（`ui-tuner`），不经 background 中转                                            | 实时性 + 避免 SW 回收复杂度                                                         |
+| 消息一律 `{ type, payload }`（payload 非数组对象），边界处 `isUiTunerMessage()` 收窄，非法消息静默丢弃                                            | protocol 包守卫，channel.ts 统一执行                                                |
+| `Channel` 依赖 `PortLike` 结构接口；inspector 不 import chrome                                                                                    | 单测免 mock chrome；新逻辑照此模式保持可测                                          |
+| bridge 不得 import 浏览器 API（规则 8）                                                                                                           | 包边界                                                                              |
+| Overlay：Shadow DOM 隔离 + 持 Element 引用每帧重测 rect + 无目标即停 rAF；样式只在 `inspector/src/styles/overlay.ts`                              | 滚动/resize/布局位移天然正确（计划 §2.2/§33）                                       |
+| Picker：mousemove 只写坐标缓存（passive），`elementFromPoint` 每帧至多一次；点击在 document capture 拦截                                          | 计划 §33 性能红线                                                                   |
+| 选取状态以 content 回报的 `picker.state` 为准（面板不做乐观更新）                                                                                 | Esc 等面板外路径不产生状态漂移                                                      |
+| **Preview 只走 `<style id="ui-tuner-preview-style">` 生成 `[data-ui-tuner-id=…] { prop: value !important }`，禁止写 `element.style`（计划 §11）** | 可整块撤销、不动页面内联状态；与源码隔离（§2.3）                                    |
+| 样式读写只走 `STYLE_PROPERTIES` 白名单（计划 §7）；PreviewEngine 拒绝白名单外属性                                                                 | 永不读/写完整 computed style                                                        |
+| ChangeSet 真相在 content script（ChangeTracker）；面板只镜像 `preview.changed` 回报                                                               | 页面刷新即清空，符合 §37 in-memory 原则                                             |
+| **Side Panel 直连 Bridge WebSocket（ws://127.0.0.1:47321），不经 background SW**；manifest host_permissions 含 ws://localhost、ws://127.0.0.1     | MV3 SW 空闲回收会断 WS；content script 受页面 CSP 限制不能连；面板开 = Agent 通道活 |
+| Bridge 只绑 127.0.0.1、固定端口 47321（§15/§38）；`/health` JSON 端点                                                                             | 安全边界；npx ui-tuner / pnpm bridge 启动                                           |
+| 有 change 记录的元素在选中转移时保留 `data-ui-tuner-id`（SelectionTracker `keepId`）                                                              | 否则 Preview override CSS 与元素失联                                                |
+| ScrubInput 拖动帧只发 `onPreview`（rAF 节流、DOM 直写不触发 React 渲染）；释放才 `onCommit`（计划 §10）                                           | 拖拽 60fps 不重渲染面板                                                             |
+| pnpm 11 + Turborepo 2；`onlyBuiltDependencies: [esbuild]` 在 pnpm-workspace.yaml                                                                  | pnpm ≥10 默认拦截构建脚本                                                           |
+| UI 风格：克制、高信息密度、Figma/Linear/Raycast 质感（计划 §48）；已用 zinc 暗色 + Tailwind 4                                                     | 禁渐变堆砌/游戏化                                                                   |
 
 ## 5. 常用命令
 
@@ -108,19 +112,26 @@ pnpm page         # 测试页 http://localhost:8000（绑定 127.0.0.1）
 - ChangesTab（§13 格式）：按元素分组（tagName + ut-id）、每条 `prop prev → next ↩` 单条 Revert、每组 Revert、底部 **Reset All**；「Apply · M8」占位计数。
 - 测试 111 例（inspector 81 / protocol 12 / extension 18）。
 
-## 7. 下一里程碑：M5 — Local Bridge
+**M5**：Local Bridge。
 
-**范围（计划 §15/§16）**：
+- 新包 `packages/bridge`：`BridgeServer`（node:http + ws，127.0.0.1:47321，`/health` 端点，hello→welcome 握手，存最新 `bridge.sync`）、`detectProject`（package.json 依赖判定 Next.js/Vite/CRA/…）、`probeDevServer`（3000/5173/8080/4000/8000 探活）、CLI `cli.ts`（bin `ui-tuner`，§15 启动横幅）。tsc 直出 ESM（相对导入带 .js），无浏览器 API（规则 8）。
+- protocol：`bridge.hello` / `bridge.welcome`（含 BridgeProject {name, framework, root} + devServerUrl）/ `bridge.sync`（selection + changes 镜像，服务 M7 的 ui_get_selection / ui_get_changes）。
+- 扩展：`messaging/bridge-channel.ts`（WebSocketLike 结构接口 + 边界守卫，同 Channel 模式）；manifest host_permissions 加 `ws://localhost/*`、`ws://127.0.0.1/*`；store `attachBridge`（hello/welcome/断线 offline）+ selection/changes 变化自动 `bridge.sync` 转发；面板 BridgeCard（§35：offline 不阻塞 Preview，提示 `npx ui-tuner` + Reconnect）。
+- 测试 127 例（inspector 81 / protocol 13 / bridge 14 / extension 19）。
 
-1. `packages/bridge`：本地 Node 服务（默认 127.0.0.1，端口仅本机），CLI 入口 `npx ui-tuner` 启动
-2. Chrome ↔ Bridge 通道（§16，经 background SW 中转，非 content port）
-3. Bridge 状态接入面板（§35 Bridge Offline 提示：Preview 仍可用）
+## 7. 下一里程碑：M6 — Source Resolver
 
-**验收**：Bridge 启动后面板显示已连接；`ui_get_selection` 等 MCP 工具属 M7，M5 只打通 Bridge 存在性与双向消息。
+**范围（计划 §19/§20/§21）**：
 
-**实现指引**：bridge 包不得 import 浏览器 API（规则 8）；先用原生 `node:http` + WebSocket（或 SSE）评估，依赖最小化（§53）；协议消息照旧全部进 `packages/protocol`。**禁止**：Source Resolver / Agent / MCP。
+1. 源码定位：选中元素 → React/Next/Vite 组件文件 + 行号 + 置信度（Source linked / Source inferred / Preview only）
+2. Element Identity（§21）：selector / text / DOM 结构多信号匹配
+3. Source UI（§20）：Element Header 显示组件名 + 文件路径
 
-**之后**：M6 Source Resolver → M7 Agent+MCP → M8 Apply to Code。
+**验收**：Demo 项目可以显示源码位置。
+
+**实现指引**：解析逻辑放 `packages/bridge`（Node 侧扫源码，不在浏览器里跑）；先做 Vite/React 常规结构（默认导出组件名 + className/text 匹配），Next App Router 随后；需要 examples 验证项目（§39）——**先建 examples/react-vite 再实现**。**禁止**：Agent / MCP / Apply。
+
+**之后**：M7 Agent+MCP → M8 Apply to Code。
 
 ## 8. 新会话启动模板（计划 §52）
 

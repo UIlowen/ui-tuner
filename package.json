@@ -10,6 +10,7 @@
     "typecheck": "turbo run typecheck",
     "lint": "eslint .",
     "page": "python3 -m http.server 8000 --bind 127.0.0.1 --directory dev",
+    "bridge": "node packages/bridge/dist/cli.js",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

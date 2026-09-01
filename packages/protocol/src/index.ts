@@ -200,6 +200,49 @@ export interface SidepanelResetChangesMessage {
 }
 
 // ---------------------------------------------------------------------------
+// M5 — local bridge messages (plan §15/§16), carried over WebSocket
+// ---------------------------------------------------------------------------
+
+/** Project info the bridge detects from its working directory (plan §15). */
+export interface BridgeProject {
+  name: string | null;
+  framework: string;
+  root: string;
+}
+
+/** Side Panel → Bridge. Handshake sent right after the WebSocket opens. */
+export interface BridgeHelloMessage {
+  type: "bridge.hello";
+  payload: {
+    extensionVersion: string;
+    pageUrl: string | null;
+  };
+}
+
+/** Bridge → Side Panel. Reply to `bridge.hello` (plan §15 startup banner). */
+export interface BridgeWelcomeMessage {
+  type: "bridge.welcome";
+  payload: {
+    bridgeVersion: string;
+    project: BridgeProject;
+    devServerUrl: string | null;
+  };
+}
+
+/**
+ * Side Panel → Bridge. Mirror of the page state: the current selection and
+ * change records (M5 acceptance: the browser can send Selection + ChangeSet).
+ * Serves the M7 MCP tools `ui_get_selection` / `ui_get_changes`.
+ */
+export interface BridgeSyncMessage {
+  type: "bridge.sync";
+  payload: {
+    selection: SelectionPayload | null;
+    changes: StyleChange[];
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Union + guards
 // ---------------------------------------------------------------------------
 
@@ -216,7 +259,10 @@ export type UiTunerMessage =
   | PreviewChangedMessage
   | SidepanelRevertChangeMessage
   | SidepanelRevertElementMessage
-  | SidepanelResetChangesMessage;
+  | SidepanelResetChangesMessage
+  | BridgeHelloMessage
+  | BridgeWelcomeMessage
+  | BridgeSyncMessage;
 
 export type UiTunerMessageType = UiTunerMessage["type"];
 
@@ -234,6 +280,9 @@ const MESSAGE_TYPES: readonly UiTunerMessageType[] = [
   "sidepanel.revertChange",
   "sidepanel.revertElement",
   "sidepanel.resetChanges",
+  "bridge.hello",
+  "bridge.welcome",
+  "bridge.sync",
 ];
 
 export function isUiTunerMessageType(value: unknown): value is UiTunerMessageType {
@@ -317,6 +366,18 @@ export function isSidepanelResetChangesMessage(
   return value.type === "sidepanel.resetChanges";
 }
 
+export function isBridgeHelloMessage(value: UiTunerMessage): value is BridgeHelloMessage {
+  return value.type === "bridge.hello";
+}
+
+export function isBridgeWelcomeMessage(value: UiTunerMessage): value is BridgeWelcomeMessage {
+  return value.type === "bridge.welcome";
+}
+
+export function isBridgeSyncMessage(value: UiTunerMessage): value is BridgeSyncMessage {
+  return value.type === "bridge.sync";
+}
+
 // ---------------------------------------------------------------------------
 // Creators
 // ---------------------------------------------------------------------------
@@ -375,4 +436,18 @@ export function createSidepanelRevertElement(elementId: string): SidepanelRevert
 
 export function createSidepanelResetChanges(): SidepanelResetChangesMessage {
   return { type: "sidepanel.resetChanges", payload: {} };
+}
+
+export function createBridgeHello(payload: BridgeHelloMessage["payload"]): BridgeHelloMessage {
+  return { type: "bridge.hello", payload };
+}
+
+export function createBridgeWelcome(
+  payload: BridgeWelcomeMessage["payload"],
+): BridgeWelcomeMessage {
+  return { type: "bridge.welcome", payload };
+}
+
+export function createBridgeSync(payload: BridgeSyncMessage["payload"]): BridgeSyncMessage {
+  return { type: "bridge.sync", payload };
 }

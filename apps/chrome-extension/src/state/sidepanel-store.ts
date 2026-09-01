@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import {
+  createBridgeHello,
+  createBridgeSync,
   createSidepanelPing,
   createSidepanelPicking,
   createSidepanelResetChanges,
@@ -7,19 +9,23 @@ import {
   createSidepanelRevertElement,
   createSidepanelSelectAncestor,
   createSidepanelStylePreview,
+  isBridgeWelcomeMessage,
   isContentPongMessage,
   isContentReadyMessage,
   isPickerStateMessage,
   isPreviewChangedMessage,
   isSelectionChangedMessage,
   isSelectionClearedMessage,
+  type BridgeProject,
   type SelectionPayload,
   type StyleChange,
   type UiTunerMessage,
 } from "@ui-tuner/protocol";
 import { Channel } from "../messaging/channel";
+import { BridgeChannel } from "../messaging/bridge-channel";
 
 export type ConnectionStatus = "idle" | "connecting" | "connected" | "disconnected";
+export type BridgeStatus = "offline" | "connecting" | "connected";
 
 export interface LogEntry {
   id: number;
@@ -48,9 +54,18 @@ interface SidepanelState {
   changes: StyleChange[];
   /** elementId → tagName, accumulated from selections (Changes tab labels). */
   elementNames: Record<string, string>;
+  /** Local bridge link state (plan §35: offline never blocks preview editing). */
+  bridgeStatus: BridgeStatus;
+  bridgeProject: BridgeProject | null;
+  bridgeDevServerUrl: string | null;
 
   /** Wire an already-opened channel (App owns chrome.tabs lookup). */
   connect: (channel: Channel) => void;
+  /** Attach the local bridge socket; hello/welcome handshake + state mirror. */
+  attachBridge: (
+    channel: BridgeChannel,
+    info: { extensionVersion: string; pageUrl: string | null },
+  ) => void;
   /** Test/DI entry point: handle an incoming message directly. */
   receive: (message: UiTunerMessage) => void;
   ping: () => void;
@@ -75,6 +90,7 @@ interface SidepanelState {
 }
 
 let channel: Channel | null = null;
+let bridgeChannel: BridgeChannel | null = null;
 let nextLogId = 1;
 
 function appendLog(log: LogEntry[], direction: "out" | "in", message: UiTunerMessage): LogEntry[] {
@@ -93,6 +109,13 @@ function rememberElementNames(
   return next;
 }
 
+/** Mirror selection + change records to the bridge (M5 acceptance, §16). */
+function sendBridgeSync(): void {
+  if (!bridgeChannel) return;
+  const { selection, changes } = useSidepanelStore.getState();
+  bridgeChannel.send(createBridgeSync({ selection, changes }));
+}
+
 export const useSidepanelStore = create<SidepanelState>((set, get) => ({
   status: "idle",
   statusError: null,
@@ -105,6 +128,36 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
   styleValues: null,
   changes: [],
   elementNames: {},
+  bridgeStatus: "offline",
+  bridgeProject: null,
+  bridgeDevServerUrl: null,
+
+  attachBridge: (nextBridgeChannel, info) => {
+    bridgeChannel = nextBridgeChannel;
+    set({ bridgeStatus: "connecting", bridgeProject: null, bridgeDevServerUrl: null });
+
+    nextBridgeChannel.onOpen(() => {
+      set({ bridgeStatus: "connected" });
+      nextBridgeChannel.send(
+        createBridgeHello({ extensionVersion: info.extensionVersion, pageUrl: info.pageUrl }),
+      );
+      sendBridgeSync();
+    });
+    nextBridgeChannel.onMessage((message) => {
+      if (isBridgeWelcomeMessage(message)) {
+        set({
+          bridgeProject: message.payload.project,
+          bridgeDevServerUrl: message.payload.devServerUrl,
+        });
+      }
+    });
+    const dropOffline = () => {
+      if (bridgeChannel === nextBridgeChannel)
+        set({ bridgeStatus: "offline", bridgeProject: null, bridgeDevServerUrl: null });
+    };
+    nextBridgeChannel.onClose(dropOffline);
+    nextBridgeChannel.onError(dropOffline);
+  },
 
   connect: (nextChannel) => {
     channel = nextChannel;
@@ -143,10 +196,13 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
         picking: false,
         elementNames: rememberElementNames(state.elementNames, message.payload),
       }));
+      sendBridgeSync();
     } else if (isSelectionClearedMessage(message)) {
       set({ selection: null, styleValues: null });
+      sendBridgeSync();
     } else if (isPreviewChangedMessage(message)) {
       set({ changes: message.payload.changes });
+      sendBridgeSync();
     }
   },
 
@@ -214,6 +270,8 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
 
   reset: () => {
     channel = null;
+    bridgeChannel?.close();
+    bridgeChannel = null;
     set({
       status: "idle",
       statusError: null,
@@ -226,6 +284,9 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       styleValues: null,
       changes: [],
       elementNames: {},
+      bridgeStatus: "offline",
+      bridgeProject: null,
+      bridgeDevServerUrl: null,
     });
   },
 }));
@@ -233,6 +294,8 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
 /** Record a connection failure from the chrome layer without an open channel. */
 export function reportConnectFailure(reason: string): void {
   channel = null;
+  bridgeChannel?.close();
+  bridgeChannel = null;
   useSidepanelStore.setState({
     status: "disconnected",
     statusError: reason,
@@ -245,5 +308,8 @@ export function reportConnectFailure(reason: string): void {
     styleValues: null,
     changes: [],
     elementNames: {},
+    bridgeStatus: "offline",
+    bridgeProject: null,
+    bridgeDevServerUrl: null,
   });
 }

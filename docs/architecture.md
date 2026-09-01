@@ -1,6 +1,6 @@
-# UI Tuner — Architecture（Milestone 4）
+# UI Tuner — Architecture（Milestone 5）
 
-> 状态：Milestone 4 完成（ChangeSet：Revert / Reset / Changes Tab 完整化）。本文档只描述**已实现**的部分，随每个 Milestone 更新。
+> 状态：Milestone 5 完成（Local Bridge：WebSocket + 项目检测 + Chrome 连接）。本文档只描述**已实现**的部分，随每个 Milestone 更新。
 > 完整产品规划见根目录 `UI_TUNER_EXECUTION_PLAN.md`。
 
 ## 1. 当前范围
@@ -29,7 +29,16 @@ Milestone 4 交付：
 
 **M4 验收标准**：所有 Preview 修改可恢复。
 
-不在本阶段：Bridge（M5）、Source Resolver（M6，组件名暂不显示）、Agent/MCP（M7）、Apply（M8）。
+Milestone 5 交付：
+
+- **Local Bridge**（`packages/bridge`）：`npx ui-tuner` / `pnpm bridge` 启动；node:http + ws，**只绑 127.0.0.1:47321**（§38），`/health` JSON 端点
+- **项目检测**：package.json 依赖判定框架（Next.js/Vite/CRA/React/…），常见端口探活 dev server（3000/5173/8080/4000/8000）
+- **Chrome ↔ Bridge**（§16）：Side Panel 直连 WebSocket；hello → welcome 握手（项目信息上屏）；selection / changes 变化自动 `bridge.sync` 镜像（M7 MCP 工具数据源）
+- **Bridge Offline 卡**（§35）：未连接不影响 Preview 编辑，提示 `npx ui-tuner` + Reconnect
+
+**M5 验收标准**：浏览器可以发送 Selection + ChangeSet。
+
+不在本阶段：Source Resolver（M6，组件名暂不显示）、Agent/MCP（M7）、Apply（M8）。
 
 ## 2. Repo 结构
 
@@ -47,8 +56,8 @@ ui-tuner/
         content/                 # 内容脚本：接线 inspector ↔ Port（chrome 知识只在这里）
         sidepanel/               # React 应用（App.tsx 三 Tab）
         │   └ components/        #   ScrubInput / StylePanel / rows / ChangesTab
-        messaging/               # Channel：chrome.runtime.Port 类型化封装
-        state/                   # zustand store（连接 + 选取 + styleValues + changes）
+        messaging/               # Channel（Port）+ BridgeChannel（WebSocket）类型化封装
+        state/                   # zustand store（连接 + 选取 + changes + bridge 状态）
         styles/                  # Tailwind 入口 + 基础样式
   packages/
     protocol/                    # 共享消息协议：类型 + 守卫 + 构造器
@@ -66,6 +75,12 @@ ui-tuner/
     ├ src/preview/PreviewEngine.ts  # Preview override <style> 引擎（§11）
     ├ src/changes/ChangeTracker.ts  # StyleChange 记录（§12）
     └ src/styles/overlay.ts      #   Overlay 样式常量（唯一样式来源）
+    bridge/                      # 本地 Bridge（Node ESM，规则 8：无浏览器 API）
+    ├ src/server/BridgeServer.ts #   127.0.0.1:47321 + /health + WebSocket
+    ├ src/detect/project.ts      #   package.json 依赖 → 框架
+    ├ src/detect/devserver.ts    #   常见 dev 端口探活
+    ├ src/cli.ts                 #   bin ui-tuner（§15 启动横幅）
+    └ dist/                      #   tsc 直出，node 直接运行
   docs/
     architecture.md              # 本文档
     handover.md                  # 交接文档（每里程碑更新）
@@ -75,21 +90,30 @@ ui-tuner/
 ## 3. 运行时架构
 
 ```txt
-┌───────────────────────────────── Chrome ─────────────────────────────────┐
-│                                                                          │
-│  localhost 页面                          Side Panel (React)              │
-│  ┌───────────────────────────┐          ┌────────────────────┐           │
-│  │ Content Script            │  port    │ zustand store      │           │
-│  │ ├ Picker (edit mode)      │◄────────►│ picking/selection  │           │
-│  │ ├ Overlay (shadow root)   │          │ Channel            │           │
-│  │ └ SelectionTracker        │          └─────────▲──────────┘           │
-│  └──────────┬────────────────┘                    │ tabs.connect         │
-│             │ manifest 注入                        │                      │
-│  ┌──────────┴──────────┐        ┌──────────────────┴─────────┐            │
-│  │ background.js (SW)  │───────►│ action 点击 → open panel   │            │
-│  └─────────────────────┘        └────────────────────────────┘            │
-└──────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────── Chrome ────────────────────────┐   ┌──────── Node ─────────┐
+│                                                         │   │                       │
+│  localhost 页面                        Side Panel (React)│   │  ui-tuner bridge      │
+│  ┌───────────────────────────┐        ┌──────────────┐  │   │  (127.0.0.1:47321)    │
+│  │ Content Script            │  port  │ zustand store│  │ws │                       │
+│  │ ├ Picker (edit mode)      │◄──────►│ selection/   │◄─┼──►│  BridgeServer        │
+│  │ ├ Overlay (shadow root)   │        │ changes/…    │  │   │  ├ project detect   │
+│  │ └ SelectionTracker        │        └──────▲───────┘  │   │  ├ /health          │
+│  │   PreviewEngine/ChangeTracker      │ tabs.connect  │   │  └ lastSync (M7 源)  │
+│  └──────────┬────────────────┘        │              │   │                       │
+│             │ manifest 注入            │              │   └───────────────────────┘
+│  ┌──────────┴──────────┐    ┌─────────┴──────────┐
+│  │ background.js (SW)  │───►│ action 点击开面板   │    ← SW 不参与 Bridge 通道
+│  └─────────────────────┘    └────────────────────┘      （MV3 空闲回收会断 WS）
+└─────────────────────────────────────────────────────────┘
 ```
+
+### Bridge 流程（M5）
+
+1. 用户在项目目录跑 `npx ui-tuner`（或仓库内 `pnpm bridge`）：检测框架 + 探活 dev server → 打印 §15 横幅 → 监听 127.0.0.1:47321。
+2. Side Panel 打开即拨号 `ws://127.0.0.1:47321`；连不上 → Bridge Offline 卡（§35：Preview 不受影响，提示启动命令）。
+3. 连上 → `bridge.hello`（扩展版本 + 页面 URL）→ Bridge 回 `bridge.welcome`（框架/root/dev server）→ 面板 Bridge 卡显示 `Vite · localhost:5173`。
+4. 之后每次 `selection.changed` / `selection.cleared` / `preview.changed`，面板自动转发 `bridge.sync {selection, changes}` —— Bridge 持有最新镜像，供 M7 MCP `ui_get_selection` / `ui_get_changes`。
+5. Bridge 关闭/崩溃 → onclose → 面板回 Offline；Reconnect 重拨。
 
 ### 选取流程（M2）
 
@@ -160,11 +184,14 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 | `sidepanel.revertChange`          | SP→CS         | `{changeId}` 撤销单条修改（§14）                                                         |
 | `sidepanel.revertElement`         | SP→CS         | `{elementId}` 撤销该元素全部修改（§14）                                                  |
 | `sidepanel.resetChanges`          | SP→CS         | `{}` 清空全部 preview 修改（§13/§14）                                                    |
+| `bridge.hello`                    | SP→Bridge     | `{extensionVersion, pageUrl}` WebSocket 握手（§16）                                      |
+| `bridge.welcome`                  | Bridge→SP     | `{bridgeVersion, project{name,framework,root}, devServerUrl}`（§15）                     |
+| `bridge.sync`                     | SP→Bridge     | `{selection, changes}` 页面状态镜像，selection/changes 变化即转发（M7 工具数据源）       |
 
 约定：
 
-- 每条消息 `{ type, payload }`，payload 恒为**非数组对象**；边界处 `isUiTunerMessage()` 收窄，非法消息在 `Channel.onMessage` 静默丢弃。
-- Bridge / Agent 消息（`changes.apply`、`agent.*` 等，计划 §17）在 M5+ 扩展进同一个包。
+- 每条消息 `{ type, payload }`，payload 恒为**非数组对象**；边界处 `isUiTunerMessage()` 收窄，非法消息在 `Channel.onMessage` / `BridgeChannel.onMessage` / BridgeServer 三处静默丢弃。
+- Agent 消息（`agent.*`、`changes.apply` 等，计划 §17）在 M7+ 扩展进同一个包。
 
 ## 6. 关键设计决策
 
@@ -180,6 +207,8 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 | Preview 只走独立 `<style>` override（§11），永不写 `element.style`                                  | 可整块撤销、不动内联状态；Preview 与 Source 隔离（§2.3）       |
 | 样式读写只经 `STYLE_PROPERTIES` 白名单（§7）                                                        | 永不读/写完整 computed style；engine 侧再校验一次              |
 | ChangeSet 真相在 content（ChangeTracker），面板只镜像 `preview.changed`                             | 页面刷新即清空（§37 in-memory）；面板崩溃不丢页面状态          |
+| **Bridge 由 Side Panel 直连 WebSocket（不经 background SW）**                                       | MV3 SW 空闲回收会断 WS；content script 受页面 CSP 限制         |
+| Bridge 只绑 127.0.0.1:47321 + host_permissions 补 ws://localhost、ws://127.0.0.1                    | §38 安全边界不变（仍只本机回环）                               |
 | 有 change 的元素转移选中时保留 id（`keepId`）                                                       | override CSS 按 `data-ui-tuner-id` 匹配，id 释放即失联         |
 | ScrubInput 拖动数值直写 DOM + rAF 节流消息；store 只存提交值                                        | 60fps 拖动零面板重渲染（§33）                                  |
 | 非数值（auto/normal/fit-content…）回退为文本输入                                                    | 覆盖 §9.3 CssDimension 全集，不做魔法猜测                      |
@@ -188,7 +217,7 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 
 ## 7. 测试
 
-- `packages/protocol`（12 例）：构造器、守卫（含数组 payload 拒绝）、按类型收窄（含 M3/M4 新消息）。
+- `packages/protocol`（13 例）：构造器、守卫（含数组 payload 拒绝）、按类型收窄（含 M3/M4/M5 新消息）。
 - `packages/inspector`（81 例，jsdom）：
   - identity：id 分配/释放、selector 唯一性回查（querySelector 往返）、文本预览
   - selection：payload 构建（含 styles）、breadcrumb、moveToParent/moveToAncestor（含失效 id 拒绝）、clear 清理属性、keepId 保留与 id 复用
@@ -199,7 +228,8 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
   - PreviewEngine：懒挂载复用、按元素分组 `!important` 规则、白名单外拒绝、null 移除/空块清理、同值 no-op、removeElement、unmount
   - ChangeTracker：首记录捕获原值、scrub 帧原位更新、revert(changeId)、revertProperty、revertElement（仅该元素）、hasChangesFor、按时间序列表
   - picker / overlay：同 M2
-- `chrome-extension`（18 例）：Channel 内存端口对（投递/丢弃/退订/断连）；store 状态机（连接、RTT、picking ack、selection+styleValues 路由、updateStyle 预览帧不改 store/提交更新/null 删除、preview.changed 镜像、elementNames 累积、revert/reset 动作出站消息、日志截断、reset）。
+- `chrome-extension`（19 例）：Channel 内存端口对（投递/丢弃/退订/断连）；store 状态机（连接、RTT、picking ack、selection+styleValues 路由、updateStyle 预览帧不改 store/提交更新/null 删除、preview.changed 镜像、elementNames 累积、revert/reset 动作出站消息、**Bridge 握手 hello/welcome、selection/changes 自动 sync、断线 offline**、日志截断、reset）。
+- `packages/bridge`（14 例，node env）：detectProject（依赖判定/降级 Unknown/坏 JSON 容错）、probeDevServer（真端口探活/全灭返回 null）、BridgeServer（仅 127.0.0.1 绑定、/health、hello→welcome、bridge.sync 存储、非法消息丢弃、连接计数与端口释放）。
 - Playwright E2E（计划 §40 Test 01–07）见 backlog，能力齐备后统一补。
 
 ## 8. 已知限制 / 风险
@@ -207,6 +237,8 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 - 页面导航/刷新后 Port 断开需手动 Reconnect；自动重连与状态持久化（计划 §37）在 backlog（跨刷新恢复依赖 HMR 重定位 §22）。
 - 预览修改与 ChangeSet 随页面刷新消失（预期行为）。
 - 颜色提交写 `#rrggbb`，半透明色（rgba alpha）会丢失 alpha（V0.1 取舍，backlog 记录）。
+- Bridge 只在 Side Panel 打开时在线（面板关 = Agent 通道断）；M7 若需后台常驻再评估。
+- Bridge 无鉴权（仅本机回环可连，§38）；47321 被占用时 CLI 报错退出而非换端口（计划 §15 固定端口）。
 - 重连后 elementNames 需重新选中元素才有 tagName（此前 Changes 分组显示 ut 短码）。
 - Multi Select（Shift+Click）顺延（计划 Task 2.5，backlog）；`⌘↓` 未实现（backlog）。
 - hover 高亮不进入 iframe / closed shadow root 内部元素（V0.1 边界，计划 §1.2）。

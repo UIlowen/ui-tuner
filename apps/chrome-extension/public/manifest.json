@@ -21,6 +21,11 @@
       "run_at": "document_idle"
     }
   ],
-  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "ws://localhost/*",
+    "ws://127.0.0.1/*"
+  ],
   "permissions": ["activeTab", "scripting", "sidePanel", "storage"]
 }
