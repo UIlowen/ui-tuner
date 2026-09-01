@@ -8,6 +8,9 @@ import {
   createSelectionCleared,
   createSidepanelPing,
   createSidepanelPicking,
+  createSidepanelResetChanges,
+  createSidepanelRevertChange,
+  createSidepanelRevertElement,
   createSidepanelSelectAncestor,
   createSidepanelStylePreview,
   isContentPongMessage,
@@ -18,6 +21,9 @@ import {
   isSelectionClearedMessage,
   isSidepanelPingMessage,
   isSidepanelPickingMessage,
+  isSidepanelResetChangesMessage,
+  isSidepanelRevertChangeMessage,
+  isSidepanelRevertElementMessage,
   isSidepanelSelectAncestorMessage,
   isSidepanelStylePreviewMessage,
   isUiTunerMessage,
@@ -69,6 +75,9 @@ function createEveryMessage(): UiTunerMessage[] {
         createdAt: 1_000,
       },
     ]),
+    createSidepanelRevertChange("ch-000001"),
+    createSidepanelRevertElement("ut-000001"),
+    createSidepanelResetChanges(),
   ];
 }
 
@@ -164,6 +173,21 @@ describe("creators", () => {
       payload: { changes: [change] },
     });
   });
+
+  it("creates revert and reset messages", () => {
+    expect(createSidepanelRevertChange("ch-000001")).toEqual({
+      type: "sidepanel.revertChange",
+      payload: { changeId: "ch-000001" },
+    });
+    expect(createSidepanelRevertElement("ut-000002")).toEqual({
+      type: "sidepanel.revertElement",
+      payload: { elementId: "ut-000002" },
+    });
+    expect(createSidepanelResetChanges()).toEqual({
+      type: "sidepanel.resetChanges",
+      payload: {},
+    });
+  });
 });
 
 describe("isUiTunerMessage", () => {
@@ -202,6 +226,9 @@ describe("per-type guards", () => {
     expect(messages.filter(isSidepanelSelectAncestorMessage)).toHaveLength(1);
     expect(messages.filter(isSidepanelStylePreviewMessage)).toHaveLength(1);
     expect(messages.filter(isPreviewChangedMessage)).toHaveLength(1);
+    expect(messages.filter(isSidepanelRevertChangeMessage)).toHaveLength(1);
+    expect(messages.filter(isSidepanelRevertElementMessage)).toHaveLength(1);
+    expect(messages.filter(isSidepanelResetChangesMessage)).toHaveLength(1);
   });
 });
 

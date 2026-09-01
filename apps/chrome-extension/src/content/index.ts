@@ -18,6 +18,9 @@ import {
   createSelectionCleared,
   isSidepanelPingMessage,
   isSidepanelPickingMessage,
+  isSidepanelResetChangesMessage,
+  isSidepanelRevertChangeMessage,
+  isSidepanelRevertElementMessage,
   isSidepanelSelectAncestorMessage,
   isSidepanelStylePreviewMessage,
   type SelectionPayload,
@@ -26,7 +29,7 @@ import {
 import { Channel } from "../messaging/channel";
 
 /**
- * Content script — Milestone 3 scope.
+ * Content script — Milestone 4 scope.
  *
  * Runs only on http://localhost/* and http://127.0.0.1/* (see manifest).
  * Wires the inspector (Picker / Overlay / SelectionTracker / PreviewEngine /
@@ -143,6 +146,46 @@ function applyStylePreview(payload: {
   send(createPreviewChanged(changeTracker.all()));
 }
 
+/**
+ * After any revert / reset: drop the affected overrides, report the new
+ * change list, and — when the selected element is affected — re-select it so
+ * the panel's style values reflect the page again.
+ */
+function syncAfterChanges(affectedElementIds: string[]): void {
+  send(createPreviewChanged(changeTracker.all()));
+
+  const element = tracker?.selected ?? null;
+  const selectedId = element ? readUiTunerId(element) : null;
+  if (element && selectedId && affectedElementIds.includes(selectedId)) {
+    selectElement(element);
+  }
+}
+
+/** Revert one recorded change (plan §14). */
+function revertChange(changeId: string): void {
+  const change = changeTracker.revert(changeId);
+  if (!change) return;
+  previewEngine.setOverride(change.elementId, change.property, null);
+  syncAfterChanges([change.elementId]);
+}
+
+/** Revert every change of one element (plan §14). */
+function revertElement(uiTunerId: string): void {
+  const removed = changeTracker.revertElement(uiTunerId);
+  if (removed.length === 0) return;
+  previewEngine.removeElement(uiTunerId);
+  syncAfterChanges([uiTunerId]);
+}
+
+/** Reset all preview changes (plan §13/§14). */
+function resetChanges(): void {
+  const affected = [...new Set(changeTracker.all().map((change) => change.elementId))];
+  if (affected.length === 0) return;
+  changeTracker.clear();
+  previewEngine.unmount();
+  syncAfterChanges(affected);
+}
+
 // Selection-state keys. While picking, the Picker owns Escape itself.
 document.addEventListener(
   "keydown",
@@ -191,6 +234,11 @@ chrome.runtime.onConnect.addListener((port) => {
       connectedAt: Date.now(),
     }),
   );
+  // Page-side changes survive reconnects (plan §37 in-memory) — resync the
+  // panel's mirror so the Changes tab reflects reality after a reconnect.
+  if (changeTracker.all().length > 0) {
+    send(createPreviewChanged(changeTracker.all()));
+  }
 
   channel.onMessage((message) => {
     if (isSidepanelPickingMessage(message)) {
@@ -200,6 +248,12 @@ chrome.runtime.onConnect.addListener((port) => {
       moveToAncestor(message.payload.uiTunerId);
     } else if (isSidepanelStylePreviewMessage(message)) {
       applyStylePreview(message.payload);
+    } else if (isSidepanelRevertChangeMessage(message)) {
+      revertChange(message.payload.changeId);
+    } else if (isSidepanelRevertElementMessage(message)) {
+      revertElement(message.payload.elementId);
+    } else if (isSidepanelResetChangesMessage(message)) {
+      resetChanges();
     } else if (isSidepanelPingMessage(message)) {
       channel?.send(
         createContentPong({

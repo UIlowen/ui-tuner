@@ -202,4 +202,28 @@ describe("sidepanel store", () => {
     useSidepanelStore.getState().receive(createPreviewChanged([change]));
     expect(useSidepanelStore.getState().changes).toEqual([change]);
   });
+
+  it("remembers element names from selections for the changes tab", () => {
+    resetStore();
+    selectElement({ gap: "24px" });
+    const state = useSidepanelStore.getState();
+    expect(state.elementNames["ut-000001"]).toBe("button");
+    expect(state.elementNames["ut-000002"]).toBe("body");
+  });
+
+  it("sends revert and reset messages", () => {
+    resetStore();
+    const { port, sent } = createSpyPort();
+    useSidepanelStore.getState().connect(Channel.accept(port));
+
+    useSidepanelStore.getState().revertChange("ch-000001");
+    useSidepanelStore.getState().revertElement("ut-000001");
+    useSidepanelStore.getState().resetChanges();
+
+    expect(sent).toEqual([
+      { type: "sidepanel.revertChange", payload: { changeId: "ch-000001" } },
+      { type: "sidepanel.revertElement", payload: { elementId: "ut-000001" } },
+      { type: "sidepanel.resetChanges", payload: {} },
+    ]);
+  });
 });

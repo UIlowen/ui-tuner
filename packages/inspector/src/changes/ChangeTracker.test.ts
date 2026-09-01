@@ -41,6 +41,31 @@ describe("ChangeTracker", () => {
     expect(tracker.hasChangesFor("ut-000001")).toBe(false);
   });
 
+  it("revert removes one record by change id (plan §14)", () => {
+    const tracker = new ChangeTracker();
+    const gap = tracker.record("ut-000001", "gap", "16px", "24px");
+    tracker.record("ut-000001", "height", "36px", "40px");
+
+    expect(tracker.revert(gap.id)!.property).toBe("gap");
+    expect(tracker.revert(gap.id)).toBeNull();
+    expect(tracker.revert("ch-999999")).toBeNull();
+    expect(tracker.all().map((change) => change.property)).toEqual(["height"]);
+  });
+
+  it("revertElement removes every record of that element only (plan §14)", () => {
+    const tracker = new ChangeTracker();
+    tracker.record("ut-000001", "gap", "16px", "24px");
+    tracker.record("ut-000001", "height", "36px", "40px");
+    tracker.record("ut-000002", "gap", "8px", "12px");
+
+    const removed = tracker.revertElement("ut-000001");
+
+    expect(removed.map((change) => change.property).sort()).toEqual(["gap", "height"]);
+    expect(tracker.revertElement("ut-000001")).toEqual([]);
+    expect(tracker.all().map((change) => change.elementId)).toEqual(["ut-000002"]);
+    expect(tracker.hasChangesFor("ut-000001")).toBe(false);
+  });
+
   it("lists changes oldest first", () => {
     const tracker = new ChangeTracker();
     tracker.record("ut-000001", "gap", "16px", "24px");

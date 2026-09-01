@@ -9,7 +9,8 @@
 
 - **Milestone 1 完成**：Monorepo + MV3 扩展 + Side Panel + Content Script + 双向消息通道（真机验收通过）
 - **Milestone 2 完成**：Element Picker（hover 高亮 / 点击选中 / ⌘↑ 父级 / Breadcrumb / Esc，真机验收通过）
-- **Milestone 3 完成**：Style Inspector（三 Tab / ScrubInput 拖拽调值 / 实时 Preview / 变更记录）
+- **Milestone 3 完成**：Style Inspector（三 Tab / ScrubInput 拖拽调值 / 实时 Preview / 变更记录，真机验收通过）
+- **Milestone 4 完成**：ChangeSet（单条 Revert / 元素 Revert / Reset All / Changes Tab 完整化）
 
 ## 环境要求
 
@@ -23,7 +24,7 @@
 pnpm install    # 安装依赖
 pnpm build      # 构建所有包（protocol/inspector → extension 三个产物）
 pnpm dev        # watch 模式构建扩展（Chrome 里加载的 dist 持续可用）
-pnpm test       # vitest（turbo 编排，106 例）
+pnpm test       # vitest（turbo 编排，111 例）
 pnpm typecheck  # tsc --noEmit
 pnpm lint       # eslint
 pnpm format     # prettier
@@ -45,6 +46,16 @@ pnpm page       # 测试页 http://localhost:8000（绑定 127.0.0.1）
 > 修改代码后的完整循环：`pnpm build` → `chrome://extensions` 点扩展卡片刷新 → **刷新 localhost 页面**（content script 只在页面加载时注入）→ 重开 Side Panel。
 
 ## 验收
+
+### Milestone 4 — ChangeSet
+
+1. `pnpm build` → `chrome://extensions` 刷新扩展 → 刷新 localhost 页面 → 重开 Side Panel。
+2. 选取元素，改 3+ 处样式（如 Height、Padding、Radius），可再选另一个元素改 1-2 处。
+3. 切到 **Changes** Tab → 按元素分组展示全部修改，标签显示元素名。
+4. 点某条行尾 **↩** → 页面该属性恢复原值，Style Tab 数值同步回原值，该条从列表消失。
+5. 点某元素组 **Revert** → 该元素全部修改恢复。
+6. 点底部 **Reset All** → 所有预览修改清空，页面回到原始状态（无需刷新页面）。
+7. 关闭再重开 Side Panel（不刷新页面）→ Changes 列表恢复显示。
 
 ### Milestone 3 — Style Inspector
 

@@ -2,6 +2,9 @@ import { create } from "zustand";
 import {
   createSidepanelPing,
   createSidepanelPicking,
+  createSidepanelResetChanges,
+  createSidepanelRevertChange,
+  createSidepanelRevertElement,
   createSidepanelSelectAncestor,
   createSidepanelStylePreview,
   isContentPongMessage,
@@ -43,6 +46,8 @@ interface SidepanelState {
   styleValues: Record<string, string> | null;
   /** Page-side change records (content is the source of truth, plan §12). */
   changes: StyleChange[];
+  /** elementId → tagName, accumulated from selections (Changes tab labels). */
+  elementNames: Record<string, string>;
 
   /** Wire an already-opened channel (App owns chrome.tabs lookup). */
   connect: (channel: Channel) => void;
@@ -59,6 +64,12 @@ interface SidepanelState {
    * `styleValues` locally.
    */
   updateStyle: (property: string, value: string | null, committed: boolean) => void;
+  /** Revert one recorded change (plan §14). */
+  revertChange: (changeId: string) => void;
+  /** Revert every change of one element (plan §14). */
+  revertElement: (elementId: string) => void;
+  /** Reset all preview changes (plan §13/§14). */
+  resetChanges: () => void;
   /** Drop the channel and return to idle. */
   reset: () => void;
 }
@@ -72,6 +83,16 @@ function appendLog(log: LogEntry[], direction: "out" | "in", message: UiTunerMes
   return next.length > MAX_LOG_ENTRIES ? next.slice(next.length - MAX_LOG_ENTRIES) : next;
 }
 
+/** Remember elementId → tagName from a selection (element + breadcrumb). */
+function rememberElementNames(
+  names: Record<string, string>,
+  payload: SelectionPayload,
+): Record<string, string> {
+  const next = { ...names };
+  for (const item of payload.breadcrumb) next[item.id] = item.tagName;
+  return next;
+}
+
 export const useSidepanelStore = create<SidepanelState>((set, get) => ({
   status: "idle",
   statusError: null,
@@ -83,6 +104,7 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
   selection: null,
   styleValues: null,
   changes: [],
+  elementNames: {},
 
   connect: (nextChannel) => {
     channel = nextChannel;
@@ -97,6 +119,7 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       selection: null,
       styleValues: null,
       changes: [],
+      elementNames: {},
     });
     nextChannel.onDisconnect(() => {
       if (channel === nextChannel)
@@ -114,7 +137,12 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
     } else if (isPickerStateMessage(message)) {
       set({ picking: message.payload.enabled });
     } else if (isSelectionChangedMessage(message)) {
-      set({ selection: message.payload, styleValues: message.payload.styles, picking: false });
+      set((state) => ({
+        selection: message.payload,
+        styleValues: message.payload.styles,
+        picking: false,
+        elementNames: rememberElementNames(state.elementNames, message.payload),
+      }));
     } else if (isSelectionClearedMessage(message)) {
       set({ selection: null, styleValues: null });
     } else if (isPreviewChangedMessage(message)) {
@@ -163,6 +191,27 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
     });
   },
 
+  revertChange: (changeId) => {
+    if (!channel) return;
+    const message = createSidepanelRevertChange(changeId);
+    channel.send(message);
+    set((state) => ({ log: appendLog(state.log, "out", message) }));
+  },
+
+  revertElement: (elementId) => {
+    if (!channel) return;
+    const message = createSidepanelRevertElement(elementId);
+    channel.send(message);
+    set((state) => ({ log: appendLog(state.log, "out", message) }));
+  },
+
+  resetChanges: () => {
+    if (!channel) return;
+    const message = createSidepanelResetChanges();
+    channel.send(message);
+    set((state) => ({ log: appendLog(state.log, "out", message) }));
+  },
+
   reset: () => {
     channel = null;
     set({
@@ -176,6 +225,7 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       selection: null,
       styleValues: null,
       changes: [],
+      elementNames: {},
     });
   },
 }));
@@ -194,5 +244,6 @@ export function reportConnectFailure(reason: string): void {
     selection: null,
     styleValues: null,
     changes: [],
+    elementNames: {},
   });
 }

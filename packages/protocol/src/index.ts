@@ -174,6 +174,32 @@ export interface PreviewChangedMessage {
 }
 
 // ---------------------------------------------------------------------------
+// M4 — changes tab messages (plan §13/§14: revert single / element / all)
+// ---------------------------------------------------------------------------
+
+/** Side Panel → Content. Revert one recorded change (plan §14). */
+export interface SidepanelRevertChangeMessage {
+  type: "sidepanel.revertChange";
+  payload: {
+    changeId: string;
+  };
+}
+
+/** Side Panel → Content. Revert every change recorded for one element (plan §14). */
+export interface SidepanelRevertElementMessage {
+  type: "sidepanel.revertElement";
+  payload: {
+    elementId: string;
+  };
+}
+
+/** Side Panel → Content. Reset all preview changes (plan §13/§14). */
+export interface SidepanelResetChangesMessage {
+  type: "sidepanel.resetChanges";
+  payload: Record<string, never>;
+}
+
+// ---------------------------------------------------------------------------
 // Union + guards
 // ---------------------------------------------------------------------------
 
@@ -187,7 +213,10 @@ export type UiTunerMessage =
   | SelectionClearedMessage
   | SidepanelSelectAncestorMessage
   | SidepanelStylePreviewMessage
-  | PreviewChangedMessage;
+  | PreviewChangedMessage
+  | SidepanelRevertChangeMessage
+  | SidepanelRevertElementMessage
+  | SidepanelResetChangesMessage;
 
 export type UiTunerMessageType = UiTunerMessage["type"];
 
@@ -202,6 +231,9 @@ const MESSAGE_TYPES: readonly UiTunerMessageType[] = [
   "sidepanel.selectAncestor",
   "sidepanel.stylePreview",
   "preview.changed",
+  "sidepanel.revertChange",
+  "sidepanel.revertElement",
+  "sidepanel.resetChanges",
 ];
 
 export function isUiTunerMessageType(value: unknown): value is UiTunerMessageType {
@@ -267,6 +299,24 @@ export function isPreviewChangedMessage(value: UiTunerMessage): value is Preview
   return value.type === "preview.changed";
 }
 
+export function isSidepanelRevertChangeMessage(
+  value: UiTunerMessage,
+): value is SidepanelRevertChangeMessage {
+  return value.type === "sidepanel.revertChange";
+}
+
+export function isSidepanelRevertElementMessage(
+  value: UiTunerMessage,
+): value is SidepanelRevertElementMessage {
+  return value.type === "sidepanel.revertElement";
+}
+
+export function isSidepanelResetChangesMessage(
+  value: UiTunerMessage,
+): value is SidepanelResetChangesMessage {
+  return value.type === "sidepanel.resetChanges";
+}
+
 // ---------------------------------------------------------------------------
 // Creators
 // ---------------------------------------------------------------------------
@@ -313,4 +363,16 @@ export function createSidepanelStylePreview(
 
 export function createPreviewChanged(changes: StyleChange[]): PreviewChangedMessage {
   return { type: "preview.changed", payload: { changes } };
+}
+
+export function createSidepanelRevertChange(changeId: string): SidepanelRevertChangeMessage {
+  return { type: "sidepanel.revertChange", payload: { changeId } };
+}
+
+export function createSidepanelRevertElement(elementId: string): SidepanelRevertElementMessage {
+  return { type: "sidepanel.revertElement", payload: { elementId } };
+}
+
+export function createSidepanelResetChanges(): SidepanelResetChangesMessage {
+  return { type: "sidepanel.resetChanges", payload: {} };
 }

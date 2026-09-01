@@ -48,12 +48,31 @@ export class ChangeTracker {
     return undefined;
   }
 
+  /** Remove one record by id — returns it, or null when absent (plan §14). */
+  revert(changeId: string): StyleChange | null {
+    const change = this.changes.get(changeId) ?? null;
+    if (change) this.changes.delete(changeId);
+    return change;
+  }
+
   /** Remove the record for one property — returns it, or null when absent. */
   revertProperty(elementId: string, property: string): StyleChange | null {
     const change = this.find(elementId, property);
     if (!change) return null;
     this.changes.delete(change.id);
     return change;
+  }
+
+  /** Remove every record for one element — returns the removed list (plan §14). */
+  revertElement(elementId: string): StyleChange[] {
+    const removed: StyleChange[] = [];
+    for (const [changeId, change] of this.changes) {
+      if (change.elementId === elementId) {
+        removed.push(change);
+        this.changes.delete(changeId);
+      }
+    }
+    return removed;
   }
 
   hasChangesFor(elementId: string): boolean {

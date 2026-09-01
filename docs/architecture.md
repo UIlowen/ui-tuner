@@ -1,6 +1,6 @@
-# UI Tuner — Architecture（Milestone 3）
+# UI Tuner — Architecture（Milestone 4）
 
-> 状态：Milestone 3 完成（Style Inspector）。本文档只描述**已实现**的部分，随每个 Milestone 更新。
+> 状态：Milestone 4 完成（ChangeSet：Revert / Reset / Changes Tab 完整化）。本文档只描述**已实现**的部分，随每个 Milestone 更新。
 > 完整产品规划见根目录 `UI_TUNER_EXECUTION_PLAN.md`。
 
 ## 1. 当前范围
@@ -21,9 +21,15 @@ Milestone 3 交付：
 - **Preview CSS Engine**：`<style id="ui-tuner-preview-style">` 生成 `[data-ui-tuner-id=…] { prop: value !important }`，永不写 `element.style`
 - **ChangeSet 记录**：`StyleChange`（§12）在 content 侧 ChangeTracker 中累积，`preview.changed` 回报面板
 
-**M3 验收标准**：修改实时 Preview（拖 gap 24→16 页面立即变化并计入变更记录）。
+Milestone 4 交付：
 
-不在本阶段：Revert/Reset/Changes Tab 完整化（M4）、Bridge（M5）、Source Resolver（M6，组件名暂不显示）、Agent/MCP（M7）。
+- **Changes Tab 完整化**（§13）：按元素分组、每条 `prop prev → next` 可单条 Revert（§14 Revert single property）、每组 Revert（Revert element）、底部 Reset All（Reset all preview changes）；「Apply · M8」占位计数
+- **重连同步**：content 重连时（content.ready 后）若有存量记录主动补发 `preview.changed`；revert/reset 后若当前选中元素受影响则重发 `selection.changed` 刷新面板数值
+- 面板 `elementNames`（elementId→tagName 累积映射）作为 Changes 分组标签（组件名不伪造，§20）
+
+**M4 验收标准**：所有 Preview 修改可恢复。
+
+不在本阶段：Bridge（M5）、Source Resolver（M6，组件名暂不显示）、Agent/MCP（M7）、Apply（M8）。
 
 ## 2. Repo 结构
 
@@ -103,6 +109,13 @@ ui-tuner/
 4. 释放 → `committed:true` → ChangeTracker 定稿该条 StyleChange → 若 `nextValue === previousValue`（拖回原值）则删除记录并撤掉 override → `preview.changed {changes}` 回报面板（Changes Tab 列表 + Tab 徽标计数）。
 5. 选中转移时，有 change 记录的元素保留 `data-ui-tuner-id`（`keepId`），override 继续生效；全部状态（engine + tracker）在 Port 断开后仍存活，**随页面刷新消亡**（§37 in-memory 原则）。
 
+### 变更撤销流程（M4）
+
+1. Changes Tab 单条 ↩ → `sidepanel.revertChange {changeId}`；元素级 Revert → `sidepanel.revertElement {elementId}`；Reset All → `sidepanel.resetChanges`。
+2. Content：ChangeTracker 删除记录 → PreviewEngine 移除对应 override（reset 用 unmount）→ `preview.changed` 回报新列表。
+3. 若受影响元素正是当前选中 → 重发 `selection.changed`（重新 select，computed styles 已恢复原值）→ 面板 Style 数值回到页面真值。
+4. 面板重连（未刷新页面）→ content.ready 后存量记录随 `preview.changed` 补发 → Changes 列表恢复（elementNames 需重新选中后才显示 tagName，之前显示 ut 短码）。
+
 ### 性能（计划 §33 红线）
 
 - mousemove 处理器只写坐标缓存（passive listener），`elementFromPoint` 每帧至多一次。
@@ -133,17 +146,20 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 
 所有跨上下文消息唯一定义在 `@ui-tuner/protocol`（规则 6）。当前消息：
 
-| type                              | 方向          | payload 要点                                                                               |
-| --------------------------------- | ------------- | ------------------------------------------------------------------------------------------ |
-| `content.ready`                   | CS→SP         | url / title / connectedAt（连接即发）                                                      |
-| `sidepanel.ping` / `content.pong` | SP→CS / CS→SP | RTT 探针（通道验收工具）                                                                   |
-| `sidepanel.picking`               | SP→CS         | `{enabled}` 进入/退出选取模式                                                              |
-| `picker.state`                    | CS→SP         | `{enabled}` 实际状态（Esc 等以这里为准）                                                   |
-| `selection.changed`               | CS→SP         | `{element, breadcrumb, styles, dom?, pickedAt}`；styles = 白名单 computed（§7/§18）        |
-| `selection.cleared`               | CS→SP         | `{}`                                                                                       |
-| `sidepanel.selectAncestor`        | SP→CS         | `{uiTunerId}` breadcrumb 回跳                                                              |
-| `sidepanel.stylePreview`          | SP→CS         | `{uiTunerId, property, value, committed}`；committed=false 拖动帧 / true 提交（§10/§11）   |
-| `preview.changed`                 | CS→SP         | `{changes: StyleChange[]}` 页面侧变更记录全量回报（§12/§13）                               |
+| type                              | 方向          | payload 要点                                                                             |
+| --------------------------------- | ------------- | ---------------------------------------------------------------------------------------- |
+| `content.ready`                   | CS→SP         | url / title / connectedAt（连接即发）                                                    |
+| `sidepanel.ping` / `content.pong` | SP→CS / CS→SP | RTT 探针（通道验收工具）                                                                 |
+| `sidepanel.picking`               | SP→CS         | `{enabled}` 进入/退出选取模式                                                            |
+| `picker.state`                    | CS→SP         | `{enabled}` 实际状态（Esc 等以这里为准）                                                 |
+| `selection.changed`               | CS→SP         | `{element, breadcrumb, styles, dom?, pickedAt}`；styles = 白名单 computed（§7/§18）      |
+| `selection.cleared`               | CS→SP         | `{}`                                                                                     |
+| `sidepanel.selectAncestor`        | SP→CS         | `{uiTunerId}` breadcrumb 回跳                                                            |
+| `sidepanel.stylePreview`          | SP→CS         | `{uiTunerId, property, value, committed}`；committed=false 拖动帧 / true 提交（§10/§11） |
+| `preview.changed`                 | CS→SP         | `{changes: StyleChange[]}` 页面侧变更记录全量回报（§12/§13）；重连时存量补发             |
+| `sidepanel.revertChange`          | SP→CS         | `{changeId}` 撤销单条修改（§14）                                                         |
+| `sidepanel.revertElement`         | SP→CS         | `{elementId}` 撤销该元素全部修改（§14）                                                  |
+| `sidepanel.resetChanges`          | SP→CS         | `{}` 清空全部 preview 修改（§13/§14）                                                    |
 
 约定：
 
@@ -152,28 +168,28 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 
 ## 6. 关键设计决策
 
-| 决策                                                                                | 理由                                                                    |
-| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| TypeScript 锁 5.9（未用 TS 7）                                                      | typescript-eslint 8.x 尚不支持 TS 7；稳定性优先（计划 §53）             |
-| 手写 Vite 多构建，不用 CRXJS 插件                                                   | 依赖少、行为可控、易排查                                                |
-| Picker / Overlay / SelectionTracker / PreviewEngine 放独立包 `packages/inspector`，不 import chrome | 对齐计划 §4 结构；jsdom 可单测；chrome 接线只在 content script         |
-| Overlay 用 Shadow DOM 隔离 + 样式只存在于 `styles/overlay.ts`                       | 页面 CSS 无法破坏高亮层；样式单一来源                                   |
-| Overlay 每帧从 Element 引用重测 rect（而非缓存坐标/监听 scroll/resize）             | 滚动、resize、布局位移一次解决；无目标时 rAF 自动停                     |
-| 点击拦截用 document capture + preventDefault                                        | 选取时页面不触发跳转/聚焦/拖选                                          |
-| `picker.state` 以 content 回报为准（非面板乐观更新）                                | Esc 等面板外路径不会造成状态漂移                                        |
-| Preview 只走独立 `<style>` override（§11），永不写 `element.style`                  | 可整块撤销、不动内联状态；Preview 与 Source 隔离（§2.3）                |
-| 样式读写只经 `STYLE_PROPERTIES` 白名单（§7）                                        | 永不读/写完整 computed style；engine 侧再校验一次                       |
-| ChangeSet 真相在 content（ChangeTracker），面板只镜像 `preview.changed`             | 页面刷新即清空（§37 in-memory）；面板崩溃不丢页面状态                   |
-| 有 change 的元素转移选中时保留 id（`keepId`）                                       | override CSS 按 `data-ui-tuner-id` 匹配，id 释放即失联                  |
-| ScrubInput 拖动数值直写 DOM + rAF 节流消息；store 只存提交值                        | 60fps 拖动零面板重渲染（§33）                                           |
-| 非数值（auto/normal/fit-content…）回退为文本输入                                    | 覆盖 §9.3 CssDimension 全集，不做魔法猜测                               |
-| 组件名不在 M3 显示（"Preview only" 徽标占位）                                       | Source Resolver 属 M6；不得伪造（计划 §20）                             |
-| 权限最小化：`activeTab`/`scripting`/`sidePanel`/`storage` + localhost host          | 计划 §1.2/§38 安全边界                                                  |
+| 决策                                                                                                | 理由                                                           |
+| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| TypeScript 锁 5.9（未用 TS 7）                                                                      | typescript-eslint 8.x 尚不支持 TS 7；稳定性优先（计划 §53）    |
+| 手写 Vite 多构建，不用 CRXJS 插件                                                                   | 依赖少、行为可控、易排查                                       |
+| Picker / Overlay / SelectionTracker / PreviewEngine 放独立包 `packages/inspector`，不 import chrome | 对齐计划 §4 结构；jsdom 可单测；chrome 接线只在 content script |
+| Overlay 用 Shadow DOM 隔离 + 样式只存在于 `styles/overlay.ts`                                       | 页面 CSS 无法破坏高亮层；样式单一来源                          |
+| Overlay 每帧从 Element 引用重测 rect（而非缓存坐标/监听 scroll/resize）                             | 滚动、resize、布局位移一次解决；无目标时 rAF 自动停            |
+| 点击拦截用 document capture + preventDefault                                                        | 选取时页面不触发跳转/聚焦/拖选                                 |
+| `picker.state` 以 content 回报为准（非面板乐观更新）                                                | Esc 等面板外路径不会造成状态漂移                               |
+| Preview 只走独立 `<style>` override（§11），永不写 `element.style`                                  | 可整块撤销、不动内联状态；Preview 与 Source 隔离（§2.3）       |
+| 样式读写只经 `STYLE_PROPERTIES` 白名单（§7）                                                        | 永不读/写完整 computed style；engine 侧再校验一次              |
+| ChangeSet 真相在 content（ChangeTracker），面板只镜像 `preview.changed`                             | 页面刷新即清空（§37 in-memory）；面板崩溃不丢页面状态          |
+| 有 change 的元素转移选中时保留 id（`keepId`）                                                       | override CSS 按 `data-ui-tuner-id` 匹配，id 释放即失联         |
+| ScrubInput 拖动数值直写 DOM + rAF 节流消息；store 只存提交值                                        | 60fps 拖动零面板重渲染（§33）                                  |
+| 非数值（auto/normal/fit-content…）回退为文本输入                                                    | 覆盖 §9.3 CssDimension 全集，不做魔法猜测                      |
+| 组件名不在 M3 显示（"Preview only" 徽标占位）                                                       | Source Resolver 属 M6；不得伪造（计划 §20）                    |
+| 权限最小化：`activeTab`/`scripting`/`sidePanel`/`storage` + localhost host                          | 计划 §1.2/§38 安全边界                                         |
 
 ## 7. 测试
 
-- `packages/protocol`（11 例）：构造器、守卫（含数组 payload 拒绝）、按类型收窄（含 M3 两条新消息）。
-- `packages/inspector`（79 例，jsdom）：
+- `packages/protocol`（12 例）：构造器、守卫（含数组 payload 拒绝）、按类型收窄（含 M3/M4 新消息）。
+- `packages/inspector`（81 例，jsdom）：
   - identity：id 分配/释放、selector 唯一性回查（querySelector 往返）、文本预览
   - selection：payload 构建（含 styles）、breadcrumb、moveToParent/moveToAncestor（含失效 id 拒绝）、clear 清理属性、keepId 保留与 id 复用
   - snapshot：selected/parent/children 捕获、总预算截断
@@ -181,17 +197,17 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
   - color：rgb/rgba（逗号与斜杠语法）/hex3/hex6 归一、transparent/命名色拒绝
   - computed：白名单过滤、空值跳过、遍历全部白名单属性
   - PreviewEngine：懒挂载复用、按元素分组 `!important` 规则、白名单外拒绝、null 移除/空块清理、同值 no-op、removeElement、unmount
-  - ChangeTracker：首记录捕获原值、scrub 帧原位更新、revertProperty、hasChangesFor、按时间序列表
+  - ChangeTracker：首记录捕获原值、scrub 帧原位更新、revert(changeId)、revertProperty、revertElement（仅该元素）、hasChangesFor、按时间序列表
   - picker / overlay：同 M2
-- `chrome-extension`（16 例）：Channel 内存端口对（投递/丢弃/退订/断连）；store 状态机（连接、RTT、picking ack、selection+styleValues 路由、updateStyle 预览帧不改 store/提交更新/null 删除、preview.changed 镜像、日志截断、reset）。
+- `chrome-extension`（18 例）：Channel 内存端口对（投递/丢弃/退订/断连）；store 状态机（连接、RTT、picking ack、selection+styleValues 路由、updateStyle 预览帧不改 store/提交更新/null 删除、preview.changed 镜像、elementNames 累积、revert/reset 动作出站消息、日志截断、reset）。
 - Playwright E2E（计划 §40 Test 01–07）见 backlog，能力齐备后统一补。
 
 ## 8. 已知限制 / 风险
 
-- 页面导航/刷新后 Port 断开需手动 Reconnect；自动重连与状态持久化（计划 §37）在 backlog。
-- 预览修改与 ChangeSet 随页面刷新消失（预期行为）；Revert/Reset（M4）前误改只能刷新页面恢复。
+- 页面导航/刷新后 Port 断开需手动 Reconnect；自动重连与状态持久化（计划 §37）在 backlog（跨刷新恢复依赖 HMR 重定位 §22）。
+- 预览修改与 ChangeSet 随页面刷新消失（预期行为）。
 - 颜色提交写 `#rrggbb`，半透明色（rgba alpha）会丢失 alpha（V0.1 取舍，backlog 记录）。
-- Reconnect 后面板 `changes` 清空，但页面侧 ChangeTracker 仍持有记录 —— 下次 commit 才重新同步（M4 统一 ChangeSet 生命周期时修复）。
+- 重连后 elementNames 需重新选中元素才有 tagName（此前 Changes 分组显示 ut 短码）。
 - Multi Select（Shift+Click）顺延（计划 Task 2.5，backlog）；`⌘↓` 未实现（backlog）。
 - hover 高亮不进入 iframe / closed shadow root 内部元素（V0.1 边界，计划 §1.2）。
 - `document.elementFromPoint` 命中纯文本节点的父元素即选中该元素；inline 文本片段的高亮框可能与预期略有出入。

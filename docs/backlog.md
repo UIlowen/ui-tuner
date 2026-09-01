@@ -4,17 +4,16 @@
 
 ## 顺延（计划内，后续 Milestone / MVP 后半段）
 
-| 项                    | 说明                                                         | 预计归属          |
-| --------------------- | ------------------------------------------------------------ | ----------------- |
-| Multi Select          | Shift+Click 多选，max 10（计划 Task 2.5）                    | M2 后半段 / M3 前 |
-| ⌘↓ 选子级             | 与 ⌘↑ 对称的向下导航                                         | 待定              |
-| 自动重连 / 状态持久化 | 页面导航刷新后自动恢复 Port 与选中态（计划 §37）             | M4/M5 之间        |
-| 颜色 alpha 保留       | 色板提交写 `#rrggbb` 丢失半透明 alpha（M3 取舍）             | 待定              |
-| Reconnect 后 changes 同步 | 面板重连时向 content 拉取当前 ChangeTracker 全量（M4 ChangeSet 生命周期内解决） | M4 |
-| box-shadow / grid 可视化编辑 | M3 仅文本输入（§9.8/§9.2 合理最小实现）                | 待定              |
-| Playwright E2E        | 计划 §40 Test 01–07（需 headed Chromium + --load-extension） | 能力齐备后统一补  |
-| 完整 Undo Stack       | 计划 §14，V0.1 只需 Revert 单属性/元素/全部                  | P1                |
-| Variant Scope         | Apply Dialog 的第三种 scope（计划 §30）                      | P1                |
+| 项                           | 说明                                                                            | 预计归属          |
+| ---------------------------- | ------------------------------------------------------------------------------- | ----------------- |
+| Multi Select                 | Shift+Click 多选，max 10（计划 Task 2.5）                                       | M2 后半段 / M3 前 |
+| ⌘↓ 选子级                    | 与 ⌘↑ 对称的向下导航                                                            | 待定              |
+| 自动重连 / 状态持久化        | 页面导航刷新后自动恢复 Port 与选中态（计划 §37；跨刷新恢复依赖 HMR 重定位 §22） | M5 后             |
+| 颜色 alpha 保留              | 色板提交写 `#rrggbb` 丢失半透明 alpha（M3 取舍）                                | 待定              |
+| box-shadow / grid 可视化编辑 | M3 仅文本输入（§9.8/§9.2 合理最小实现）                                         | 待定              |
+| Playwright E2E               | 计划 §40 Test 01–07（需 headed Chromium + --load-extension）                    | 能力齐备后统一补  |
+| 完整 Undo Stack              | 计划 §14，V0.1 只需 Revert 单属性/元素/全部                                     | P1                |
+| Variant Scope                | Apply Dialog 的第三种 scope（计划 §30）                                         | P1                |
 
 ## Scope 外（V0.1 明确不做，计划 §1.2）
 
