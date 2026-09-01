@@ -11,7 +11,7 @@
 - **Milestone 2 完成**：Element Picker（hover 高亮 / 点击选中 / ⌘↑ 父级 / Breadcrumb / Esc，真机验收通过）
 - **Milestone 3 完成**：Style Inspector（三 Tab / ScrubInput 拖拽调值 / 实时 Preview / 变更记录，真机验收通过）
 - **Milestone 4 完成**：ChangeSet（单条 Revert / 元素 Revert / Reset All / Changes Tab 完整化，真机验收通过）
-- **Milestone 5 完成**：Local Bridge（本地服务 + WebSocket + 项目检测 + Bridge Offline 提示；CLI 正式名 `ui-tuner`，发布 npm 前用 `pnpm bridge`）
+- **Milestone 5 完成**：Local Bridge（本地服务 + WebSocket + 项目检测 + Bridge Offline 提示；CLI 正式名 `ui-tuner`，发布 npm 前用 `pnpm bridge`，真机验收通过）
 
 ## 环境要求
 
@@ -25,7 +25,7 @@
 pnpm install    # 安装依赖
 pnpm build      # 构建所有包（protocol/inspector → extension 三个产物）
 pnpm dev        # watch 模式构建扩展（Chrome 里加载的 dist 持续可用）
-pnpm test       # vitest（turbo 编排，127 例）
+pnpm test       # vitest（turbo 编排，133 例）
 pnpm typecheck  # tsc --noEmit
 pnpm lint       # eslint
 pnpm format     # prettier

@@ -10,9 +10,9 @@
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M4 完成**（真机验收通过）；**M5 完成**（待真机验收）                                                                                                                                                                                                          |
+| 里程碑   | **M1–M5 完成**（真机验收通过）                                                                                                                                                                                                          |
 | 分支     | `main`（本地仓库，无远端，直接提交 main）                                                                                                                                                                                                                          |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（127 例测试）                                                                                                                                                                                                          |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（133 例测试）                                                                                                                                                                                                          |
 | 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`（面板 Offline 卡的 `npx ui-tuner` 是发布后文案） |
 
 ## 2. 三十秒上下文
@@ -118,7 +118,9 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 - 新包 `packages/bridge`：`BridgeServer`（node:http + ws，127.0.0.1:47321，`/health` 端点，hello→welcome 握手，存最新 `bridge.sync`）、`detectProject`（package.json 依赖判定 Next.js/Vite/CRA/…）、`probeDevServer`（3000/5173/8080/4000/8000 探活）、CLI `cli.ts`（bin `ui-tuner`，§15 启动横幅）。tsc 直出 ESM（相对导入带 .js），无浏览器 API（规则 8）。
 - protocol：`bridge.hello` / `bridge.welcome`（含 BridgeProject {name, framework, root} + devServerUrl）/ `bridge.sync`（selection + changes 镜像，服务 M7 的 ui_get_selection / ui_get_changes）。
 - 扩展：`messaging/bridge-channel.ts`（WebSocketLike 结构接口 + 边界守卫，同 Channel 模式）；manifest host_permissions 加 `ws://localhost/*`、`ws://127.0.0.1/*`；store `attachBridge`（hello/welcome/断线 offline）+ selection/changes 变化自动 `bridge.sync` 转发；面板 BridgeCard（§35：offline 不阻塞 Preview，提示 `npx ui-tuner` + Reconnect）。
-- 测试 127 例（inspector 81 / protocol 13 / bridge 14 / extension 19）。
+- 测试 133 例（inspector 81 / protocol 13 / bridge 20 / extension 19）。
+- 验收后修正：CLI 增加 `--cwd <项目路径>`（未发布 npm 期间从仓库根启动 Bridge 指向用户项目；`npx ui-tuner` 为发布后命令）；修复 BridgeServer 端口占用时 ws 转发 `error` 事件导致的裸崩（现友好报错退出）。
+- 真机验收通过（静态 HTML 项目：框架显示 Unknown 为正确答案；root/dev server 检测与 selection+changes 镜像均验证）。
 
 ## 7. 下一里程碑：M6 — Source Resolver
 

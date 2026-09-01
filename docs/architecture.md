@@ -229,7 +229,7 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
   - ChangeTracker：首记录捕获原值、scrub 帧原位更新、revert(changeId)、revertProperty、revertElement（仅该元素）、hasChangesFor、按时间序列表
   - picker / overlay：同 M2
 - `chrome-extension`（19 例）：Channel 内存端口对（投递/丢弃/退订/断连）；store 状态机（连接、RTT、picking ack、selection+styleValues 路由、updateStyle 预览帧不改 store/提交更新/null 删除、preview.changed 镜像、elementNames 累积、revert/reset 动作出站消息、**Bridge 握手 hello/welcome、selection/changes 自动 sync、断线 offline**、日志截断、reset）。
-- `packages/bridge`（14 例，node env）：detectProject（依赖判定/降级 Unknown/坏 JSON 容错）、probeDevServer（真端口探活/全灭返回 null）、BridgeServer（仅 127.0.0.1 绑定、/health、hello→welcome、bridge.sync 存储、非法消息丢弃、连接计数与端口释放）。
+- `packages/bridge`（20 例，node env）：detectProject（依赖判定/降级 Unknown/坏 JSON 容错）、probeDevServer（真端口探活/全灭返回 null）、resolveCwd（--cwd 解析/缺值/非目录拒绝）、BridgeServer（仅 127.0.0.1 绑定、/health、hello→welcome、bridge.sync 存储、非法消息丢弃、连接计数与端口释放、**端口占用干净 reject 不裸崩**）。
 - Playwright E2E（计划 §40 Test 01–07）见 backlog，能力齐备后统一补。
 
 ## 8. 已知限制 / 风险
