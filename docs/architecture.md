@@ -1,6 +1,6 @@
-# UI Tuner — Architecture（Milestone 6）
+# UI Tuner — Architecture（Milestone 7）
 
-> 状态：Milestone 6 完成（Source Resolver：源码索引 + 置信度定位 + Source UI）。本文档只描述**已实现**的部分，随每个 Milestone 更新。
+> 状态：Milestone 7 完成（Agent Tab + MCP Server + Codex Adapter：Codex 可获取元素 Context）。本文档只描述**已实现**的部分，随每个 Milestone 更新。
 > 完整产品规划见根目录 `UI_TUNER_EXECUTION_PLAN.md`。
 
 ## 1. 当前范围
@@ -48,7 +48,17 @@ Milestone 6 交付：
 
 **M6 验收标准**：Demo 项目可以显示源码位置。
 
-不在本阶段：Agent/MCP（M7）、Apply（M8）、Next App Router 适配 / 数据驱动文本索引 / HMR 重定位（backlog）。
+Milestone 7 交付（计划 §23–§27 + §44）：
+
+- **Agent Tab**（§23）：Context 卡（元素 + 源码行 + 截图占位）、Instruction textarea、Agent 行（Codex + ●available，§36 Offline 提示）、Include 五开关（DOM/Styles/Source/Screenshot/Parent Tree）、Context Level 1/2/3（§25，默认 L1 §24）、§26 Prompt 实时预览 + Copy、发送至 Bridge
+- **Prompt Context**（§24/§25/§26）：protocol 的 `assembleAgentContext()` 纯文本组装，**面板预览与 MCP `ui_get_context` 共用同一函数**（杜绝两处漂移）；L1=element/component/source/styles/changes/instruction，L2+=parent tree/DOM 结构，L3+=截图提示（截图本体走 ui_capture）
+- **MCP Server**（§27）：stateless StreamableHTTP（@modelcontextprotocol/sdk 1.30）内嵌 Bridge 进程，挂在同一 47321 server 的 `/mcp` 路径——与 WS 侧共享 lastSync/lastResolution/lastAgentRequest；五工具 `ui_get_selection` / `ui_get_changes` / `ui_get_context{level}` / `ui_capture{withScreenshot}` / `ui_notify_applied{files,summary}`
+- **ui_capture 往返**：Bridge→面板（WS `agent.capture`）→面板注入的 `chrome.tabs.captureVisibleTab` → `agent.captureResult` 回 Bridge → MCP 响应（截图作 MCP image content）；面板未连/超时诚实报错
+- **Codex Adapter**（§44）：`AgentAdapter` 接口 {id,name,isAvailable(),applyChanges()}；Codex/ClaudeCode/Cursor——`isAvailable()` 真实探测 CLI（`<bin> --version`），`applyChanges()` 一律诚实返回 `NOT_IMPLEMENTED`（M8），**绝不假实现成功**
+
+**M7 验收标准**：Codex 可以获取当前元素 Context。
+
+不在本阶段：Apply to Code（M8）、Next App Router 适配 / 数据驱动文本索引 / HMR 重定位（backlog）。
 
 ## 2. Repo 结构
 
@@ -137,6 +147,14 @@ ui-tuner/
 4. 结果以 `bridge.sourceResolved` 回发面板；解析异常一律降级 `unknown`，不影响 sync 通道。
 5. 面板 store 做 stale 守卫（elementId 不匹配当前选中即丢弃），重选/清除/断线置 null → Element Header 三态渲染（● Source linked 绿 / ● Source inferred 黄 / Preview only）。
 
+### Agent / MCP 流程（M7，计划 §23–§27 + §44）
+
+1. **Agent Tab**（§23）：面板展示选中元素 Context 卡 + Instruction 输入 + Agent 行（Codex，●available 来自 `bridge.agents`）+ Include 开关 + Context Level + §26 Prompt 实时预览（`assembleAgentContext`）。「发送至 Bridge」把 `agent.request {instruction, include, contextLevel}` 经 WS 给 Bridge 存为 `lastAgentRequest`。
+2. **MCP Server**（§27）：内嵌 Bridge 进程，stateless StreamableHTTP 挂在同一 server 的 `/mcp`。每请求新建 McpServer+transport，deps 闭包读 Bridge 实时状态（lastSync / lastResolution / lastAgentRequest）。Codex 注册：`codex mcp add ui-tuner --url http://127.0.0.1:47321/mcp`。
+3. **五工具**：`ui_get_selection`（selection+source+project）/ `ui_get_changes`（changes）/ `ui_get_context{level}`（`assembleAgentContext` 组装，含 lastAgentRequest 的 instruction/include）/ `ui_capture{withScreenshot}`（WS 往返面板取新鲜快照+截图，截图作 MCP image content）/ `ui_notify_applied{files,summary}`（记录 + 广播 `agent.applied` 给面板弹横幅）。空状态一律诚实文本（未选中/面板未连/超时）。
+4. **Adapter**（§44）：`CodexAdapter` 等只做真实 CLI 探测；`applyChanges()` 在 M8 前一律返回 `NOT_IMPLEMENTED`，不假实现。
+5. 面板 Agent Tab 的 Prompt 预览与 Codex 实际经 `ui_get_context` 拿到的文本**出自同一函数**，保证「所见即 Agent 所得」。
+
 ### 选取流程（M2）
 
 1. Side Panel 点「选取元素」→ `sidepanel.picking {enabled:true}` → Content Script 启动 Picker，回 `picker.state` 同步状态。
@@ -210,11 +228,16 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 | `bridge.welcome`                  | Bridge→SP     | `{bridgeVersion, project{name,framework,root}, devServerUrl}`（§15）                           |
 | `bridge.sync`                     | SP→Bridge     | `{selection, changes}` 页面状态镜像，selection/changes 变化即转发（M7 工具数据源）             |
 | `bridge.sourceResolved`           | Bridge→SP     | `{elementId, confidence, componentName?, file?, line?}`（§19/§20）；inferred/unknown 不带 line |
+| `agent.request`                   | SP→Bridge     | `{instruction, include, contextLevel, sentAt}`（§23/§24/§26）；MCP `ui_get_context` 数据源     |
+| `bridge.agents`                   | Bridge→SP     | `{agents: AgentInfo[]}`（id/name/available），welcome 后推送（§44）                            |
+| `agent.applied`                   | Bridge→SP     | `{files, summary, at}`，由 MCP `ui_notify_applied` 触发（§27）                                 |
+| `agent.capture`                   | Bridge→SP     | `{captureId, withScreenshot}`，由 MCP `ui_capture` 触发（§27）                                 |
+| `agent.captureResult`             | SP→Bridge     | `{captureId, selection, changes, screenshot?}` 截图 dataURL（§27）                             |
 
 约定：
 
 - 每条消息 `{ type, payload }`，payload 恒为**非数组对象**；边界处 `isUiTunerMessage()` 收窄，非法消息在 `Channel.onMessage` / `BridgeChannel.onMessage` / BridgeServer 三处静默丢弃。
-- Agent 消息（`agent.*`、`changes.apply` 等，计划 §17）在 M7+ 扩展进同一个包。
+- MCP 不经 WS 协议——Agent 用标准 MCP over HTTP（`/mcp`），上表 `agent.*` 仅是 Bridge↔面板侧的配套消息。
 
 ## 6. 关键设计决策
 
@@ -242,7 +265,7 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 
 ## 7. 测试
 
-- `packages/protocol`（14 例）：构造器、守卫（含数组 payload 拒绝）、按类型收窄（含 M3/M4/M5/M6 新消息）。
+- `packages/protocol`（20 例）：构造器、守卫（含数组 payload 拒绝）、按类型收窄（含 M3–M7 新消息）、`assembleAgentContext`（§26 布局/exact/unknown 降级/无选中/include 过滤/level 2·3 扩展）。
 - `packages/inspector`（84 例，jsdom）：
   - identity：id 分配/释放、selector 唯一性回查（querySelector 往返）、文本预览、**domFingerprint（结构签名/忽略 ui-tuner 属性/上限截断）**
   - selection：payload 构建（含 styles）、breadcrumb、moveToParent/moveToAncestor（含失效 id 拒绝）、clear 清理属性、keepId 保留与 id 复用
@@ -253,8 +276,8 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
   - PreviewEngine：懒挂载复用、按元素分组 `!important` 规则、白名单外拒绝、null 移除/空块清理、同值 no-op、removeElement、unmount
   - ChangeTracker：首记录捕获原值、scrub 帧原位更新、revert(changeId)、revertProperty、revertElement（仅该元素）、hasChangesFor、按时间序列表
   - picker / overlay：同 M2
-- `chrome-extension`（21 例）：Channel 内存端口对（投递/丢弃/退订/断连）；store 状态机（连接、RTT、picking ack、selection+styleValues 路由、updateStyle 预览帧不改 store/提交更新/null 删除、preview.changed 镜像、elementNames 累积、revert/reset 动作出站消息、Bridge 握手 hello/welcome、selection/changes 自动 sync、断线 offline、**sourceResolved 落库 + stale 守卫 + 重选/清除/断线置 null**、日志截断、reset）。
-- `packages/bridge`（43 例，node env）：detectProject、probeDevServer、resolveCwd、BridgeServer（含**sourceResolved 集成**、端口占用干净 reject）、resolver/indexer（扫描跳过规则、组件名提取、跨行文本行号、模板串 class token）、resolver/resolve（信号提取、exact/inferred/unknown 判定纪律、stale/空索引）、**resolve.example（对真实 examples/react-vite 的 10 例锚定测试，M6 验收自动化）**。
+- `chrome-extension`（27 例）：Channel 内存端口对（投递/丢弃/退订/断连）；store 状态机（连接、RTT、picking ack、selection+styleValues 路由、updateStyle 预览帧不改 store/提交更新/null 删除、preview.changed 镜像、elementNames 累积、revert/reset 动作出站消息、Bridge 握手 hello/welcome、selection/changes 自动 sync、断线 offline、sourceResolved 落库 + stale 守卫 + 重选/清除/断线置 null、**M7：bridge.agents 落库/断线清空、agent.request 发送+sent 状态、离线 no-op、agent.applied 横幅/dismiss、agent.capture 往返含注入截图/无截图降级**、日志截断、reset）。
+- `packages/bridge`（56 例，node env）：detectProject、probeDevServer、resolveCwd、BridgeServer（含 sourceResolved 集成、端口占用干净 reject、bridge.agents 推送、agent.request 存储、agent.captureResult 结算、ui_notify_applied 广播）、resolver/indexer、resolver/resolve、resolve.example（对真实 examples/react-vite 的 10 例锚定测试）、**adapter（CLI 探测真/假、二进制名、Codex 优先、applyChanges 诚实 NOT_IMPLEMENTED）**、**mcp（五工具 list/空状态诚实/sync 镜像/context 组装含 agent.request/capture 往返+image content/无面板诚实失败/notify_applied 广播）**。
 - Playwright E2E（计划 §40 Test 01–07）见 backlog，能力齐备后统一补。
 
 ## 8. 已知限制 / 风险
@@ -266,6 +289,7 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 - Bridge 无鉴权（仅本机回环可连，§38）；47321 被占用时 CLI 报错退出而非换端口（计划 §15 固定端口）。
 - CLI 未发布 npm：`npx ui-tuner` 报 "could not determine executable to run"；本地开发用 `pnpm bridge --cwd <项目路径>`。面板 Offline 卡显示的 `npx ui-tuner` 是发布后目标文案（backlog）。
 - 重连后 elementNames 需重新选中元素才有 tagName（此前 Changes 分组显示 ut 短码）。
+- **MCP / Codex 集成（M7）**：codex 需走本机代理（`HTTPS_PROXY=http://127.0.0.1:7892` + `NO_PROXY=localhost,127.0.0.1` 排除 loopback）否则模型流反复重连；codex exec 调 MCP 工具默认被 approval:never 自动取消（"user cancelled MCP tool call"），需 `--dangerously-bypass-approvals-and-sandbox`（backlog：研究免 flag 的 trusted-MCP 配置）。`ui_capture` 截图当前是整页可视区，元素级裁剪顺延 backlog。
 - Source Resolver V1（M6）：只覆盖 Vite/React 常规结构（Next App Router 适配顺延）；数据驱动文本（数组/接口渲染的字符串）不进索引 → 这类元素多为 Preview only；`clsx(...)` 等函数调用形式的 className 只提取字符串参数之外不展开；索引每次 selection 重建，大项目（>500 源文件）截断（backlog）。
 - Multi Select（Shift+Click）顺延（计划 Task 2.5，backlog）；`⌘↓` 未实现（backlog）。
 - hover 高亮不进入 iframe / closed shadow root 内部元素（V0.1 边界，计划 §1.2）。

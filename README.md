@@ -13,6 +13,7 @@
 - **Milestone 4 完成**：ChangeSet（单条 Revert / 元素 Revert / Reset All / Changes Tab 完整化，真机验收通过）
 - **Milestone 5 完成**：Local Bridge（本地服务 + WebSocket + 项目检测 + Bridge Offline 提示；CLI 正式名 `ui-tuner`，发布 npm 前用 `pnpm bridge`，真机验收通过）
 - **Milestone 6 完成**：Source Resolver（选中元素 → 组件文件+行号+置信度；Element Header 三态 Source UI；含 §39 Example A 验证项目 `examples/react-vite`）
+- **Milestone 7 完成**：Agent + MCP（Agent Tab §26 Prompt 预览 / MCP Server 五工具挂在 Bridge `/mcp` / Codex Adapter 真实检测；Codex 可经 MCP 获取当前元素 Context，真机验收通过）
 
 ## 环境要求
 
@@ -51,6 +52,32 @@ pnpm bridge     # 启动 Local Bridge ws://127.0.0.1:47321（--cwd <项目路径
 > 修改代码后的完整循环：`pnpm build` → `chrome://extensions` 点扩展卡片刷新 → **刷新 localhost 页面**（content script 只在页面加载时注入）→ 重开 Side Panel。
 
 ## 验收
+
+### Milestone 7 — Agent + MCP
+
+前置：Bridge 在跑（`pnpm bridge --cwd examples/react-vite`），示例页 `http://127.0.0.1:5173` 打开，Side Panel 已选中「查看详情」按钮。
+
+1. 面板切到 **Agent** Tab → Context 卡显示 `<button>` + `Card · src/components/Card.tsx:10`；Agent 行显示 **Codex ● available**；§26 Prompt 预览实时渲染（Selected Component / Source / Current relevant styles / User preview changes / Instruction）。
+2. Instruction 输入「整体紧凑一点，标题不要变小」→ 预览末尾同步出现该指令。
+3. 点 **发送至 Bridge** → 提示「已发送至 Bridge · … Codex 可经 MCP ui_get_context 获取」。
+4. 把 MCP 注册给 Codex（一次性）：
+
+   ```bash
+   codex mcp add ui-tuner --url http://127.0.0.1:47321/mcp
+   ```
+
+5. 让 Codex 拉取上下文（exec 模式需 bypass 审批才能放行 tools/call；本机有代理时带上）：
+
+   ```bash
+   HTTPS_PROXY=http://127.0.0.1:7892 NO_PROXY=localhost,127.0.0.1 \
+     codex exec --dangerously-bypass-approvals-and-sandbox -m gpt-5.5 \
+     "Call ui-tuner MCP tool ui_get_context level 1. Quote the Selected Component, Source, and Instruction."
+   ```
+
+   Codex 应返回 `Selected Component: Card`、`Source: src/components/Card.tsx:10`、`Instruction: 整体紧凑一点，标题不要变小` —— 即面板当前选中元素的真实 Context。
+6. （可选）Codex 调 `ui_capture` 取回新鲜快照+截图；调 `ui_notify_applied` 后面板 Agent Tab 顶部弹出「已修改源码」横幅。
+
+> 注：`codex mcp list` 能列出工具只证明 initialize/tools/list 通了；**tools/call 需要 bypass 审批**，否则 codex 报 "user cancelled MCP tool call" 且请求根本不到 Bridge。
 
 ### Milestone 6 — Source Resolver
 
@@ -129,10 +156,10 @@ Ping page 出现 RTT 与 `→ sidepanel.ping` / `← content.pong` 日志。
 apps/chrome-extension     Chrome MV3 扩展（Side Panel / Content Script / Background）
 packages/protocol         跨上下文共享消息协议
 packages/inspector        Picker / Overlay / Selection / PreviewEngine / ChangeTracker（chrome-free）
-packages/bridge           Local Bridge：WebSocket 服务 + 项目检测 + Source Resolver（CLI bin: ui-tuner）
+packages/bridge           Local Bridge：WebSocket 服务 + 项目检测 + Source Resolver + MCP Server(/mcp) + Agent Adapters（CLI bin: ui-tuner）
 examples/react-vite       §39 Example A 验证项目（独立 npm 项目：npm install && npm run dev）
 dev/                      localhost 测试页
 docs/                     architecture / handover / backlog
 ```
 
-后续 Milestone（Style Inspector → ChangeSet → Bridge → Source Resolver → Agent/MCP → Apply to Code）见执行计划 §42。
+后续 Milestone（Apply to Code M8）见执行计划 §42。

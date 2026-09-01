@@ -10,10 +10,10 @@
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M6 完成**（真机验收通过）                                                                                                                                                                                                          |
+| 里程碑   | **M1–M7 完成**（M7 真机验收通过：Codex 经 MCP 获取元素 Context）                                                                                                                                                                                                          |
 | 分支     | `main`（本地仓库，无远端，直接提交 main）                                                                                                                                                                                                                          |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（162 例测试）                                                                                                                                                                                                          |
-| 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`（面板 Offline 卡的 `npx ui-tuner` 是发布后文案） |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（187 例测试）                                                                                                                                                                                                          |
+| 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`（面板 Offline 卡的 `npx ui-tuner` 是发布后文案）；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`（否则 approval:never 自动取消 tools/call） |
 
 ## 2. 三十秒上下文
 
@@ -42,7 +42,9 @@ UI Tuner/
                                styles(白名单/解析/取色) / PreviewEngine / ChangeTracker / snapshot /
                                domFingerprint（§21 结构指纹）
     bridge/                    本地 Bridge：CLI(bin ui-tuner, :47321 仅 127.0.0.1) + WebSocket
-                               服务 + 项目/dev server 检测 + resolver/(源码索引+打分定位)；
+                               服务 + 项目/dev server 检测 + resolver/(源码索引+打分定位)
+                               + adapter/(Codex/ClaudeCode/Cursor 检测) + mcp/(§27 五工具,
+                               stateless StreamableHTTP 挂在同 server /mcp)；
                                不 import 浏览器 API（规则 8）
   apps/
     chrome-extension/
@@ -52,7 +54,7 @@ UI Tuner/
       src/
         background/            SW：点击图标开面板
         content/               内容脚本：接线 inspector ↔ Port（chrome 知识只在这里）
-        sidepanel/             React App（App.tsx = 三 Tab；components/ = ScrubInput/StylePanel/rows/ChangesTab）
+        sidepanel/             React App（App.tsx = 三 Tab；components/ = ScrubInput/StylePanel/rows/ChangesTab/AgentTab）
         messaging/channel.ts   Port 类型化封装（PortLike 结构接口）
         state/                 zustand store（连接 + picking + selection + styleValues + changes）
 ```
@@ -139,11 +141,20 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 - 测试 162 例（inspector 84 / protocol 14 / bridge 43 / extension 21）；含 `resolve.example.test.ts` 对真实 examples/react-vite 的 10 例锚定测试（M6 验收的自动化形态）。
 - 真机验收通过（2026-09-01，自动化 E2E 9/9：Chrome for Testing + 真实扩展 + live Bridge —— 品牌 Chrome 152 禁 `--load-extension`；`sidePanel.open()` 有手势门禁，自动化用面板后台标签页等价。脚本 `/tmp/ui-tuner-e2e/acceptance.mjs` 是 §40 E2E 地基）。
 
-## 7. 下一里程碑：M7 — Agent + MCP
+**M7**：Agent + MCP。
 
-**范围（计划 §23–§27）**：Agent Tab（Prompt Context §24/§25/§26）+ MCP Server（§27：ui_get_selection / ui_get_changes / ui_get_context / ui_capture / ui_notify_applied）+ Codex Adapter（§44）。**验收**：Codex 可以获取当前元素 Context。**禁止**：Apply to Code（M8）。
+- protocol：新消息 `agent.request`（SP→Bridge：instruction + include 开关 + contextLevel）/ `bridge.agents`（AgentInfo 可用性，welcome 后推送）/ `agent.applied`（Bridge→SP，ui_notify_applied 触发）/ `agent.capture` + `agent.captureResult`（ui_capture 往返）；新类型 `ContextLevel`(1|2|3) / `AgentInclude` / `AgentInfo`；`assembleAgentContext()`（§26 纯文本组装，面板预览与 MCP ui_get_context 共用，杜绝漂移）。
+- bridge `adapter/`（§44）：`AgentAdapter` 接口 {id,name,isAvailable(),applyChanges()}；Codex 优先，ClaudeCode/Cursor 占位——`isAvailable()` 真实探测 CLI（`<bin> --version` 3s 超时），`applyChanges()` 一律诚实返回 `NOT_IMPLEMENTED`（M8），**绝不假实现成功**。
+- bridge `mcp/`（§27）：stateless StreamableHTTP 挂在同一 47321 server 的 `/mcp` 路径（与 WS 侧共享 lastSync/lastResolution/lastAgentRequest）；五工具 `ui_get_selection` / `ui_get_changes` / `ui_get_context{level}` / `ui_capture{withScreenshot}` / `ui_notify_applied{files,summary}`。空状态诚实回报（未选中/面板未连）；`ui_capture` 经 WS 往返面板拿新鲜 selection+changes+截图（截图作 MCP image content）。
+- 扩展 AgentTab（§23）：Context 卡（元素 + 源码行 + 截图占位）/ Instruction textarea / Agent 行（Codex + ●available，§36 Offline 提示）/ Include 五开关 / Context Level 1/2/3 / §26 Prompt 实时预览 + Copy / 发送至 Bridge；store 增 agent 状态（agents/agentInstruction/agentInclude/agentContextLevel/agentSent/lastApplied），`registerCaptureHandler` 注入 `chrome.tabs.captureVisibleTab`（store 保持 chrome-free 可测）。
+- 测试 187 例（inspector 84 / protocol 20 / bridge 56 / extension 27）。
+- 真机验收通过（2026-09-01）：Codex CLI 经 `codex mcp add ui-tuner --url http://127.0.0.1:47321/mcp` 注册后，`ui_get_context` 真实返回选中元素 Context（组件 Card · src/components/Card.tsx:10 · 指令「整体紧凑一点，标题不要变小」）。**两个 codex 侧坑**：① codex 需走本机代理（`HTTPS_PROXY=http://127.0.0.1:7892`，且 `NO_PROXY=localhost,127.0.0.1` 排除 loopback）否则模型流反复重连；② codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`（approval:never 会把 tools/call 当需审批而自动取消——"user cancelled MCP tool call"，请求根本不到 bridge）。
 
-**注意**：M6 顺延项在 backlog（Next App Router 适配、数据驱动文本索引、索引缓存、HMR 重定位 §22 依赖）。
+## 7. 下一里程碑：M8 — Apply to Code
+
+**范围（计划 §45/§46/§47 等）**：`ApplyChangeRequest` / `ApplyChangeResult` 协议 + CodexAdapter.applyChanges 真实实现（把 §26 Context + Preview changes 交给 Codex 落到源码）+ 面板 Apply 入口与结果反馈 + ui_notify_applied 闭环。**验收**：Codex 将选中元素的 Preview 修改落到真实源码文件。**前置**：M1–M7 全部就绪。
+
+**注意**：M6/M7 顺延项在 backlog（Next App Router 适配、数据驱动文本索引、索引缓存、HMR 重定位 §22、颜色 alpha、CLI npm 发布、codex MCP 审批免 flag 配置）。
 
 ## 8. 新会话启动模板（计划 §52）
 
