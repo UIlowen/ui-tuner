@@ -109,7 +109,7 @@ ui-tuner/
 
 ### Bridge 流程（M5）
 
-1. 用户在项目目录跑 `npx ui-tuner`（或仓库内 `pnpm bridge`）：检测框架 + 探活 dev server → 打印 §15 横幅 → 监听 127.0.0.1:47321。
+1. 用户在项目目录跑 `npx ui-tuner`（发布后命令；当前未发布 npm，本地等价 `pnpm bridge --cwd <项目路径>` 或项目目录内 `node …/dist/cli.js`）：检测框架 + 探活 dev server → 打印 §15 横幅 → 监听 127.0.0.1:47321。
 2. Side Panel 打开即拨号 `ws://127.0.0.1:47321`；连不上 → Bridge Offline 卡（§35：Preview 不受影响，提示启动命令）。
 3. 连上 → `bridge.hello`（扩展版本 + 页面 URL）→ Bridge 回 `bridge.welcome`（框架/root/dev server）→ 面板 Bridge 卡显示 `Vite · localhost:5173`。
 4. 之后每次 `selection.changed` / `selection.cleared` / `preview.changed`，面板自动转发 `bridge.sync {selection, changes}` —— Bridge 持有最新镜像，供 M7 MCP `ui_get_selection` / `ui_get_changes`。
@@ -239,6 +239,7 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 - 颜色提交写 `#rrggbb`，半透明色（rgba alpha）会丢失 alpha（V0.1 取舍，backlog 记录）。
 - Bridge 只在 Side Panel 打开时在线（面板关 = Agent 通道断）；M7 若需后台常驻再评估。
 - Bridge 无鉴权（仅本机回环可连，§38）；47321 被占用时 CLI 报错退出而非换端口（计划 §15 固定端口）。
+- CLI 未发布 npm：`npx ui-tuner` 报 "could not determine executable to run"；本地开发用 `pnpm bridge --cwd <项目路径>`。面板 Offline 卡显示的 `npx ui-tuner` 是发布后目标文案（backlog）。
 - 重连后 elementNames 需重新选中元素才有 tagName（此前 Changes 分组显示 ut 短码）。
 - Multi Select（Shift+Click）顺延（计划 Task 2.5，backlog）；`⌘↓` 未实现（backlog）。
 - hover 高亮不进入 iframe / closed shadow root 内部元素（V0.1 边界，计划 §1.2）。

@@ -114,4 +114,15 @@ describe("BridgeServer", () => {
     await expect(second.start()).resolves.toBe(`ws://127.0.0.1:${port}`);
     await second.stop();
   });
+
+  it("rejects cleanly when the port is already taken (no unhandled 'error')", async () => {
+    const address = await server.start();
+    const second = new BridgeServer({ port: portOf(address), project: PROJECT });
+    // ws re-emits the http 'error' on the WebSocketServer — before the fix
+    // this crashed the test process with an unhandled 'error' event.
+    await expect(second.start()).rejects.toThrow();
+    // The original server is unaffected and still healthy.
+    const response = await fetch(`http://127.0.0.1:${portOf(address)}/health`);
+    expect(response.status).toBe(200);
+  });
 });

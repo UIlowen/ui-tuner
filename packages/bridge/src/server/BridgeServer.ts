@@ -76,9 +76,14 @@ export class BridgeServer {
         socket.on("message", (raw) => this.handleRaw(socket, raw.toString()));
       });
 
+      // ws re-emits the http server's 'error' on the WebSocketServer itself;
+      // without a listener there, EADDRINUSE at listen time is an unhandled
+      // 'error' event that kills the process before the rejection lands.
       httpServer.once("error", rejectPromise);
+      wss.once("error", rejectPromise);
       httpServer.listen(this.options.port, "127.0.0.1", () => {
         httpServer.off("error", rejectPromise);
+        wss.off("error", rejectPromise);
         this.httpServer = httpServer;
         this.wss = wss;
         resolvePromise(this.address ?? "");

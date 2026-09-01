@@ -1,14 +1,23 @@
 #!/usr/bin/env node
+import { resolveCwd } from "./args.js";
 import { detectProject } from "./detect/project.js";
 import { probeDevServer } from "./detect/devserver.js";
 import { BridgeServer } from "./server/BridgeServer.js";
 
 /**
- * `npx ui-tuner` (plan §15): detect the project, start the bridge on
- * 127.0.0.1:47321 and print the startup banner. Stays in the foreground.
+ * Bridge CLI (plan §15). Published target: `npx ui-tuner` inside the user's
+ * project. Local equivalent until then: `pnpm bridge --cwd <project>` from
+ * the UI Tuner repo, or `node …/packages/bridge/dist/cli.js` from the
+ * project directory. Detects the project, listens on 127.0.0.1:47321 and
+ * stays in the foreground.
  */
 async function main(): Promise<void> {
-  const cwd = process.cwd();
+  const cwd = resolveCwd(process.argv.slice(2), process.cwd());
+  if (cwd === null) {
+    process.stderr.write("✗ --cwd expects an existing directory\n");
+    process.exitCode = 1;
+    return;
+  }
   const project = await detectProject(cwd);
 
   process.stdout.write("UI Tuner\n\n");

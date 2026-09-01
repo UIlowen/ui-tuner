@@ -104,12 +104,10 @@ function BridgeCard() {
 /** Dial the local bridge from the side panel (plan §16; §38 loopback only). */
 function dialBridge(): void {
   const { pageUrl } = useSidepanelStore.getState();
-  useSidepanelStore
-    .getState()
-    .attachBridge(BridgeChannel.connect(), {
-      extensionVersion: chrome.runtime.getManifest().version,
-      pageUrl,
-    });
+  useSidepanelStore.getState().attachBridge(BridgeChannel.connect(), {
+    extensionVersion: chrome.runtime.getManifest().version,
+    pageUrl,
+  });
 }
 
 type TabId = "style" | "agent" | "changes";
