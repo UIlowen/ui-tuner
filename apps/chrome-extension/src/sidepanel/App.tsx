@@ -114,10 +114,19 @@ type TabId = "style" | "agent" | "changes";
 
 function SelectionCard() {
   const selection = useSidepanelStore((s) => s.selection);
+  const source = useSidepanelStore((s) => s.source);
   const selectAncestor = useSidepanelStore((s) => s.selectAncestor);
 
   if (!selection) return null;
   const { element, breadcrumb } = selection;
+
+  // Plan §20: three honest states — never fabricate a source location.
+  const badge =
+    source?.confidence === "exact"
+      ? { label: "● Source linked", className: "bg-emerald-500/15 text-emerald-400" }
+      : source?.confidence === "inferred"
+        ? { label: "● Source inferred", className: "bg-amber-500/15 text-amber-400" }
+        : { label: "Preview only", className: "bg-zinc-800 text-zinc-500" };
 
   return (
     <section className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2.5">
@@ -128,9 +137,7 @@ function SelectionCard() {
           {">"}
         </span>
         <span className="flex shrink-0 items-baseline gap-2">
-          <span className="rounded bg-zinc-800 px-1 py-px text-[9px] text-zinc-500">
-            Preview only
-          </span>
+          <span className={`rounded px-1 py-px text-[9px] ${badge.className}`}>{badge.label}</span>
           <span className="font-mono text-[11px] text-zinc-400 tabular-nums">
             {element.bounds.width} × {element.bounds.height}
           </span>
@@ -139,6 +146,23 @@ function SelectionCard() {
       <p className="mt-0.5 truncate font-mono text-[10px] text-zinc-500" title={element.selector}>
         {element.selector}
       </p>
+
+      {source?.confidence === "exact" && source.file && (
+        <p
+          className="mt-1 truncate font-mono text-[10px] text-emerald-400/80"
+          title={`${source.file}:${source.line}`}
+        >
+          {source.componentName ?? element.tagName} · {source.file}
+          {source.line !== undefined ? `:${source.line}` : ""}
+        </p>
+      )}
+      {source?.confidence === "inferred" && source.file && (
+        <p className="mt-1 truncate font-mono text-[10px] text-amber-400/80" title={source.file}>
+          Possible: {source.componentName ? `${source.componentName} · ` : ""}
+          {source.file}
+        </p>
+      )}
+
       {element.text && (
         <p className="mt-1 truncate text-[11px] text-zinc-400" title={element.text}>
           “{element.text}”

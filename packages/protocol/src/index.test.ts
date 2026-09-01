@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createBridgeHello,
+  createBridgeSourceResolved,
   createBridgeSync,
   createBridgeWelcome,
   createContentPong,
@@ -17,6 +18,7 @@ import {
   createSidepanelSelectAncestor,
   createSidepanelStylePreview,
   isBridgeHelloMessage,
+  isBridgeSourceResolvedMessage,
   isBridgeSyncMessage,
   isBridgeWelcomeMessage,
   isContentPongMessage,
@@ -91,6 +93,13 @@ function createEveryMessage(): UiTunerMessage[] {
       devServerUrl: "http://localhost:5173",
     }),
     createBridgeSync({ selection: null, changes: [] }),
+    createBridgeSourceResolved({
+      elementId: "ut-000001",
+      confidence: "exact",
+      componentName: "Card",
+      file: "src/components/Card.tsx",
+      line: 8,
+    }),
   ];
 }
 
@@ -219,6 +228,32 @@ describe("creators", () => {
       payload: { selection: null, changes: [] },
     });
   });
+
+  it("creates source resolver messages (plan §19/§20)", () => {
+    expect(
+      createBridgeSourceResolved({
+        elementId: "ut-000001",
+        confidence: "exact",
+        componentName: "Card",
+        file: "src/components/Card.tsx",
+        line: 8,
+      }),
+    ).toEqual({
+      type: "bridge.sourceResolved",
+      payload: {
+        elementId: "ut-000001",
+        confidence: "exact",
+        componentName: "Card",
+        file: "src/components/Card.tsx",
+        line: 8,
+      },
+    });
+
+    // Inferred / unknown never fabricate a location (plan §20).
+    expect(
+      createBridgeSourceResolved({ elementId: "ut-9", confidence: "unknown" }).payload,
+    ).toEqual({ elementId: "ut-9", confidence: "unknown" });
+  });
 });
 
 describe("isUiTunerMessage", () => {
@@ -263,6 +298,7 @@ describe("per-type guards", () => {
     expect(messages.filter(isBridgeHelloMessage)).toHaveLength(1);
     expect(messages.filter(isBridgeWelcomeMessage)).toHaveLength(1);
     expect(messages.filter(isBridgeSyncMessage)).toHaveLength(1);
+    expect(messages.filter(isBridgeSourceResolvedMessage)).toHaveLength(1);
   });
 });
 

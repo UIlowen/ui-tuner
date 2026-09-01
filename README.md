@@ -12,6 +12,7 @@
 - **Milestone 3 完成**：Style Inspector（三 Tab / ScrubInput 拖拽调值 / 实时 Preview / 变更记录，真机验收通过）
 - **Milestone 4 完成**：ChangeSet（单条 Revert / 元素 Revert / Reset All / Changes Tab 完整化，真机验收通过）
 - **Milestone 5 完成**：Local Bridge（本地服务 + WebSocket + 项目检测 + Bridge Offline 提示；CLI 正式名 `ui-tuner`，发布 npm 前用 `pnpm bridge`，真机验收通过）
+- **Milestone 6 完成**：Source Resolver（选中元素 → 组件文件+行号+置信度；Element Header 三态 Source UI；含 §39 Example A 验证项目 `examples/react-vite`）
 
 ## 环境要求
 
@@ -25,7 +26,7 @@
 pnpm install    # 安装依赖
 pnpm build      # 构建所有包（protocol/inspector → extension 三个产物）
 pnpm dev        # watch 模式构建扩展（Chrome 里加载的 dist 持续可用）
-pnpm test       # vitest（turbo 编排，133 例）
+pnpm test       # vitest（turbo 编排，162 例）
 pnpm typecheck  # tsc --noEmit
 pnpm lint       # eslint
 pnpm format     # prettier
@@ -50,6 +51,24 @@ pnpm bridge     # 启动 Local Bridge ws://127.0.0.1:47321（--cwd <项目路径
 > 修改代码后的完整循环：`pnpm build` → `chrome://extensions` 点扩展卡片刷新 → **刷新 localhost 页面**（content script 只在页面加载时注入）→ 重开 Side Panel。
 
 ## 验收
+
+### Milestone 6 — Source Resolver
+
+1. `pnpm build` → `chrome://extensions` 刷新扩展。
+2. 启动示例项目与 Bridge（Bridge 的 `--cwd` 指向示例项目）：
+
+   ```bash
+   cd examples/react-vite && npm install && npm run dev   # http://127.0.0.1:5173
+   # 另开终端，仓库根：
+   pnpm bridge --cwd examples/react-vite                  # 横幅应显示 Vite + :5173
+   ```
+
+3. Chrome 打开 `http://127.0.0.1:5173` → 刷新页面 → 重开 Side Panel → BRIDGE 卡显示 `Vite · localhost:5173`。
+4. 选取「总览」导航链接 → Element Header 徽标变 **● Source linked**（绿），显示 `Navbar · src/components/Navbar.tsx:7`。
+5. 选取「查看详情」按钮 → **● Source linked** → `Card · src/components/Card.tsx:10`（JSX 调用点，与 React 语义一致）。
+6. 用面包屑 ⌘↑ 选中卡片容器（`card stat-card`）→ **● Source inferred**（黄）→ `Possible: Card · src/components/Card.tsx`（只给文件不给行号，不伪造）。
+7. 继续 ⌘↑ 到最外层 `app-shell` div → **Preview only**（无法定位时的诚实状态）。
+8. 停掉 Bridge → 回到 Preview only；选取/调样式不受影响。
 
 ### Milestone 5 — Local Bridge
 
@@ -110,7 +129,8 @@ Ping page 出现 RTT 与 `→ sidepanel.ping` / `← content.pong` 日志。
 apps/chrome-extension     Chrome MV3 扩展（Side Panel / Content Script / Background）
 packages/protocol         跨上下文共享消息协议
 packages/inspector        Picker / Overlay / Selection / PreviewEngine / ChangeTracker（chrome-free）
-packages/bridge           Local Bridge：WebSocket 服务 + 项目检测（CLI bin: ui-tuner）
+packages/bridge           Local Bridge：WebSocket 服务 + 项目检测 + Source Resolver（CLI bin: ui-tuner）
+examples/react-vite       §39 Example A 验证项目（独立 npm 项目：npm install && npm run dev）
 dev/                      localhost 测试页
 docs/                     architecture / handover / backlog
 ```

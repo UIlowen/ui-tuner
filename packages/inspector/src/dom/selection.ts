@@ -1,7 +1,13 @@
 import type { BreadcrumbItem, SelectionPayload } from "@ui-tuner/protocol";
 import { boundsFromRect } from "../measurement/rect";
 import { pickStyles } from "../styles/computed";
-import { assignUiTunerId, cssSelectorFor, releaseUiTunerId, textPreview } from "./identity";
+import {
+  assignUiTunerId,
+  cssSelectorFor,
+  domFingerprintFor,
+  releaseUiTunerId,
+  textPreview,
+} from "./identity";
 
 /**
  * Owns the current selection: assigns uiTunerIds to the selected element and
@@ -39,6 +45,7 @@ export class SelectionTracker {
         tagName: element.tagName.toLowerCase(),
         selector: cssSelectorFor(element),
         text: textPreview(element),
+        domFingerprint: domFingerprintFor(element),
         bounds: boundsFromRect(element.getBoundingClientRect()),
       },
       breadcrumb,

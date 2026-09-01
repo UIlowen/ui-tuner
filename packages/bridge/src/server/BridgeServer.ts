@@ -1,14 +1,18 @@
 import { createServer, type Server } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import {
+  createBridgeSourceResolved,
   createBridgeWelcome,
   isBridgeHelloMessage,
   isBridgeSyncMessage,
   isUiTunerMessage,
   type BridgeProject,
   type BridgeSyncMessage,
+  type SelectionPayload,
+  type SourceResolution,
   type UiTunerMessage,
 } from "@ui-tuner/protocol";
+import { resolveSource } from "../resolver/resolve.js";
 
 /**
  * Local bridge server (plan §15/§16): one HTTP server on 127.0.0.1 with a
@@ -24,6 +28,11 @@ export interface BridgeServerOptions {
   project: BridgeProject;
   devServerUrl?: string | null;
   bridgeVersion?: string;
+  /**
+   * Source resolver (plan §19). Defaults to a static scan of `project.root`;
+   * injectable for tests and future adapters.
+   */
+  resolveSource?: (selection: SelectionPayload) => SourceResolution;
 }
 
 export class BridgeServer {
@@ -132,8 +141,30 @@ export class BridgeServer {
       );
     } else if (isBridgeSyncMessage(parsed)) {
       this.lastSync = parsed.payload;
+      const selection = parsed.payload.selection;
+      if (selection) this.resolveAndSend(socket, selection);
     }
     // Everything else (channel / picker messages, future agent traffic) is
     // accepted at the boundary but ignored until its milestone wires it in.
+  }
+
+  /**
+   * M6 (plan §19/§20): locate the selected element in the project sources
+   * and report the confidence-graded result. Resolution failures must never
+   * break the sync channel — degrade to `unknown` (Preview only).
+   */
+  private resolveAndSend(socket: WebSocket, selection: SelectionPayload): void {
+    let resolution: SourceResolution;
+    try {
+      const resolve =
+        this.options.resolveSource ??
+        ((current: SelectionPayload) => resolveSource(this.options.project.root, current));
+      resolution = resolve(selection);
+    } catch {
+      resolution = { elementId: selection.element.id, confidence: "unknown" };
+    }
+    if (socket.readyState === socket.OPEN) {
+      socket.send(JSON.stringify(createBridgeSourceResolved(resolution)));
+    }
   }
 }

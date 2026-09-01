@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createBridgeSourceResolved,
   createBridgeWelcome,
   createContentPong,
   createContentReady,
@@ -280,6 +281,90 @@ describe("sidepanel store", () => {
     const offline = useSidepanelStore.getState();
     expect(offline.bridgeStatus).toBe("offline");
     expect(offline.bridgeProject).toBeNull();
+  });
+
+  it("stores bridge.sourceResolved only when it matches the live selection (plan §20)", () => {
+    resetStore();
+    const socket = new FakeSocket();
+    useSidepanelStore.getState().attachBridge(BridgeChannel.accept(socket), {
+      extensionVersion: "0.1.0",
+      pageUrl: null,
+    });
+    socket.open();
+    selectElement({ gap: "24px" });
+    expect(useSidepanelStore.getState().source).toBeNull(); // pending resolution
+
+    socket.message(
+      JSON.stringify(
+        createBridgeSourceResolved({
+          elementId: "ut-000001",
+          confidence: "exact",
+          componentName: "Card",
+          file: "src/components/Card.tsx",
+          line: 8,
+        }),
+      ),
+    );
+    expect(useSidepanelStore.getState().source).toMatchObject({
+      confidence: "exact",
+      componentName: "Card",
+      file: "src/components/Card.tsx",
+      line: 8,
+    });
+
+    // A resolution for another (stale) element is ignored — never fabricate.
+    socket.message(
+      JSON.stringify(
+        createBridgeSourceResolved({
+          elementId: "ut-999999",
+          confidence: "inferred",
+          file: "src/other.tsx",
+        }),
+      ),
+    );
+    expect(useSidepanelStore.getState().source?.file).toBe("src/components/Card.tsx");
+  });
+
+  it("clears source on reselect, selection clear, and bridge drop", () => {
+    resetStore();
+    const socket = new FakeSocket();
+    useSidepanelStore.getState().attachBridge(BridgeChannel.accept(socket), {
+      extensionVersion: "0.1.0",
+      pageUrl: null,
+    });
+    socket.open();
+    selectElement({ gap: "24px" });
+    socket.message(
+      JSON.stringify(
+        createBridgeSourceResolved({
+          elementId: "ut-000001",
+          confidence: "inferred",
+          file: "src/components/Card.tsx",
+        }),
+      ),
+    );
+    expect(useSidepanelStore.getState().source).not.toBeNull();
+
+    // Reselecting invalidates the previous resolution (bridge re-resolves).
+    selectElement({ gap: "24px" });
+    expect(useSidepanelStore.getState().source).toBeNull();
+
+    socket.message(
+      JSON.stringify(
+        createBridgeSourceResolved({
+          elementId: "ut-000001",
+          confidence: "unknown",
+        }),
+      ),
+    );
+    expect(useSidepanelStore.getState().source?.confidence).toBe("unknown");
+
+    useSidepanelStore.getState().receive(createSelectionCleared());
+    expect(useSidepanelStore.getState().source).toBeNull();
+
+    socket.close();
+    expect(useSidepanelStore.getState().source).toBeNull();
+    expect(useSidepanelStore.getState().bridgeStatus).toBe("offline");
   });
 });
 

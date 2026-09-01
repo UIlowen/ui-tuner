@@ -15,6 +15,9 @@
 | 完整 Undo Stack              | 计划 §14，V0.1 只需 Revert 单属性/元素/全部                                         | P1                |
 | Variant Scope                | Apply Dialog 的第三种 scope（计划 §30）                                             | P1                |
 | npm 发布 CLI                 | `npx ui-tuner`（计划 §15 正式入口）当前不可用——包未发布；Offline 卡文案为发布后目标 | 发布节点          |
+| Next App Router 适配         | Source Resolver V1 只覆盖 Vite/React 常规结构（M6 指引：Next 随后）                 | M7+               |
+| 数据驱动文本索引             | 数组/接口渲染的字符串不进源码索引 → 这类元素多为 Preview only（M6 取舍）            | 待定              |
+| 源码索引缓存/文件监听        | M6 每次 selection 重建索引（上限 500 文件）；大项目需要缓存或 watch                 | 待定              |
 
 ## Scope 外（V0.1 明确不做，计划 §1.2）
 

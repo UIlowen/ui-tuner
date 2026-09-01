@@ -1,4 +1,7 @@
 import WebSocket from "ws";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createBridgeHello, createBridgeSync } from "@ui-tuner/protocol";
 import { BridgeServer } from "./BridgeServer";
@@ -95,6 +98,69 @@ describe("BridgeServer", () => {
     expect(server.synced).toBeNull();
     expect(server.connectionCount).toBe(1);
     socket.terminate();
+  });
+
+  it("resolves source for a synced selection and replies bridge.sourceResolved (plan §19/§20)", async () => {
+    await server.stop();
+    // Real resolver against a fixture project (no injection).
+    const root = mkdtempSync(join(tmpdir(), "ui-tuner-server-"));
+    mkdirSync(join(root, "src/components"), { recursive: true });
+    writeFileSync(
+      join(root, "src/components/Button.tsx"),
+      [
+        "export default function Button() {",
+        "  return (",
+        '    <button className="btn btn-primary">',
+        "      立即订阅",
+        "    </button>",
+        "  );",
+        "}",
+      ].join("\n"),
+    );
+    server = new BridgeServer({ port: 0, project: { name: "demo", framework: "Vite", root } });
+    const address = await server.start();
+
+    const socket = new WebSocket(address);
+    const received: { type: string; payload: never }[] = [];
+    socket.on("message", (raw) => received.push(JSON.parse(raw.toString())));
+    await new Promise((resolve) => socket.on("open", resolve));
+
+    socket.send(
+      JSON.stringify(
+        createBridgeSync({
+          selection: {
+            element: {
+              id: "ut-000001",
+              tagName: "button",
+              selector: "#root button",
+              text: "立即订阅",
+              bounds: { x: 0, y: 0, width: 10, height: 10 },
+            },
+            breadcrumb: [{ tagName: "button", id: "ut-000001" }],
+            styles: {},
+            dom: { outerHTML: '<button class="btn btn-primary">立即订阅</button>' },
+            pickedAt: 1,
+          },
+          changes: [],
+        }),
+      ),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    socket.terminate();
+    rmSync(root, { recursive: true, force: true });
+
+    expect(received).toEqual([
+      {
+        type: "bridge.sourceResolved",
+        payload: {
+          elementId: "ut-000001",
+          confidence: "exact",
+          componentName: "Button",
+          file: "src/components/Button.tsx",
+          line: 4,
+        },
+      },
+    ]);
   });
 
   it("tracks connections and releases the port on stop", async () => {

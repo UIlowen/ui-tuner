@@ -33,6 +33,11 @@ export interface SelectionElement {
   selector: string;
   /** Trimmed text content preview (single line, capped). */
   text?: string;
+  /**
+   * Structural signature `tag#id.cls>child,child` (plan §21): a matching
+   * signal that survives attribute churn, groundwork for §22 HMR relocation.
+   */
+  domFingerprint?: string;
   bounds: Bounds;
 }
 
@@ -243,6 +248,47 @@ export interface BridgeSyncMessage {
 }
 
 // ---------------------------------------------------------------------------
+// M6 — source resolver messages (plan §19/§20/§21)
+// ---------------------------------------------------------------------------
+
+/** How confidently the bridge located the element's source (plan §19). */
+export type SourceConfidence = "exact" | "inferred" | "unknown";
+
+/**
+ * Element identity beyond the live HTMLElement reference (plan §21): the
+ * multi-signal set used to match a DOM element back to source code, and
+ * (later, §22) to re-locate it after HMR.
+ */
+export interface ElementIdentity {
+  uiTunerId: string;
+  selector?: string;
+  textFingerprint?: string;
+  domFingerprint?: string;
+  componentName?: string;
+  sourceFile?: string;
+  sourceLine?: number;
+}
+
+/**
+ * Resolution result for the current selection (plan §20). `file` is relative
+ * to the project root. `line` is only present for `exact` — an inferred
+ * match never fabricates a line number.
+ */
+export interface SourceResolution {
+  elementId: string;
+  confidence: SourceConfidence;
+  componentName?: string;
+  file?: string;
+  line?: number;
+}
+
+/** Bridge → Side Panel. Source location for the current selection (plan §20). */
+export interface BridgeSourceResolvedMessage {
+  type: "bridge.sourceResolved";
+  payload: SourceResolution;
+}
+
+// ---------------------------------------------------------------------------
 // Union + guards
 // ---------------------------------------------------------------------------
 
@@ -262,7 +308,8 @@ export type UiTunerMessage =
   | SidepanelResetChangesMessage
   | BridgeHelloMessage
   | BridgeWelcomeMessage
-  | BridgeSyncMessage;
+  | BridgeSyncMessage
+  | BridgeSourceResolvedMessage;
 
 export type UiTunerMessageType = UiTunerMessage["type"];
 
@@ -283,6 +330,7 @@ const MESSAGE_TYPES: readonly UiTunerMessageType[] = [
   "bridge.hello",
   "bridge.welcome",
   "bridge.sync",
+  "bridge.sourceResolved",
 ];
 
 export function isUiTunerMessageType(value: unknown): value is UiTunerMessageType {
@@ -378,6 +426,12 @@ export function isBridgeSyncMessage(value: UiTunerMessage): value is BridgeSyncM
   return value.type === "bridge.sync";
 }
 
+export function isBridgeSourceResolvedMessage(
+  value: UiTunerMessage,
+): value is BridgeSourceResolvedMessage {
+  return value.type === "bridge.sourceResolved";
+}
+
 // ---------------------------------------------------------------------------
 // Creators
 // ---------------------------------------------------------------------------
@@ -450,4 +504,8 @@ export function createBridgeWelcome(
 
 export function createBridgeSync(payload: BridgeSyncMessage["payload"]): BridgeSyncMessage {
   return { type: "bridge.sync", payload };
+}
+
+export function createBridgeSourceResolved(payload: SourceResolution): BridgeSourceResolvedMessage {
+  return { type: "bridge.sourceResolved", payload };
 }

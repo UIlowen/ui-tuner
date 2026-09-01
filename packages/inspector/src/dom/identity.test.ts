@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   assignUiTunerId,
   cssSelectorFor,
+  domFingerprintFor,
   releaseUiTunerId,
   textPreview,
   UI_TUNER_ID_ATTR,
@@ -95,5 +96,36 @@ describe("textPreview", () => {
     const preview = textPreview(el, 10)!;
     expect(preview).toHaveLength(11);
     expect(preview.endsWith("…")).toBe(true);
+  });
+});
+
+describe("domFingerprintFor", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("captures tag, id, classes and child tag skeleton", () => {
+    const el = document.createElement("section");
+    el.id = "overview";
+    el.className = "card stat-card";
+    el.innerHTML = "<h2>本月费用概览</h2><p>¥ 12,480</p>";
+    expect(domFingerprintFor(el)).toBe("section#overview.card.stat-card>[h2,p]");
+  });
+
+  it("ignores our own ui-tuner attribute (structural only)", () => {
+    const el = document.createElement("button");
+    el.className = "btn";
+    el.setAttribute(UI_TUNER_ID_ATTR, "ut-000001");
+    expect(domFingerprintFor(el)).toBe("button.btn>[]");
+  });
+
+  it("caps classes and children", () => {
+    const el = document.createElement("div");
+    el.className = Array.from({ length: 12 }, (_, i) => `c${i}`).join(" ");
+    el.innerHTML = Array.from({ length: 10 }, () => "<span></span>").join("");
+    const fingerprint = domFingerprintFor(el);
+    expect(fingerprint).toBe(
+      `div.${Array.from({ length: 8 }, (_, i) => `c${i}`).join(".")}>[span,span,span,span,span,span,span,span]`,
+    );
   });
 });

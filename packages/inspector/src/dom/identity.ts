@@ -70,3 +70,29 @@ export function textPreview(element: Element, maxLength = 80): string | undefine
   if (!text) return undefined;
   return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
 }
+
+const FINGERPRINT_MAX_CLASSES = 8;
+const FINGERPRINT_MAX_CHILDREN = 8;
+
+/**
+ * Structural signature for plan §21 Element Identity, e.g.
+ * `button.btn.btn-primary>[span,span]` — tag + id + classes + child tag
+ * skeleton. Attribute churn (our own `data-ui-tuner-id`, preview styles)
+ * does not affect it; used as a source-matching signal (M6) and groundwork
+ * for §22 HMR relocation.
+ */
+export function domFingerprintFor(element: Element): string {
+  const tag = element.tagName.toLowerCase();
+  const id = element.getAttribute("id");
+  const classes = (element.getAttribute("class") ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, FINGERPRINT_MAX_CLASSES)
+    .join(".");
+  const children = Array.from(element.children)
+    .slice(0, FINGERPRINT_MAX_CHILDREN)
+    .map((child) => child.tagName.toLowerCase())
+    .join(",");
+  return `${tag}${id ? `#${id}` : ""}${classes ? `.${classes}` : ""}>[${children}]`;
+}

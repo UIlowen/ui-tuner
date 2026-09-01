@@ -40,6 +40,7 @@ describe("SelectionTracker", () => {
     expect(payload.element.id).toBe("ut-000001");
     expect(payload.element.tagName).toBe("button");
     expect(payload.element.text).toBe("立即订阅");
+    expect(payload.element.domFingerprint).toBe("button>[]");
     expect(payload.element.bounds).toEqual({ x: 10, y: 21, width: 120, height: 41 });
     expect(payload.element.selector).toContain("button:nth-of-type(1)");
     expect(document.querySelector(payload.element.selector)).toBe(button);

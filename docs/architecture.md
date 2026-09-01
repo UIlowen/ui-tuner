@@ -1,6 +1,6 @@
-# UI Tuner — Architecture（Milestone 5）
+# UI Tuner — Architecture（Milestone 6）
 
-> 状态：Milestone 5 完成（Local Bridge：WebSocket + 项目检测 + Chrome 连接）。本文档只描述**已实现**的部分，随每个 Milestone 更新。
+> 状态：Milestone 6 完成（Source Resolver：源码索引 + 置信度定位 + Source UI）。本文档只描述**已实现**的部分，随每个 Milestone 更新。
 > 完整产品规划见根目录 `UI_TUNER_EXECUTION_PLAN.md`。
 
 ## 1. 当前范围
@@ -38,7 +38,17 @@ Milestone 5 交付：
 
 **M5 验收标准**：浏览器可以发送 Selection + ChangeSet。
 
-不在本阶段：Source Resolver（M6，组件名暂不显示）、Agent/MCP（M7）、Apply（M8）。
+Milestone 6 交付：
+
+- **Example A**（计划 §39）：`examples/react-vite`（独立 npm 项目，不进 pnpm workspace）——Navbar/Card/Button/Form/List，Source Resolver 的验证对象
+- **Source Resolver**（bridge 侧 `resolver/`）：regex 级静态索引（组件名 / JSX 文本 / className / 标签 / id，每命中带行号）+ 多信号打分（§21 selector/text/class/标签/id）→ 置信度三档
+- **置信度纪律**（§20，不伪造）：`exact`（文本唯一强匹配，给 `file:line`）/ `inferred`（弱匹配，只给 `Possible: file`）/ `unknown`（Preview only）
+- **Element Identity**（§21）：`SelectionElement` 增 `domFingerprint` 结构签名（`tag#id.cls>[子标签]`），§22 HMR 重定位地基
+- **Source UI**：Element Header 按三态渲染（● Source linked / ● Source inferred / Preview only）；`bridge.sourceResolved` 消息 + stale 守卫
+
+**M6 验收标准**：Demo 项目可以显示源码位置。
+
+不在本阶段：Agent/MCP（M7）、Apply（M8）、Next App Router 适配 / 数据驱动文本索引 / HMR 重定位（backlog）。
 
 ## 2. Repo 结构
 
@@ -76,11 +86,15 @@ ui-tuner/
     ├ src/changes/ChangeTracker.ts  # StyleChange 记录（§12）
     └ src/styles/overlay.ts      #   Overlay 样式常量（唯一样式来源）
     bridge/                      # 本地 Bridge（Node ESM，规则 8：无浏览器 API）
-    ├ src/server/BridgeServer.ts #   127.0.0.1:47321 + /health + WebSocket
+    ├ src/server/BridgeServer.ts #   127.0.0.1:47321 + /health + WebSocket + sourceResolved
     ├ src/detect/project.ts      #   package.json 依赖 → 框架
     ├ src/detect/devserver.ts    #   常见 dev 端口探活
+    ├ src/resolver/indexer.ts    #   静态源码索引（组件名/文本/class/标签/id + 行号）
+    ├ src/resolver/resolve.ts    #   多信号打分 → exact/inferred/unknown（§19/§20）
     ├ src/cli.ts                 #   bin ui-tuner（§15 启动横幅）
     └ dist/                      #   tsc 直出，node 直接运行
+  examples/
+    react-vite/                  # 计划 §39 Example A（独立 npm 项目）：Source Resolver 验证对象
   docs/
     architecture.md              # 本文档
     handover.md                  # 交接文档（每里程碑更新）
@@ -114,6 +128,14 @@ ui-tuner/
 3. 连上 → `bridge.hello`（扩展版本 + 页面 URL）→ Bridge 回 `bridge.welcome`（框架/root/dev server）→ 面板 Bridge 卡显示 `Vite · localhost:5173`。
 4. 之后每次 `selection.changed` / `selection.cleared` / `preview.changed`，面板自动转发 `bridge.sync {selection, changes}` —— Bridge 持有最新镜像，供 M7 MCP `ui_get_selection` / `ui_get_changes`。
 5. Bridge 关闭/崩溃 → onclose → 面板回 Offline；Reconnect 重拨。
+
+### Source Resolver 流程（M6，计划 §19/§20/§21）
+
+1. `bridge.sync` 带 selection 到达 Bridge → 除存储镜像外，立即对 `project.root` 做静态索引（`resolver/indexer`：扫 `src/**/*.{tsx,jsx,ts,js}`，提取默认导出组件名、JSX 文本字面量、className token、小写 JSX 标签、id，每个命中带 1-based 行号；跳过 node_modules/dist 等，上限 500 文件 / 200KB 每文件；每次解析重建，dev 项目毫秒级）。
+2. `resolver/resolve` 把 selection 的身份信号（§21：selector 的 id 锚点、text、fingerprint/outerHTML 的 class、tagName）对索引打分：文本 4（全索引唯一 +1）/ class 1（封顶 3）/ 标签 1 / id 3。
+3. 置信度判定（§20，**不伪造**）：文本命中且得分 ≥5 且领先次名 ≥2 → `exact`（组件名 + `file:line`，行号指向 JSX 调用点，与 React 语义一致——如「查看详情」按钮定位到 Card.tsx 的 `<Button>` 行）；得分 ≥3 → `inferred`（只给 `Possible: file`，**绝不给行号**）；否则 `unknown`（Preview only）。
+4. 结果以 `bridge.sourceResolved` 回发面板；解析异常一律降级 `unknown`，不影响 sync 通道。
+5. 面板 store 做 stale 守卫（elementId 不匹配当前选中即丢弃），重选/清除/断线置 null → Element Header 三态渲染（● Source linked 绿 / ● Source inferred 黄 / Preview only）。
 
 ### 选取流程（M2）
 
@@ -170,23 +192,24 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 
 所有跨上下文消息唯一定义在 `@ui-tuner/protocol`（规则 6）。当前消息：
 
-| type                              | 方向          | payload 要点                                                                             |
-| --------------------------------- | ------------- | ---------------------------------------------------------------------------------------- |
-| `content.ready`                   | CS→SP         | url / title / connectedAt（连接即发）                                                    |
-| `sidepanel.ping` / `content.pong` | SP→CS / CS→SP | RTT 探针（通道验收工具）                                                                 |
-| `sidepanel.picking`               | SP→CS         | `{enabled}` 进入/退出选取模式                                                            |
-| `picker.state`                    | CS→SP         | `{enabled}` 实际状态（Esc 等以这里为准）                                                 |
-| `selection.changed`               | CS→SP         | `{element, breadcrumb, styles, dom?, pickedAt}`；styles = 白名单 computed（§7/§18）      |
-| `selection.cleared`               | CS→SP         | `{}`                                                                                     |
-| `sidepanel.selectAncestor`        | SP→CS         | `{uiTunerId}` breadcrumb 回跳                                                            |
-| `sidepanel.stylePreview`          | SP→CS         | `{uiTunerId, property, value, committed}`；committed=false 拖动帧 / true 提交（§10/§11） |
-| `preview.changed`                 | CS→SP         | `{changes: StyleChange[]}` 页面侧变更记录全量回报（§12/§13）；重连时存量补发             |
-| `sidepanel.revertChange`          | SP→CS         | `{changeId}` 撤销单条修改（§14）                                                         |
-| `sidepanel.revertElement`         | SP→CS         | `{elementId}` 撤销该元素全部修改（§14）                                                  |
-| `sidepanel.resetChanges`          | SP→CS         | `{}` 清空全部 preview 修改（§13/§14）                                                    |
-| `bridge.hello`                    | SP→Bridge     | `{extensionVersion, pageUrl}` WebSocket 握手（§16）                                      |
-| `bridge.welcome`                  | Bridge→SP     | `{bridgeVersion, project{name,framework,root}, devServerUrl}`（§15）                     |
-| `bridge.sync`                     | SP→Bridge     | `{selection, changes}` 页面状态镜像，selection/changes 变化即转发（M7 工具数据源）       |
+| type                              | 方向          | payload 要点                                                                                   |
+| --------------------------------- | ------------- | ---------------------------------------------------------------------------------------------- |
+| `content.ready`                   | CS→SP         | url / title / connectedAt（连接即发）                                                          |
+| `sidepanel.ping` / `content.pong` | SP→CS / CS→SP | RTT 探针（通道验收工具）                                                                       |
+| `sidepanel.picking`               | SP→CS         | `{enabled}` 进入/退出选取模式                                                                  |
+| `picker.state`                    | CS→SP         | `{enabled}` 实际状态（Esc 等以这里为准）                                                       |
+| `selection.changed`               | CS→SP         | `{element, breadcrumb, styles, dom?, pickedAt}`；styles = 白名单 computed（§7/§18）            |
+| `selection.cleared`               | CS→SP         | `{}`                                                                                           |
+| `sidepanel.selectAncestor`        | SP→CS         | `{uiTunerId}` breadcrumb 回跳                                                                  |
+| `sidepanel.stylePreview`          | SP→CS         | `{uiTunerId, property, value, committed}`；committed=false 拖动帧 / true 提交（§10/§11）       |
+| `preview.changed`                 | CS→SP         | `{changes: StyleChange[]}` 页面侧变更记录全量回报（§12/§13）；重连时存量补发                   |
+| `sidepanel.revertChange`          | SP→CS         | `{changeId}` 撤销单条修改（§14）                                                               |
+| `sidepanel.revertElement`         | SP→CS         | `{elementId}` 撤销该元素全部修改（§14）                                                        |
+| `sidepanel.resetChanges`          | SP→CS         | `{}` 清空全部 preview 修改（§13/§14）                                                          |
+| `bridge.hello`                    | SP→Bridge     | `{extensionVersion, pageUrl}` WebSocket 握手（§16）                                            |
+| `bridge.welcome`                  | Bridge→SP     | `{bridgeVersion, project{name,framework,root}, devServerUrl}`（§15）                           |
+| `bridge.sync`                     | SP→Bridge     | `{selection, changes}` 页面状态镜像，selection/changes 变化即转发（M7 工具数据源）             |
+| `bridge.sourceResolved`           | Bridge→SP     | `{elementId, confidence, componentName?, file?, line?}`（§19/§20）；inferred/unknown 不带 line |
 
 约定：
 
@@ -195,31 +218,33 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 
 ## 6. 关键设计决策
 
-| 决策                                                                                                | 理由                                                           |
-| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| TypeScript 锁 5.9（未用 TS 7）                                                                      | typescript-eslint 8.x 尚不支持 TS 7；稳定性优先（计划 §53）    |
-| 手写 Vite 多构建，不用 CRXJS 插件                                                                   | 依赖少、行为可控、易排查                                       |
-| Picker / Overlay / SelectionTracker / PreviewEngine 放独立包 `packages/inspector`，不 import chrome | 对齐计划 §4 结构；jsdom 可单测；chrome 接线只在 content script |
-| Overlay 用 Shadow DOM 隔离 + 样式只存在于 `styles/overlay.ts`                                       | 页面 CSS 无法破坏高亮层；样式单一来源                          |
-| Overlay 每帧从 Element 引用重测 rect（而非缓存坐标/监听 scroll/resize）                             | 滚动、resize、布局位移一次解决；无目标时 rAF 自动停            |
-| 点击拦截用 document capture + preventDefault                                                        | 选取时页面不触发跳转/聚焦/拖选                                 |
-| `picker.state` 以 content 回报为准（非面板乐观更新）                                                | Esc 等面板外路径不会造成状态漂移                               |
-| Preview 只走独立 `<style>` override（§11），永不写 `element.style`                                  | 可整块撤销、不动内联状态；Preview 与 Source 隔离（§2.3）       |
-| 样式读写只经 `STYLE_PROPERTIES` 白名单（§7）                                                        | 永不读/写完整 computed style；engine 侧再校验一次              |
-| ChangeSet 真相在 content（ChangeTracker），面板只镜像 `preview.changed`                             | 页面刷新即清空（§37 in-memory）；面板崩溃不丢页面状态          |
-| **Bridge 由 Side Panel 直连 WebSocket（不经 background SW）**                                       | MV3 SW 空闲回收会断 WS；content script 受页面 CSP 限制         |
-| Bridge 只绑 127.0.0.1:47321 + host_permissions 补 ws://localhost、ws://127.0.0.1                    | §38 安全边界不变（仍只本机回环）                               |
-| 有 change 的元素转移选中时保留 id（`keepId`）                                                       | override CSS 按 `data-ui-tuner-id` 匹配，id 释放即失联         |
-| ScrubInput 拖动数值直写 DOM + rAF 节流消息；store 只存提交值                                        | 60fps 拖动零面板重渲染（§33）                                  |
-| 非数值（auto/normal/fit-content…）回退为文本输入                                                    | 覆盖 §9.3 CssDimension 全集，不做魔法猜测                      |
-| 组件名不在 M3 显示（"Preview only" 徽标占位）                                                       | Source Resolver 属 M6；不得伪造（计划 §20）                    |
-| 权限最小化：`activeTab`/`scripting`/`sidePanel`/`storage` + localhost host                          | 计划 §1.2/§38 安全边界                                         |
+| 决策                                                                                                      | 理由                                                           |
+| --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| TypeScript 锁 5.9（未用 TS 7）                                                                            | typescript-eslint 8.x 尚不支持 TS 7；稳定性优先（计划 §53）    |
+| 手写 Vite 多构建，不用 CRXJS 插件                                                                         | 依赖少、行为可控、易排查                                       |
+| Picker / Overlay / SelectionTracker / PreviewEngine 放独立包 `packages/inspector`，不 import chrome       | 对齐计划 §4 结构；jsdom 可单测；chrome 接线只在 content script |
+| Overlay 用 Shadow DOM 隔离 + 样式只存在于 `styles/overlay.ts`                                             | 页面 CSS 无法破坏高亮层；样式单一来源                          |
+| Overlay 每帧从 Element 引用重测 rect（而非缓存坐标/监听 scroll/resize）                                   | 滚动、resize、布局位移一次解决；无目标时 rAF 自动停            |
+| 点击拦截用 document capture + preventDefault                                                              | 选取时页面不触发跳转/聚焦/拖选                                 |
+| `picker.state` 以 content 回报为准（非面板乐观更新）                                                      | Esc 等面板外路径不会造成状态漂移                               |
+| Preview 只走独立 `<style>` override（§11），永不写 `element.style`                                        | 可整块撤销、不动内联状态；Preview 与 Source 隔离（§2.3）       |
+| 样式读写只经 `STYLE_PROPERTIES` 白名单（§7）                                                              | 永不读/写完整 computed style；engine 侧再校验一次              |
+| ChangeSet 真相在 content（ChangeTracker），面板只镜像 `preview.changed`                                   | 页面刷新即清空（§37 in-memory）；面板崩溃不丢页面状态          |
+| **Bridge 由 Side Panel 直连 WebSocket（不经 background SW）**                                             | MV3 SW 空闲回收会断 WS；content script 受页面 CSP 限制         |
+| Bridge 只绑 127.0.0.1:47321 + host_permissions 补 ws://localhost、ws://127.0.0.1                          | §38 安全边界不变（仍只本机回环）                               |
+| **Source Resolver 放 bridge 做 regex 级静态索引（不引 parser），exact 必须有文本命中，inferred 不给行号** | 浏览器无文件系统；§20 不伪造源码位置；Vite/React 常规结构优先  |
+| 源码索引每次解析重建（上限 500 文件）                                                                     | dev 项目小，重建毫秒级；缓存/文件监听属 backlog                |
+| 有 change 的元素转移选中时保留 id（`keepId`）                                                             | override CSS 按 `data-ui-tuner-id` 匹配，id 释放即失联         |
+| ScrubInput 拖动数值直写 DOM + rAF 节流消息；store 只存提交值                                              | 60fps 拖动零面板重渲染（§33）                                  |
+| 非数值（auto/normal/fit-content…）回退为文本输入                                                          | 覆盖 §9.3 CssDimension 全集，不做魔法猜测                      |
+| 组件名不在 M3 显示（"Preview only" 徽标占位）                                                             | Source Resolver 属 M6；不得伪造（计划 §20）                    |
+| 权限最小化：`activeTab`/`scripting`/`sidePanel`/`storage` + localhost host                                | 计划 §1.2/§38 安全边界                                         |
 
 ## 7. 测试
 
-- `packages/protocol`（13 例）：构造器、守卫（含数组 payload 拒绝）、按类型收窄（含 M3/M4/M5 新消息）。
-- `packages/inspector`（81 例，jsdom）：
-  - identity：id 分配/释放、selector 唯一性回查（querySelector 往返）、文本预览
+- `packages/protocol`（14 例）：构造器、守卫（含数组 payload 拒绝）、按类型收窄（含 M3/M4/M5/M6 新消息）。
+- `packages/inspector`（84 例，jsdom）：
+  - identity：id 分配/释放、selector 唯一性回查（querySelector 往返）、文本预览、**domFingerprint（结构签名/忽略 ui-tuner 属性/上限截断）**
   - selection：payload 构建（含 styles）、breadcrumb、moveToParent/moveToAncestor（含失效 id 拒绝）、clear 清理属性、keepId 保留与 id 复用
   - snapshot：selected/parent/children 捕获、总预算截断
   - parse：px/rem/%/无单位解析、关键词拒绝、格式化去尾零、scrubMultiplier（§10 组合）、clamp
@@ -228,8 +253,8 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
   - PreviewEngine：懒挂载复用、按元素分组 `!important` 规则、白名单外拒绝、null 移除/空块清理、同值 no-op、removeElement、unmount
   - ChangeTracker：首记录捕获原值、scrub 帧原位更新、revert(changeId)、revertProperty、revertElement（仅该元素）、hasChangesFor、按时间序列表
   - picker / overlay：同 M2
-- `chrome-extension`（19 例）：Channel 内存端口对（投递/丢弃/退订/断连）；store 状态机（连接、RTT、picking ack、selection+styleValues 路由、updateStyle 预览帧不改 store/提交更新/null 删除、preview.changed 镜像、elementNames 累积、revert/reset 动作出站消息、**Bridge 握手 hello/welcome、selection/changes 自动 sync、断线 offline**、日志截断、reset）。
-- `packages/bridge`（20 例，node env）：detectProject（依赖判定/降级 Unknown/坏 JSON 容错）、probeDevServer（真端口探活/全灭返回 null）、resolveCwd（--cwd 解析/缺值/非目录拒绝）、BridgeServer（仅 127.0.0.1 绑定、/health、hello→welcome、bridge.sync 存储、非法消息丢弃、连接计数与端口释放、**端口占用干净 reject 不裸崩**）。
+- `chrome-extension`（21 例）：Channel 内存端口对（投递/丢弃/退订/断连）；store 状态机（连接、RTT、picking ack、selection+styleValues 路由、updateStyle 预览帧不改 store/提交更新/null 删除、preview.changed 镜像、elementNames 累积、revert/reset 动作出站消息、Bridge 握手 hello/welcome、selection/changes 自动 sync、断线 offline、**sourceResolved 落库 + stale 守卫 + 重选/清除/断线置 null**、日志截断、reset）。
+- `packages/bridge`（43 例，node env）：detectProject、probeDevServer、resolveCwd、BridgeServer（含**sourceResolved 集成**、端口占用干净 reject）、resolver/indexer（扫描跳过规则、组件名提取、跨行文本行号、模板串 class token）、resolver/resolve（信号提取、exact/inferred/unknown 判定纪律、stale/空索引）、**resolve.example（对真实 examples/react-vite 的 10 例锚定测试，M6 验收自动化）**。
 - Playwright E2E（计划 §40 Test 01–07）见 backlog，能力齐备后统一补。
 
 ## 8. 已知限制 / 风险
@@ -241,6 +266,7 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 - Bridge 无鉴权（仅本机回环可连，§38）；47321 被占用时 CLI 报错退出而非换端口（计划 §15 固定端口）。
 - CLI 未发布 npm：`npx ui-tuner` 报 "could not determine executable to run"；本地开发用 `pnpm bridge --cwd <项目路径>`。面板 Offline 卡显示的 `npx ui-tuner` 是发布后目标文案（backlog）。
 - 重连后 elementNames 需重新选中元素才有 tagName（此前 Changes 分组显示 ut 短码）。
+- Source Resolver V1（M6）：只覆盖 Vite/React 常规结构（Next App Router 适配顺延）；数据驱动文本（数组/接口渲染的字符串）不进索引 → 这类元素多为 Preview only；`clsx(...)` 等函数调用形式的 className 只提取字符串参数之外不展开；索引每次 selection 重建，大项目（>500 源文件）截断（backlog）。
 - Multi Select（Shift+Click）顺延（计划 Task 2.5，backlog）；`⌘↓` 未实现（backlog）。
 - hover 高亮不进入 iframe / closed shadow root 内部元素（V0.1 边界，计划 §1.2）。
 - `document.elementFromPoint` 命中纯文本节点的父元素即选中该元素；inline 文本片段的高亮框可能与预期略有出入。

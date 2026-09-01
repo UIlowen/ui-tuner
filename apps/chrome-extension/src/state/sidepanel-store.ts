@@ -9,6 +9,7 @@ import {
   createSidepanelRevertElement,
   createSidepanelSelectAncestor,
   createSidepanelStylePreview,
+  isBridgeSourceResolvedMessage,
   isBridgeWelcomeMessage,
   isContentPongMessage,
   isContentReadyMessage,
@@ -18,6 +19,7 @@ import {
   isSelectionClearedMessage,
   type BridgeProject,
   type SelectionPayload,
+  type SourceResolution,
   type StyleChange,
   type UiTunerMessage,
 } from "@ui-tuner/protocol";
@@ -58,6 +60,12 @@ interface SidepanelState {
   bridgeStatus: BridgeStatus;
   bridgeProject: BridgeProject | null;
   bridgeDevServerUrl: string | null;
+  /**
+   * Source location of the current selection (plan §19/§20), reported by the
+   * bridge after each sync. null = not resolved yet / bridge offline / no
+   * selection — the header then shows "Preview only".
+   */
+  source: SourceResolution | null;
 
   /** Wire an already-opened channel (App owns chrome.tabs lookup). */
   connect: (channel: Channel) => void;
@@ -131,6 +139,7 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
   bridgeStatus: "offline",
   bridgeProject: null,
   bridgeDevServerUrl: null,
+  source: null,
 
   attachBridge: (nextBridgeChannel, info) => {
     bridgeChannel = nextBridgeChannel;
@@ -149,11 +158,22 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
           bridgeProject: message.payload.project,
           bridgeDevServerUrl: message.payload.devServerUrl,
         });
+      } else if (isBridgeSourceResolvedMessage(message)) {
+        // Stale guard: only apply if it still matches the live selection —
+        // a fast re-select can overtake the bridge's resolution.
+        if (message.payload.elementId === get().selection?.element.id) {
+          set({ source: message.payload });
+        }
       }
     });
     const dropOffline = () => {
       if (bridgeChannel === nextBridgeChannel)
-        set({ bridgeStatus: "offline", bridgeProject: null, bridgeDevServerUrl: null });
+        set({
+          bridgeStatus: "offline",
+          bridgeProject: null,
+          bridgeDevServerUrl: null,
+          source: null,
+        });
     };
     nextBridgeChannel.onClose(dropOffline);
     nextBridgeChannel.onError(dropOffline);
@@ -173,6 +193,7 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       styleValues: null,
       changes: [],
       elementNames: {},
+      source: null,
     });
     nextChannel.onDisconnect(() => {
       if (channel === nextChannel)
@@ -195,10 +216,12 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
         styleValues: message.payload.styles,
         picking: false,
         elementNames: rememberElementNames(state.elementNames, message.payload),
+        // Pending: the bridge re-resolves source for the new selection.
+        source: null,
       }));
       sendBridgeSync();
     } else if (isSelectionClearedMessage(message)) {
-      set({ selection: null, styleValues: null });
+      set({ selection: null, styleValues: null, source: null });
       sendBridgeSync();
     } else if (isPreviewChangedMessage(message)) {
       set({ changes: message.payload.changes });
@@ -287,6 +310,7 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       bridgeStatus: "offline",
       bridgeProject: null,
       bridgeDevServerUrl: null,
+      source: null,
     });
   },
 }));
@@ -311,5 +335,6 @@ export function reportConnectFailure(reason: string): void {
     bridgeStatus: "offline",
     bridgeProject: null,
     bridgeDevServerUrl: null,
+    source: null,
   });
 }
