@@ -10,7 +10,7 @@
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M5 完成**（真机验收通过）；**M6 完成**（待真机验收）                                                                                                                                                                                                          |
+| 里程碑   | **M1–M6 完成**（真机验收通过）                                                                                                                                                                                                          |
 | 分支     | `main`（本地仓库，无远端，直接提交 main）                                                                                                                                                                                                                          |
 | 验证     | `pnpm build / test / typecheck / lint` 全绿（162 例测试）                                                                                                                                                                                                          |
 | 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`（面板 Offline 卡的 `npx ui-tuner` 是发布后文案） |
@@ -136,7 +136,8 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 - bridge 新增 `resolver/`：`indexer`（扫 `src/**/*.{tsx,jsx,ts,js}`，regex 级提取默认导出组件名 / JSX 文本字面量（跨行）/ className token（含模板串静态部分与表达式内字符串）/ 小写 JSX 标签 / id，每命中带行号；跳过 node_modules/dist 等，上限 500 文件 200KB/文件）+ `resolve`（信号打分：文本 4(+唯一1)/class 1(≤3)/标签 1/id 3；exact 需文本命中且领先 ≥2 → file:line；≥3 → inferred（只文件不行号）；否则 unknown）。BridgeServer 收到带 selection 的 `bridge.sync` 即解析并回发 `bridge.sourceResolved`；解析异常降级 unknown 不影响 sync 通道。
 - protocol：`SourceConfidence` / `ElementIdentity`（§21）/ `SourceResolution` / `bridge.sourceResolved` 消息；`SelectionElement` 增 `domFingerprint`（inspector `domFingerprintFor`：`tag#id.cls>[子标签]` 结构签名，§22 重定位地基）。
 - 扩展：store `source` 状态（stale 守卫：elementId 不匹配当前选中则丢弃；重选/清除/断线置 null）；SelectionCard 按 §20 三态渲染（● Source linked 绿 + `组件 · file:line` / ● Source inferred 黄 + `Possible: file` / Preview only）。
-- 测试 162 例（inspector 84 / protocol 14 / bridge 43 / extension 21）；含 `resolve.example.test.ts` 对真实 examples/react-vite 的 10 例锚定测试（M6 验收的自动化形态）+ 端到端冒烟（live bridge：总览→Navbar.tsx:7、查看详情→Card.tsx:10、app-shell→unknown）。
+- 测试 162 例（inspector 84 / protocol 14 / bridge 43 / extension 21）；含 `resolve.example.test.ts` 对真实 examples/react-vite 的 10 例锚定测试（M6 验收的自动化形态）。
+- 真机验收通过（2026-09-01，自动化 E2E 9/9：Chrome for Testing + 真实扩展 + live Bridge —— 品牌 Chrome 152 禁 `--load-extension`；`sidePanel.open()` 有手势门禁，自动化用面板后台标签页等价。脚本 `/tmp/ui-tuner-e2e/acceptance.mjs` 是 §40 E2E 地基）。
 
 ## 7. 下一里程碑：M7 — Agent + MCP
 
