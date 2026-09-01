@@ -57,6 +57,7 @@ describe("BridgeServer", () => {
         type: "bridge.welcome",
         payload: { bridgeVersion: "0.1.0", project: PROJECT, devServerUrl: null },
       },
+      { type: "bridge.agents", payload: { agents: [] } },
     ]);
   });
 

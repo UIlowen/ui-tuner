@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  assembleAgentContext,
+  createAgentApplied,
+  createAgentCapture,
+  createAgentCaptureResult,
+  createAgentRequest,
+  createBridgeAgents,
   createBridgeHello,
   createBridgeSourceResolved,
   createBridgeSync,
@@ -17,6 +23,11 @@ import {
   createSidepanelRevertElement,
   createSidepanelSelectAncestor,
   createSidepanelStylePreview,
+  isAgentAppliedMessage,
+  isAgentCaptureMessage,
+  isAgentCaptureResultMessage,
+  isAgentRequestMessage,
+  isBridgeAgentsMessage,
   isBridgeHelloMessage,
   isBridgeSourceResolvedMessage,
   isBridgeSyncMessage,
@@ -36,6 +47,8 @@ import {
   isSidepanelStylePreviewMessage,
   isUiTunerMessage,
   UI_TUNER_PORT_NAME,
+  type SelectionPayload,
+  type StyleChange,
   type UiTunerMessage,
 } from "./index";
 
@@ -99,6 +112,21 @@ function createEveryMessage(): UiTunerMessage[] {
       componentName: "Card",
       file: "src/components/Card.tsx",
       line: 8,
+    }),
+    createAgentRequest({
+      instruction: "整体紧凑一点",
+      include: { dom: true, styles: true, source: true, screenshot: false, parentTree: false },
+      contextLevel: 1,
+      sentAt: 2_000,
+    }),
+    createBridgeAgents([{ id: "codex", name: "Codex", available: true }]),
+    createAgentApplied({ files: ["src/components/Card.tsx"], summary: "收紧间距", at: 3_000 }),
+    createAgentCapture({ captureId: "cap-1", withScreenshot: true }),
+    createAgentCaptureResult({
+      captureId: "cap-1",
+      selection: null,
+      changes: [],
+      screenshot: "data:image/png;base64,AAA",
     }),
   ];
 }
@@ -254,6 +282,47 @@ describe("creators", () => {
       createBridgeSourceResolved({ elementId: "ut-9", confidence: "unknown" }).payload,
     ).toEqual({ elementId: "ut-9", confidence: "unknown" });
   });
+
+  it("creates agent messages (plan §23–§27)", () => {
+    expect(
+      createAgentRequest({
+        instruction: "紧凑一点",
+        include: { dom: true, styles: true, source: true, screenshot: false, parentTree: false },
+        contextLevel: 2,
+        sentAt: 7,
+      }),
+    ).toEqual({
+      type: "agent.request",
+      payload: {
+        instruction: "紧凑一点",
+        include: { dom: true, styles: true, source: true, screenshot: false, parentTree: false },
+        contextLevel: 2,
+        sentAt: 7,
+      },
+    });
+
+    expect(createBridgeAgents([{ id: "codex", name: "Codex", available: false }])).toEqual({
+      type: "bridge.agents",
+      payload: { agents: [{ id: "codex", name: "Codex", available: false }] },
+    });
+
+    expect(createAgentApplied({ files: [], summary: "s", at: 1 })).toEqual({
+      type: "agent.applied",
+      payload: { files: [], summary: "s", at: 1 },
+    });
+
+    expect(createAgentCapture({ captureId: "c", withScreenshot: false })).toEqual({
+      type: "agent.capture",
+      payload: { captureId: "c", withScreenshot: false },
+    });
+
+    expect(
+      createAgentCaptureResult({ captureId: "c", selection: null, changes: [] }),
+    ).toEqual({
+      type: "agent.captureResult",
+      payload: { captureId: "c", selection: null, changes: [] },
+    });
+  });
 });
 
 describe("isUiTunerMessage", () => {
@@ -299,11 +368,114 @@ describe("per-type guards", () => {
     expect(messages.filter(isBridgeWelcomeMessage)).toHaveLength(1);
     expect(messages.filter(isBridgeSyncMessage)).toHaveLength(1);
     expect(messages.filter(isBridgeSourceResolvedMessage)).toHaveLength(1);
+    expect(messages.filter(isAgentRequestMessage)).toHaveLength(1);
+    expect(messages.filter(isBridgeAgentsMessage)).toHaveLength(1);
+    expect(messages.filter(isAgentAppliedMessage)).toHaveLength(1);
+    expect(messages.filter(isAgentCaptureMessage)).toHaveLength(1);
+    expect(messages.filter(isAgentCaptureResultMessage)).toHaveLength(1);
   });
 });
 
 describe("port name", () => {
   it("is stable", () => {
     expect(UI_TUNER_PORT_NAME).toBe("ui-tuner");
+  });
+});
+
+describe("assembleAgentContext (plan §26)", () => {
+  const selection: SelectionPayload = {
+    element: {
+      id: "ut-000001",
+      tagName: "div",
+      selector: "body > div.card",
+      bounds: { x: 0, y: 0, width: 200, height: 100 },
+    },
+    breadcrumb: [
+      { tagName: "div", id: "ut-000001" },
+      { tagName: "main", id: "ut-000002" },
+    ],
+    styles: { gap: "24px", padding: "24px", "border-radius": "16px", "font-size": "16px" },
+    dom: { outerHTML: '<div class="card">…</div>' },
+    pickedAt: 1,
+  };
+  const changes: StyleChange[] = [
+    {
+      id: "ch-1",
+      elementId: "ut-000001",
+      property: "gap",
+      previousValue: "24px",
+      nextValue: "16px",
+      source: "manual",
+      createdAt: 1,
+    },
+  ];
+
+  it("renders the §26 layout for an exact-resolved element", () => {
+    const text = assembleAgentContext({
+      selection,
+      source: {
+        elementId: "ut-000001",
+        confidence: "exact",
+        componentName: "PricingCard",
+        file: "src/components/PricingCard.tsx",
+        line: 42,
+      },
+      changes,
+      instruction: "整体紧凑一点，标题不要变小",
+    });
+    expect(text).toContain("Selected Component:\nPricingCard");
+    expect(text).toContain("Source:\nsrc/components/PricingCard.tsx:42");
+    expect(text).toContain("User preview changes:\ngap: 24px → 16px");
+    expect(text).toContain("Instruction:\n整体紧凑一点，标题不要变小");
+  });
+
+  it("falls back to the element tag when the component is unknown", () => {
+    const text = assembleAgentContext({
+      selection,
+      source: { elementId: "ut-000001", confidence: "unknown" },
+      changes: [],
+      instruction: "",
+    });
+    expect(text).toContain("Selected Component:\n<div> (body > div.card)");
+    expect(text).not.toContain("Source:");
+    expect(text).toContain("User preview changes:\n(none yet)");
+    expect(text).toContain("(none — apply the preview changes above)");
+  });
+
+  it("honestly reports when nothing is selected", () => {
+    const text = assembleAgentContext({ selection: null, source: null, changes: [], instruction: "" });
+    expect(text).toContain("(none — pick an element in the browser first)");
+  });
+
+  it("omits the DOM block when include.dom is false", () => {
+    const text = assembleAgentContext({
+      selection,
+      source: null,
+      changes: [],
+      instruction: "x",
+      include: { dom: false, styles: true, source: true, screenshot: false, parentTree: false },
+    });
+    expect(text).not.toContain("DOM:");
+  });
+
+  it("adds parent tree + DOM at level 2, screenshot note at level 3", () => {
+    const l2 = assembleAgentContext({
+      selection,
+      source: null,
+      changes: [],
+      instruction: "",
+      level: 2,
+      include: { dom: true, styles: true, source: true, screenshot: false, parentTree: true },
+    });
+    expect(l2).toContain("Parent tree (nearest first):");
+    const l3 = assembleAgentContext({
+      selection,
+      source: null,
+      changes: [],
+      instruction: "",
+      level: 3,
+      include: { dom: true, styles: true, source: true, screenshot: true, parentTree: true },
+    });
+    expect(l3).toContain("ui_capture");
   });
 });

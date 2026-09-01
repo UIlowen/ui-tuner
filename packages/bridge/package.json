@@ -24,8 +24,10 @@
     "bridge": "node dist/cli.js"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@ui-tuner/protocol": "workspace:*",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  createAgentApplied,
+  createAgentCapture,
+  createBridgeAgents,
   createBridgeSourceResolved,
   createBridgeWelcome,
   createContentPong,
@@ -14,7 +17,7 @@ import { BridgeChannel } from "../messaging/bridge-channel";
 import type { WebSocketLike } from "../messaging/bridge-channel";
 import { Channel } from "../messaging/channel";
 import type { PortLike } from "../messaging/channel";
-import { useSidepanelStore } from "./sidepanel-store";
+import { registerCaptureHandler, useSidepanelStore } from "./sidepanel-store";
 
 function resetStore() {
   useSidepanelStore.getState().reset();
@@ -365,6 +368,127 @@ describe("sidepanel store", () => {
     socket.close();
     expect(useSidepanelStore.getState().source).toBeNull();
     expect(useSidepanelStore.getState().bridgeStatus).toBe("offline");
+  });
+});
+
+describe("sidepanel store — M7 agent (plan §23–§27)", () => {
+  /** Open a fake bridge connection and return its socket. */
+  function openBridge(): FakeSocket {
+    const socket = new FakeSocket();
+    useSidepanelStore.getState().attachBridge(BridgeChannel.accept(socket), {
+      extensionVersion: "0.1.0",
+      pageUrl: null,
+    });
+    socket.open();
+    return socket;
+  }
+
+  it("fills agents from bridge.agents and clears them on offline", () => {
+    resetStore();
+    const socket = openBridge();
+    socket.message(
+      JSON.stringify(
+        createBridgeAgents([
+          { id: "codex", name: "Codex", available: true },
+          { id: "claude-code", name: "Claude Code", available: false },
+        ]),
+      ),
+    );
+    expect(useSidepanelStore.getState().agents.map((a) => a.id)).toEqual([
+      "codex",
+      "claude-code",
+    ]);
+
+    socket.close();
+    expect(useSidepanelStore.getState().agents).toEqual([]);
+  });
+
+  it("sendAgentRequest hands the request to the bridge and records sent state", () => {
+    resetStore();
+    const socket = openBridge();
+    useSidepanelStore.getState().setAgentInstruction("  整体紧凑一点  ");
+    useSidepanelStore.getState().setAgentInclude("screenshot", true);
+    useSidepanelStore.getState().setAgentContextLevel(2);
+
+    socket.sent.length = 0;
+    useSidepanelStore.getState().sendAgentRequest();
+
+    const sent = socket.sent.at(-1) as {
+      type: string;
+      payload: { instruction: string; include: { screenshot: boolean }; contextLevel: number };
+    };
+    expect(sent.type).toBe("agent.request");
+    expect(sent.payload.instruction).toBe("整体紧凑一点"); // trimmed
+    expect(sent.payload.include.screenshot).toBe(true);
+    expect(sent.payload.contextLevel).toBe(2);
+    expect(useSidepanelStore.getState().agentSent?.instruction).toBe("整体紧凑一点");
+  });
+
+  it("sendAgentRequest is a no-op when the bridge is offline", () => {
+    resetStore();
+    useSidepanelStore.getState().setAgentInstruction("x");
+    useSidepanelStore.getState().sendAgentRequest();
+    expect(useSidepanelStore.getState().agentSent).toBeNull();
+  });
+
+  it("agent.applied surfaces a banner until dismissed", () => {
+    resetStore();
+    const socket = openBridge();
+    socket.message(
+      JSON.stringify(createAgentApplied({ files: ["a.tsx"], summary: "收紧间距", at: 5 })),
+    );
+    expect(useSidepanelStore.getState().lastApplied?.summary).toBe("收紧间距");
+
+    useSidepanelStore.getState().dismissApplied();
+    expect(useSidepanelStore.getState().lastApplied).toBeNull();
+  });
+
+  it("agent.capture replies with fresh selection + changes + injected screenshot", async () => {
+    resetStore();
+    const socket = openBridge();
+    registerCaptureHandler(() => Promise.resolve("data:image/png;base64,iVBORw0KGgo="));
+    selectElement({ gap: "24px" });
+    useSidepanelStore
+      .getState()
+      .receive(
+        createPreviewChanged([
+          {
+            id: "ch-1",
+            elementId: "ut-000001",
+            property: "gap",
+            previousValue: "24px",
+            nextValue: "16px",
+            source: "manual",
+            createdAt: 1,
+          },
+        ]),
+      );
+
+    socket.sent.length = 0;
+    socket.message(JSON.stringify(createAgentCapture({ captureId: "cap-1", withScreenshot: true })));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const reply = socket.sent.at(-1) as {
+      type: string;
+      payload: { captureId: string; screenshot?: string; changes: unknown[] };
+    };
+    expect(reply.type).toBe("agent.captureResult");
+    expect(reply.payload.captureId).toBe("cap-1");
+    expect(reply.payload.screenshot).toBe("data:image/png;base64,iVBORw0KGgo=");
+    expect(reply.payload.changes).toHaveLength(1);
+    registerCaptureHandler(null);
+  });
+
+  it("agent.capture without a registered handler replies without a screenshot", async () => {
+    resetStore();
+    const socket = openBridge();
+    registerCaptureHandler(null);
+    socket.sent.length = 0;
+    socket.message(JSON.stringify(createAgentCapture({ captureId: "cap-2", withScreenshot: true })));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const reply = socket.sent.at(-1) as { payload: { screenshot?: string } };
+    expect(reply.payload.screenshot).toBeUndefined();
   });
 });
 

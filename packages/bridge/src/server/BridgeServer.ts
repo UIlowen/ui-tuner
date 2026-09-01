@@ -1,11 +1,19 @@
 import { createServer, type Server } from "node:http";
+import { randomUUID } from "node:crypto";
 import { WebSocketServer, type WebSocket } from "ws";
 import {
+  createAgentApplied,
+  createAgentCapture,
+  createBridgeAgents,
   createBridgeSourceResolved,
   createBridgeWelcome,
+  isAgentCaptureResultMessage,
+  isAgentRequestMessage,
   isBridgeHelloMessage,
   isBridgeSyncMessage,
   isUiTunerMessage,
+  type AgentInfo,
+  type AgentRequestMessage,
   type BridgeProject,
   type BridgeSyncMessage,
   type SelectionPayload,
@@ -13,6 +21,8 @@ import {
   type UiTunerMessage,
 } from "@ui-tuner/protocol";
 import { resolveSource } from "../resolver/resolve.js";
+import { handleMcpRequest } from "../mcp/http.js";
+import type { CaptureResult, McpDeps } from "../mcp/server.js";
 
 /**
  * Local bridge server (plan §15/§16): one HTTP server on 127.0.0.1 with a
@@ -33,7 +43,19 @@ export interface BridgeServerOptions {
    * injectable for tests and future adapters.
    */
   resolveSource?: (selection: SelectionPayload) => SourceResolution;
+  /** Agent availability detected at startup (plan §44); default none. */
+  agents?: AgentInfo[];
 }
+
+/** Pending ui_capture round-trip waiting on the Side Panel's reply. */
+interface PendingCapture {
+  captureId: string;
+  resolve: (result: CaptureResult) => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+}
+
+const CAPTURE_TIMEOUT_MS = 10_000;
 
 export class BridgeServer {
   static readonly DEFAULT_PORT = 47_321;
@@ -43,6 +65,10 @@ export class BridgeServer {
   private readonly sockets = new Set<WebSocket>();
 
   private lastSync: BridgeSyncMessage["payload"] | null = null;
+  private lastResolution: SourceResolution | null = null;
+  private lastAgentRequest: AgentRequestMessage["payload"] | null = null;
+  private lastApplied: { files: string[]; summary: string; at: number } | null = null;
+  private pendingCapture: PendingCapture | null = null;
 
   constructor(private readonly options: BridgeServerOptions) {}
 
@@ -60,6 +86,16 @@ export class BridgeServer {
     return this.sockets.size;
   }
 
+  /** M7: latest instruction from the Agent tab (plan §24). */
+  get agentRequest(): AgentRequestMessage["payload"] | null {
+    return this.lastAgentRequest;
+  }
+
+  /** M7: latest ui_notify_applied report (plan §27). */
+  get applied(): { files: string[]; summary: string; at: number } | null {
+    return this.lastApplied;
+  }
+
   start(): Promise<string> {
     return new Promise((resolvePromise, rejectPromise) => {
       const httpServer = createServer((request, response) => {
@@ -73,6 +109,14 @@ export class BridgeServer {
               connections: this.sockets.size,
             }),
           );
+          return;
+        }
+        if (request.url === "/mcp") {
+          // MCP endpoint (plan §27) — same process, same state as the WS side.
+          void handleMcpRequest(this.mcpDeps(), request, response).catch(() => {
+            if (!response.headersSent) response.writeHead(500);
+            response.end();
+          });
           return;
         }
         response.writeHead(404).end();
@@ -101,6 +145,11 @@ export class BridgeServer {
   }
 
   async stop(): Promise<void> {
+    if (this.pendingCapture) {
+      clearTimeout(this.pendingCapture.timer);
+      this.pendingCapture.reject(new Error("Bridge stopped."));
+      this.pendingCapture = null;
+    }
     for (const socket of this.sockets) socket.terminate();
     this.sockets.clear();
     await new Promise<void>((resolvePromise) => {
@@ -139,13 +188,87 @@ export class BridgeServer {
           }),
         ),
       );
+      // M7 (plan §44): tell the Agent tab which coding agents are available.
+      socket.send(JSON.stringify(createBridgeAgents(this.options.agents ?? [])));
     } else if (isBridgeSyncMessage(parsed)) {
       this.lastSync = parsed.payload;
       const selection = parsed.payload.selection;
-      if (selection) this.resolveAndSend(socket, selection);
+      if (selection) {
+        this.resolveAndSend(socket, selection);
+      } else {
+        // Selection cleared — the stored resolution is stale (plan §20).
+        this.lastResolution = null;
+      }
+    } else if (isAgentRequestMessage(parsed)) {
+      // M7 (plan §24): the Agent tab's instruction + include flags, served
+      // back to agents through ui_get_context.
+      this.lastAgentRequest = parsed.payload;
+    } else if (isAgentCaptureResultMessage(parsed)) {
+      this.settleCapture(parsed.payload);
     }
-    // Everything else (channel / picker messages, future agent traffic) is
-    // accepted at the boundary but ignored until its milestone wires it in.
+    // Everything else (channel / picker messages) is accepted at the boundary
+    // but ignored until its milestone wires it in.
+  }
+
+  /**
+   * M7 ui_capture (plan §27): ask the Side Panel to re-grab fresh page state.
+   * Honest failure when no Side Panel is connected.
+   */
+  capture(withScreenshot: boolean): Promise<CaptureResult> {
+    const hasOpenSocket = [...this.sockets].some((socket) => socket.readyState === socket.OPEN);
+    if (!hasOpenSocket) {
+      return Promise.reject(
+        new Error("UI Tuner Side Panel is not connected — open it in Chrome to capture."),
+      );
+    }
+    if (this.pendingCapture) {
+      return Promise.reject(new Error("A capture is already in flight."));
+    }
+    return new Promise<CaptureResult>((resolvePromise, rejectPromise) => {
+      const captureId = randomUUID();
+      const timer = setTimeout(() => {
+        this.pendingCapture = null;
+        rejectPromise(new Error("Capture timed out waiting for the Side Panel."));
+      }, CAPTURE_TIMEOUT_MS);
+      this.pendingCapture = { captureId, resolve: resolvePromise, reject: rejectPromise, timer };
+      this.broadcast(createAgentCapture({ captureId, withScreenshot }));
+    });
+  }
+
+  /** M7 ui_notify_applied (plan §27): record + relay to the Side Panel. */
+  notifyApplied(files: string[], summary: string): void {
+    this.lastApplied = { files, summary, at: Date.now() };
+    this.broadcast(createAgentApplied({ files, summary, at: this.lastApplied.at }));
+  }
+
+  private settleCapture(payload: {
+    captureId: string;
+    selection: SelectionPayload | null;
+    changes: BridgeSyncMessage["payload"]["changes"];
+    screenshot?: string;
+  }): void {
+    const pending = this.pendingCapture;
+    if (!pending || pending.captureId !== payload.captureId) return;
+    clearTimeout(pending.timer);
+    this.pendingCapture = null;
+    pending.resolve({
+      selection: payload.selection,
+      changes: payload.changes,
+      ...(payload.screenshot !== undefined ? { screenshot: payload.screenshot } : {}),
+    });
+  }
+
+  /** Live deps for the per-request MCP server (stateless reads of bridge state). */
+  private mcpDeps(): McpDeps {
+    return {
+      getSync: () => this.lastSync,
+      getSource: () => this.lastResolution,
+      getAgentRequest: () => this.lastAgentRequest,
+      getProject: () => this.options.project,
+      getDevServerUrl: () => this.options.devServerUrl ?? null,
+      capture: (withScreenshot) => this.capture(withScreenshot),
+      notifyApplied: (files, summary) => this.notifyApplied(files, summary),
+    };
   }
 
   /**
@@ -163,6 +286,7 @@ export class BridgeServer {
     } catch {
       resolution = { elementId: selection.element.id, confidence: "unknown" };
     }
+    this.lastResolution = resolution;
     if (socket.readyState === socket.OPEN) {
       socket.send(JSON.stringify(createBridgeSourceResolved(resolution)));
     }

@@ -2,7 +2,9 @@
 import { resolveCwd } from "./args.js";
 import { detectProject } from "./detect/project.js";
 import { probeDevServer } from "./detect/devserver.js";
+import { createAdapters } from "./adapter/adapters.js";
 import { BridgeServer } from "./server/BridgeServer.js";
+import type { AgentInfo } from "@ui-tuner/protocol";
 
 /**
  * Bridge CLI (plan §15). Published target: `npx ui-tuner` inside the user's
@@ -30,10 +32,26 @@ async function main(): Promise<void> {
   process.stdout.write("✓ Dev server\n");
   process.stdout.write(`  ${devServerUrl ?? "not detected"}\n\n`);
 
+  // M7 (plan §44): detect which coding agents are actually installed.
+  const adapters = createAdapters();
+  const agents: AgentInfo[] = await Promise.all(
+    adapters.map(async (adapter) => ({
+      id: adapter.id,
+      name: adapter.name,
+      available: await adapter.isAvailable(),
+    })),
+  );
+  const available = agents.filter((agent) => agent.available);
+  process.stdout.write("✓ Agents\n");
+  process.stdout.write(
+    `  ${available.length > 0 ? available.map((agent) => agent.name).join(", ") : "none detected"}\n\n`,
+  );
+
   const server = new BridgeServer({
     port: BridgeServer.DEFAULT_PORT,
     project,
     devServerUrl,
+    agents,
   });
 
   try {
@@ -47,7 +65,8 @@ async function main(): Promise<void> {
 
   process.stdout.write("✓ Bridge listening\n");
   process.stdout.write(`  ${server.address}\n\n`);
-  process.stdout.write("Chrome extension: open the Side Panel to connect.\n\n");
+  process.stdout.write("Chrome extension: open the Side Panel to connect.\n");
+  process.stdout.write("MCP endpoint: http://127.0.0.1:47321/mcp (codex mcp add ui-tuner --url …)\n\n");
 
   const shutdown = () => {
     void server.stop().finally(() => process.exit(0));

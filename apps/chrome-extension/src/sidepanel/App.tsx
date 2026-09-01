@@ -2,11 +2,13 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { Channel } from "../messaging/channel";
 import { BridgeChannel } from "../messaging/bridge-channel";
 import {
+  registerCaptureHandler,
   reportConnectFailure,
   useSidepanelStore,
   type BridgeStatus,
   type ConnectionStatus,
 } from "../state/sidepanel-store";
+import { AgentTab } from "./components/AgentTab";
 import { ChangesTab } from "./components/ChangesTab";
 import { StylePanel } from "./components/StylePanel";
 
@@ -235,7 +237,20 @@ export function App() {
   useEffect(() => {
     void openChannel();
     dialBridge();
-    return () => useSidepanelStore.getState().reset();
+    // M7 ui_capture (plan §27): screenshot capture needs the chrome API, which
+    // lives in this layer — inject it so the store stays chrome-free/testable.
+    registerCaptureHandler(async (withScreenshot) => {
+      if (!withScreenshot) return undefined;
+      try {
+        return await chrome.tabs.captureVisibleTab({ format: "png" });
+      } catch {
+        return undefined;
+      }
+    });
+    return () => {
+      registerCaptureHandler(null);
+      useSidepanelStore.getState().reset();
+    };
   }, [openChannel]);
 
   const pickButtonLabel = picking ? "取消选取 (Esc)" : selection ? "重新选取" : "选取元素";
@@ -328,13 +343,7 @@ export function App() {
             </section>
           ))}
 
-        {tab === "agent" && (
-          <section className="rounded-md border border-dashed border-zinc-800 px-3 py-4 text-center text-[11px] leading-relaxed text-zinc-600">
-            Agent 在 Milestone 7 上线
-            <br />
-            届时可把调整交给 Coding Agent 落到源码
-          </section>
-        )}
+        {tab === "agent" && <AgentTab />}
 
         {tab === "changes" && <ChangesTab />}
 
