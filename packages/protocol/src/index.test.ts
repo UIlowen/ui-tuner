@@ -5,17 +5,21 @@ import {
   createAgentCapture,
   createAgentCaptureResult,
   createAgentRequest,
+  createApplyConfirmed,
+  createApplyResult,
   createBridgeAgents,
   createBridgeHello,
   createBridgeSourceResolved,
   createBridgeSync,
   createBridgeWelcome,
+  createChangesApply,
   createContentPong,
   createContentReady,
   createPickerState,
   createPreviewChanged,
   createSelectionChanged,
   createSelectionCleared,
+  createSidepanelConfirmApply,
   createSidepanelPing,
   createSidepanelPicking,
   createSidepanelResetChanges,
@@ -27,17 +31,21 @@ import {
   isAgentCaptureMessage,
   isAgentCaptureResultMessage,
   isAgentRequestMessage,
+  isApplyConfirmedMessage,
+  isApplyResultMessage,
   isBridgeAgentsMessage,
   isBridgeHelloMessage,
   isBridgeSourceResolvedMessage,
   isBridgeSyncMessage,
   isBridgeWelcomeMessage,
+  isChangesApplyMessage,
   isContentPongMessage,
   isContentReadyMessage,
   isPickerStateMessage,
   isPreviewChangedMessage,
   isSelectionChangedMessage,
   isSelectionClearedMessage,
+  isSidepanelConfirmApplyMessage,
   isSidepanelPingMessage,
   isSidepanelPickingMessage,
   isSidepanelResetChangesMessage,
@@ -47,6 +55,7 @@ import {
   isSidepanelStylePreviewMessage,
   isUiTunerMessage,
   UI_TUNER_PORT_NAME,
+  type ApplyElementContext,
   type SelectionPayload,
   type StyleChange,
   type UiTunerMessage,
@@ -128,6 +137,48 @@ function createEveryMessage(): UiTunerMessage[] {
       changes: [],
       screenshot: "data:image/png;base64,AAA",
     }),
+    createChangesApply({
+      requestId: "req-1",
+      context: {
+        page: { url: "http://localhost:5173/" },
+        element: {
+          id: "ut-000001",
+          tagName: "button",
+          selector: "body > button",
+          bounds: { x: 0, y: 0, width: 100, height: 40 },
+        },
+        styles: { gap: "24px" },
+      },
+      changes: [
+        {
+          id: "ch-1",
+          elementId: "ut-000001",
+          property: "gap",
+          previousValue: "24px",
+          nextValue: "16px",
+          source: "manual",
+          createdAt: 1,
+        },
+      ],
+      instruction: "紧凑一点",
+      scope: "instance",
+    }),
+    createApplyResult({
+      requestId: "req-1",
+      result: { success: true, files: ["src/Card.tsx"], summary: "done" },
+    }),
+    createSidepanelConfirmApply([
+      {
+        id: "ch-1",
+        elementId: "ut-000001",
+        property: "gap",
+        previousValue: "24px",
+        nextValue: "16px",
+        source: "manual",
+        createdAt: 1,
+      },
+    ]),
+    createApplyConfirmed({ appliedChangeIds: ["ch-1"], failedChangeIds: [], reidentified: true }),
   ];
 }
 
@@ -316,11 +367,70 @@ describe("creators", () => {
       payload: { captureId: "c", withScreenshot: false },
     });
 
-    expect(
-      createAgentCaptureResult({ captureId: "c", selection: null, changes: [] }),
-    ).toEqual({
+    expect(createAgentCaptureResult({ captureId: "c", selection: null, changes: [] })).toEqual({
       type: "agent.captureResult",
       payload: { captureId: "c", selection: null, changes: [] },
+    });
+  });
+
+  it("creates apply messages (plan §17/§45/§46)", () => {
+    const context: ApplyElementContext = {
+      page: { url: "http://localhost:5173/" },
+      element: {
+        id: "ut-000001",
+        tagName: "button",
+        selector: "body > button",
+        bounds: { x: 0, y: 0, width: 100, height: 40 },
+      },
+      component: { name: "Card", source: { file: "src/components/Card.tsx", line: 10 } },
+      styles: { gap: "24px" },
+    };
+    const change: StyleChange = {
+      id: "ch-1",
+      elementId: "ut-000001",
+      property: "gap",
+      previousValue: "24px",
+      nextValue: "16px",
+      source: "manual",
+      createdAt: 1,
+    };
+
+    expect(
+      createChangesApply({
+        requestId: "req-1",
+        context,
+        changes: [change],
+        instruction: "紧凑一点",
+        scope: "component",
+      }),
+    ).toEqual({
+      type: "changes.apply",
+      payload: {
+        requestId: "req-1",
+        context,
+        changes: [change],
+        instruction: "紧凑一点",
+        scope: "component",
+      },
+    });
+
+    expect(
+      createApplyResult({
+        requestId: "req-1",
+        result: { success: false, error: { code: "SOURCE_NOT_FOUND", message: "no source" } },
+      }).payload.result.error?.code,
+    ).toBe("SOURCE_NOT_FOUND");
+
+    expect(createSidepanelConfirmApply([change])).toEqual({
+      type: "sidepanel.confirmApply",
+      payload: { changes: [change] },
+    });
+
+    expect(
+      createApplyConfirmed({ appliedChangeIds: ["ch-1"], failedChangeIds: ["ch-2"], reidentified: false }),
+    ).toEqual({
+      type: "apply.confirmed",
+      payload: { appliedChangeIds: ["ch-1"], failedChangeIds: ["ch-2"], reidentified: false },
     });
   });
 });
@@ -373,6 +483,10 @@ describe("per-type guards", () => {
     expect(messages.filter(isAgentAppliedMessage)).toHaveLength(1);
     expect(messages.filter(isAgentCaptureMessage)).toHaveLength(1);
     expect(messages.filter(isAgentCaptureResultMessage)).toHaveLength(1);
+    expect(messages.filter(isChangesApplyMessage)).toHaveLength(1);
+    expect(messages.filter(isApplyResultMessage)).toHaveLength(1);
+    expect(messages.filter(isSidepanelConfirmApplyMessage)).toHaveLength(1);
+    expect(messages.filter(isApplyConfirmedMessage)).toHaveLength(1);
   });
 });
 

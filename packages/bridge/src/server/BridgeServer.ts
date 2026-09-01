@@ -4,6 +4,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import {
   createAgentApplied,
   createAgentCapture,
+  createApplyResult,
   createBridgeAgents,
   createBridgeSourceResolved,
   createBridgeWelcome,
@@ -11,11 +12,14 @@ import {
   isAgentRequestMessage,
   isBridgeHelloMessage,
   isBridgeSyncMessage,
+  isChangesApplyMessage,
   isUiTunerMessage,
   type AgentInfo,
   type AgentRequestMessage,
+  type ApplyChangeRequest,
   type BridgeProject,
   type BridgeSyncMessage,
+  type ChangesApplyMessage,
   type SelectionPayload,
   type SourceResolution,
   type UiTunerMessage,
@@ -23,6 +27,7 @@ import {
 import { resolveSource } from "../resolver/resolve.js";
 import { handleMcpRequest } from "../mcp/http.js";
 import type { CaptureResult, McpDeps } from "../mcp/server.js";
+import type { AgentAdapter } from "../adapter/types.js";
 
 /**
  * Local bridge server (plan §15/§16): one HTTP server on 127.0.0.1 with a
@@ -45,6 +50,8 @@ export interface BridgeServerOptions {
   resolveSource?: (selection: SelectionPayload) => SourceResolution;
   /** Agent availability detected at startup (plan §44); default none. */
   agents?: AgentInfo[];
+  /** Agent adapters for Apply to Code (plan §44). Codex first. */
+  adapters?: AgentAdapter[];
 }
 
 /** Pending ui_capture round-trip waiting on the Side Panel's reply. */
@@ -205,9 +212,60 @@ export class BridgeServer {
       this.lastAgentRequest = parsed.payload;
     } else if (isAgentCaptureResultMessage(parsed)) {
       this.settleCapture(parsed.payload);
+    } else if (isChangesApplyMessage(parsed)) {
+      // M8 (plan §29): Apply to Code. Async — reply with apply.result.
+      void this.handleApply(socket, parsed);
     }
     // Everything else (channel / picker messages) is accepted at the boundary
     // but ignored until its milestone wires it in.
+  }
+
+  /**
+   * M8 (plan §29/§44): hand the ChangeSet to the first available adapter
+   * (Codex) to edit the project source, then report the honest outcome.
+   */
+  private async handleApply(socket: WebSocket, message: ChangesApplyMessage): Promise<void> {
+    const { requestId, context, changes, instruction, scope } = message.payload;
+    const adapter = (this.options.adapters ?? [])[0];
+
+    let result;
+    if (!adapter) {
+      result = {
+        success: false,
+        error: { code: "AGENT_OFFLINE", message: "No agent adapter is configured." },
+      };
+    } else if (!(await adapter.isAvailable())) {
+      result = {
+        success: false,
+        error: {
+          code: "AGENT_OFFLINE",
+          message: `${adapter.name} is not available. Preview changes are safe.`,
+        },
+      };
+    } else {
+      const request: ApplyChangeRequest = {
+        project: {
+          root: this.options.project.root,
+          framework: this.options.project.framework,
+        },
+        context,
+        changes,
+        ...(instruction !== undefined ? { instruction } : {}),
+        scope,
+      };
+      try {
+        result = await adapter.applyChanges(request);
+      } catch (error) {
+        result = {
+          success: false,
+          error: { code: "APPLY_FAILED", message: String(error) },
+        };
+      }
+    }
+
+    if (socket.readyState === socket.OPEN) {
+      socket.send(JSON.stringify(createApplyResult({ requestId, result })));
+    }
   }
 
   /**

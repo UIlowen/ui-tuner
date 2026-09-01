@@ -1,4 +1,5 @@
 import { useSidepanelStore } from "../../state/sidepanel-store";
+import { ApplySection } from "./ApplySection";
 
 /**
  * Changes tab (plan §13/§14): changes grouped per element, each row revertable,
@@ -89,13 +90,14 @@ export function ChangesTab() {
           >
             Reset All
           </button>
-          <span className="ml-auto font-mono text-[10px] text-zinc-600">
-            Apply · M8
-            <br />
-            {changes.length} 项待应用
-          </span>
+          <span className="ml-auto font-mono text-[10px] text-zinc-600">{changes.length} 项待应用</span>
         </div>
       )}
+
+      {/* M8 Apply to Code: dialog / applying / result, or the Apply button. */}
+      <div className="mt-2.5">
+        <ApplySection />
+      </div>
     </section>
   );
 }

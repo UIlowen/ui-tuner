@@ -7,6 +7,7 @@ export {
   releaseUiTunerId,
   readUiTunerId,
   textPreview,
+  domFingerprintFor,
   UI_TUNER_ID_ATTR,
 } from "./dom/identity";
 export { domSnapshotFor, MAX_HTML_LENGTH } from "./dom/snapshot";
@@ -26,3 +27,4 @@ export { rgbToHex } from "./styles/color";
 
 export { PreviewEngine } from "./preview/PreviewEngine";
 export { ChangeTracker } from "./changes/ChangeTracker";
+export { cssValuesEqual, normalizeCssValue } from "./changes/confirm";

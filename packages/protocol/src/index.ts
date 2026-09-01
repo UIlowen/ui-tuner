@@ -362,6 +362,116 @@ export interface AgentCaptureResultMessage {
 }
 
 // ---------------------------------------------------------------------------
+// M8 — Apply to Code (plan §17/§28/§29/§30/§31/§45/§46/§47)
+// ---------------------------------------------------------------------------
+
+/** Apply scope (plan §30): this element instance, or the whole component. */
+export type ApplyScope = "instance" | "component";
+
+/** Unified error codes (plan §47). */
+export type ApplyErrorCode =
+  | "BRIDGE_OFFLINE"
+  | "AGENT_OFFLINE"
+  | "SOURCE_NOT_FOUND"
+  | "SOURCE_AMBIGUOUS"
+  | "APPLY_FAILED"
+  | "HMR_TIMEOUT"
+  | "ELEMENT_REIDENTIFY_FAILED"
+  | "UNSUPPORTED_PAGE"
+  | "UNSUPPORTED_FRAMEWORK";
+
+/**
+ * Element context handed to the agent (plan §18). Assembled by the Side Panel
+ * from the live selection + source resolution. Fields that cannot be
+ * guaranteed are optional — never fabricated.
+ */
+export interface ApplyElementContext {
+  page: {
+    url: string;
+    viewport?: { width: number; height: number };
+  };
+  element: SelectionElement;
+  component?: {
+    name?: string;
+    source?: { file: string; line?: number; column?: number };
+  };
+  styles: Record<string, string>;
+  dom?: DomSnapshot;
+  screenshot?: string;
+}
+
+/** Apply request handed to an AgentAdapter (plan §45). */
+export interface ApplyChangeRequest {
+  project: {
+    root: string;
+    framework?: string;
+    styling?: string;
+  };
+  context: ApplyElementContext;
+  changes: StyleChange[];
+  instruction?: string;
+  scope: ApplyScope;
+}
+
+/** Apply result returned by an AgentAdapter (plan §46). */
+export interface ApplyChangeResult {
+  success: boolean;
+  files?: string[];
+  summary?: string;
+  diff?: string;
+  error?: {
+    code: ApplyErrorCode | string;
+    message: string;
+  };
+}
+
+/** Side Panel → Bridge. Apply the preview ChangeSet to source (plan §17/§30). */
+export interface ChangesApplyMessage {
+  type: "changes.apply";
+  payload: {
+    requestId: string;
+    context: ApplyElementContext;
+    changes: StyleChange[];
+    instruction?: string;
+    scope: ApplyScope;
+  };
+}
+
+/** Bridge → Side Panel. Outcome of a `changes.apply` (plan §31). */
+export interface ApplyResultMessage {
+  type: "apply.result";
+  payload: {
+    requestId: string;
+    result: ApplyChangeResult;
+  };
+}
+
+/**
+ * Side Panel → Content. The agent wrote the changes to source — confirm they
+ * are now reflected by the page (after HMR) and drop the redundant preview
+ * overrides (plan §29: Re-identify → Remove matching Preview Override → Compare).
+ */
+export interface SidepanelConfirmApplyMessage {
+  type: "sidepanel.confirmApply";
+  payload: {
+    changes: StyleChange[];
+  };
+}
+
+/** Content → Side Panel. Which applied changes are now live in source. */
+export interface ApplyConfirmedMessage {
+  type: "apply.confirmed";
+  payload: {
+    /** Change ids whose computed value now matches the source (override dropped). */
+    appliedChangeIds: string[];
+    /** Change ids that did not match after HMR (override restored). */
+    failedChangeIds: string[];
+    /** True when the element had to be re-identified after a DOM refresh. */
+    reidentified: boolean;
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Union + guards
 // ---------------------------------------------------------------------------
 
@@ -387,7 +497,11 @@ export type UiTunerMessage =
   | BridgeAgentsMessage
   | AgentAppliedMessage
   | AgentCaptureMessage
-  | AgentCaptureResultMessage;
+  | AgentCaptureResultMessage
+  | ChangesApplyMessage
+  | ApplyResultMessage
+  | SidepanelConfirmApplyMessage
+  | ApplyConfirmedMessage;
 
 export type UiTunerMessageType = UiTunerMessage["type"];
 
@@ -414,6 +528,10 @@ const MESSAGE_TYPES: readonly UiTunerMessageType[] = [
   "agent.applied",
   "agent.capture",
   "agent.captureResult",
+  "changes.apply",
+  "apply.result",
+  "sidepanel.confirmApply",
+  "apply.confirmed",
 ];
 
 export function isUiTunerMessageType(value: unknown): value is UiTunerMessageType {
@@ -537,6 +655,24 @@ export function isAgentCaptureResultMessage(
   return value.type === "agent.captureResult";
 }
 
+export function isChangesApplyMessage(value: UiTunerMessage): value is ChangesApplyMessage {
+  return value.type === "changes.apply";
+}
+
+export function isApplyResultMessage(value: UiTunerMessage): value is ApplyResultMessage {
+  return value.type === "apply.result";
+}
+
+export function isSidepanelConfirmApplyMessage(
+  value: UiTunerMessage,
+): value is SidepanelConfirmApplyMessage {
+  return value.type === "sidepanel.confirmApply";
+}
+
+export function isApplyConfirmedMessage(value: UiTunerMessage): value is ApplyConfirmedMessage {
+  return value.type === "apply.confirmed";
+}
+
 // ---------------------------------------------------------------------------
 // Creators
 // ---------------------------------------------------------------------------
@@ -635,6 +771,26 @@ export function createAgentCaptureResult(
   payload: AgentCaptureResultMessage["payload"],
 ): AgentCaptureResultMessage {
   return { type: "agent.captureResult", payload };
+}
+
+export function createChangesApply(payload: ChangesApplyMessage["payload"]): ChangesApplyMessage {
+  return { type: "changes.apply", payload };
+}
+
+export function createApplyResult(payload: ApplyResultMessage["payload"]): ApplyResultMessage {
+  return { type: "apply.result", payload };
+}
+
+export function createSidepanelConfirmApply(
+  changes: StyleChange[],
+): SidepanelConfirmApplyMessage {
+  return { type: "sidepanel.confirmApply", payload: { changes } };
+}
+
+export function createApplyConfirmed(
+  payload: ApplyConfirmedMessage["payload"],
+): ApplyConfirmedMessage {
+  return { type: "apply.confirmed", payload };
 }
 
 // ---------------------------------------------------------------------------

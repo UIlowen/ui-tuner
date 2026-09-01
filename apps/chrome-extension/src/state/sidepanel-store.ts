@@ -4,6 +4,8 @@ import {
   createAgentRequest,
   createBridgeHello,
   createBridgeSync,
+  createChangesApply,
+  createSidepanelConfirmApply,
   createSidepanelPing,
   createSidepanelPicking,
   createSidepanelResetChanges,
@@ -13,6 +15,8 @@ import {
   createSidepanelStylePreview,
   isAgentAppliedMessage,
   isAgentCaptureMessage,
+  isApplyConfirmedMessage,
+  isApplyResultMessage,
   isBridgeAgentsMessage,
   isBridgeSourceResolvedMessage,
   isBridgeWelcomeMessage,
@@ -24,6 +28,9 @@ import {
   isSelectionClearedMessage,
   type AgentInclude,
   type AgentInfo,
+  type ApplyChangeResult,
+  type ApplyElementContext,
+  type ApplyScope,
   type BridgeProject,
   type ContextLevel,
   type SelectionPayload,
@@ -89,6 +96,16 @@ interface SidepanelState {
   /** Latest ui_notify_applied report relayed from an agent (plan §27). */
   lastApplied: { files: string[]; summary: string; at: number } | null;
 
+  // --- M8 Apply to Code (plan §29/§30/§31/§34) -------------------------------
+  /** Apply lifecycle: idle → applying → applied | failed. */
+  applyState: "idle" | "applying" | "applied" | "failed";
+  /** The in-flight apply request id (matches apply.result). */
+  applyRequestId: string | null;
+  /** Last apply outcome (plan §31), shown in the result card. */
+  applyResult: ApplyChangeResult | null;
+  /** How many applied changes were confirmed live in source after HMR. */
+  applyConfirmedCount: number | null;
+
   /** Wire an already-opened channel (App owns chrome.tabs lookup). */
   connect: (channel: Channel) => void;
   /** Attach the local bridge socket; hello/welcome handshake + state mirror. */
@@ -125,6 +142,10 @@ interface SidepanelState {
   sendAgentRequest: () => void;
   /** Dismiss the "agent applied" banner. */
   dismissApplied: () => void;
+  /** Apply the selected element's preview changes to source via the agent (M8). */
+  applyChanges: (scope: ApplyScope) => void;
+  /** Back out of the Applying/Applied/Failed state to idle (dismiss result card). */
+  clearApplyState: () => void;
   /** Drop the channel and return to idle. */
   reset: () => void;
 }
@@ -132,6 +153,7 @@ interface SidepanelState {
 let channel: Channel | null = null;
 let bridgeChannel: BridgeChannel | null = null;
 let nextLogId = 1;
+let nextApplyRequestId = 1;
 
 /**
  * Screenshot capturer injected by the App layer (chrome.tabs.captureVisibleTab
@@ -222,6 +244,10 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
   agentContextLevel: 1,
   agentSent: null,
   lastApplied: null,
+  applyState: "idle",
+  applyRequestId: null,
+  applyResult: null,
+  applyConfirmedCount: null,
 
   attachBridge: (nextBridgeChannel, info) => {
     bridgeChannel = nextBridgeChannel;
@@ -252,6 +278,23 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
         set({ lastApplied: message.payload });
       } else if (isAgentCaptureMessage(message)) {
         void respondToCapture(message.payload);
+      } else if (isApplyResultMessage(message)) {
+        // M8 §31: only settle the request we actually sent (stale guard).
+        if (message.payload.requestId !== get().applyRequestId) return;
+        const result = message.payload.result;
+        if (result.success) {
+          set({ applyState: "applied", applyResult: result });
+          // Ask the page to confirm the changes are live in source after HMR
+          // and drop the now-redundant preview overrides (plan §29).
+          const appliedChanges = get().changes.filter((c) =>
+            get().selection ? c.elementId === get().selection!.element.id : false,
+          );
+          if (channel && appliedChanges.length > 0) {
+            channel.send(createSidepanelConfirmApply(appliedChanges));
+          }
+        } else {
+          set({ applyState: "failed", applyResult: result });
+        }
       }
     });
     const dropOffline = () => {
@@ -315,6 +358,9 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
     } else if (isPreviewChangedMessage(message)) {
       set({ changes: message.payload.changes });
       sendBridgeSync();
+    } else if (isApplyConfirmedMessage(message)) {
+      // M8 §29: page confirmed which applied changes are live in source.
+      set({ applyConfirmedCount: message.payload.appliedChangeIds.length });
     }
   },
 
@@ -414,6 +460,53 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
     set({ lastApplied: null });
   },
 
+  applyChanges: (scope) => {
+    const { selection, source, changes, pageUrl, bridgeStatus, agentInstruction } = get();
+    if (!bridgeChannel || bridgeStatus !== "connected") return;
+    if (!selection) return;
+    const elementId = selection.element.id;
+    // Apply only the currently-selected element's changes (plan §30 dialog is
+    // per-component).
+    const elementChanges = changes.filter((c) => c.elementId === elementId);
+    if (elementChanges.length === 0) return;
+
+    const context: ApplyElementContext = {
+      page: { url: pageUrl ?? "" },
+      element: selection.element,
+      ...(source && source.confidence !== "unknown" && source.file
+        ? {
+            component: {
+              ...(source.componentName ? { name: source.componentName } : {}),
+              source: { file: source.file, ...(source.line !== undefined ? { line: source.line } : {}) },
+            },
+          }
+        : {}),
+      styles: selection.styles,
+      ...(selection.dom ? { dom: selection.dom } : {}),
+    };
+
+    const requestId = `apply-${nextApplyRequestId++}`;
+    const message = createChangesApply({
+      requestId,
+      context,
+      changes: elementChanges,
+      ...(agentInstruction.trim() ? { instruction: agentInstruction.trim() } : {}),
+      scope,
+    });
+    bridgeChannel.send(message);
+    set((state) => ({
+      log: appendLog(state.log, "out", message),
+      applyState: "applying",
+      applyRequestId: requestId,
+      applyResult: null,
+      applyConfirmedCount: null,
+    }));
+  },
+
+  clearApplyState: () => {
+    set({ applyState: "idle", applyRequestId: null, applyResult: null, applyConfirmedCount: null });
+  },
+
   reset: () => {
     channel = null;
     bridgeChannel?.close();
@@ -440,6 +533,10 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       agentContextLevel: 1,
       agentSent: null,
       lastApplied: null,
+      applyState: "idle",
+      applyRequestId: null,
+      applyResult: null,
+      applyConfirmedCount: null,
     });
   },
 }));
@@ -468,5 +565,9 @@ export function reportConnectFailure(reason: string): void {
     agents: [],
     agentSent: null,
     lastApplied: null,
+    applyState: "idle",
+    applyRequestId: null,
+    applyResult: null,
+    applyConfirmedCount: null,
   });
 }

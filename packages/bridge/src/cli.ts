@@ -52,6 +52,7 @@ async function main(): Promise<void> {
     project,
     devServerUrl,
     agents,
+    adapters, // M8: real CodexAdapter.applyChanges drives codex exec.
   });
 
   try {

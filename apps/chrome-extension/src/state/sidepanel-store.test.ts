@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   createAgentApplied,
   createAgentCapture,
+  createApplyConfirmed,
+  createApplyResult,
   createBridgeAgents,
   createBridgeSourceResolved,
   createBridgeWelcome,
@@ -489,6 +491,151 @@ describe("sidepanel store — M7 agent (plan §23–§27)", () => {
 
     const reply = socket.sent.at(-1) as { payload: { screenshot?: string } };
     expect(reply.payload.screenshot).toBeUndefined();
+  });
+});
+
+describe("sidepanel store — M8 apply to code (plan §29/§30/§31)", () => {
+  function openBridge(): FakeSocket {
+    const socket = new FakeSocket();
+    useSidepanelStore.getState().attachBridge(BridgeChannel.accept(socket), {
+      extensionVersion: "0.1.0",
+      pageUrl: "http://localhost:5173/",
+    });
+    socket.open();
+    return socket;
+  }
+
+  function withSelectionAndChange(): void {
+    selectElement({ gap: "24px" });
+    useSidepanelStore.getState().receive(
+      createPreviewChanged([
+        {
+          id: "ch-1",
+          elementId: "ut-000001",
+          property: "gap",
+          previousValue: "24px",
+          nextValue: "16px",
+          source: "manual",
+          createdAt: 1,
+        },
+      ]),
+    );
+  }
+
+  it("applyChanges sends changes.apply for the selected element and enters applying", () => {
+    resetStore();
+    const socket = openBridge();
+    useSidepanelStore.getState().setAgentInstruction("紧凑一点");
+    withSelectionAndChange();
+
+    socket.sent.length = 0;
+    useSidepanelStore.getState().applyChanges("instance");
+
+    const sent = socket.sent.at(-1) as {
+      type: string;
+      payload: {
+        requestId: string;
+        scope: string;
+        instruction?: string;
+        changes: { elementId: string }[];
+        context: { component?: { name?: string } };
+      };
+    };
+    expect(sent.type).toBe("changes.apply");
+    expect(sent.payload.scope).toBe("instance");
+    expect(sent.payload.instruction).toBe("紧凑一点");
+    expect(sent.payload.changes).toHaveLength(1);
+    expect(useSidepanelStore.getState().applyState).toBe("applying");
+    expect(useSidepanelStore.getState().applyRequestId).toBe(sent.payload.requestId);
+  });
+
+  it("applyChanges is a no-op without bridge, selection, or changes", () => {
+    resetStore();
+    useSidepanelStore.getState().applyChanges("instance"); // no bridge
+    expect(useSidepanelStore.getState().applyState).toBe("idle");
+
+    const socket = openBridge();
+    selectElement({ gap: "24px" }); // selection but no changes
+    socket.sent.length = 0;
+    useSidepanelStore.getState().applyChanges("instance");
+    expect(useSidepanelStore.getState().applyState).toBe("idle");
+    expect(socket.sent.some((m) => (m as { type: string }).type === "changes.apply")).toBe(false);
+  });
+
+  it("apply.result success marks applied and asks content to confirm", () => {
+    resetStore();
+    const socket = openBridge();
+    const { port, sent: portSent } = createSpyPort();
+    useSidepanelStore.getState().connect(Channel.accept(port));
+    useSidepanelStore.getState().receive(
+      createContentReady({ url: "http://localhost:5173/", title: "Demo", connectedAt: 1 }),
+    );
+    withSelectionAndChange();
+
+    useSidepanelStore.getState().applyChanges("component");
+    const requestId = useSidepanelStore.getState().applyRequestId!;
+    portSent.length = 0;
+
+    socket.message(
+      JSON.stringify(
+        createApplyResult({ requestId, result: { success: true, files: ["src/Card.tsx"], summary: "ok" } }),
+      ),
+    );
+    expect(useSidepanelStore.getState().applyState).toBe("applied");
+    expect(useSidepanelStore.getState().applyResult?.files).toEqual(["src/Card.tsx"]);
+    // confirmApply went to the content script with the element's changes.
+    const confirm = portSent.find((m) => (m as { type: string }).type === "sidepanel.confirmApply") as
+      | { payload: { changes: unknown[] } }
+      | undefined;
+    expect(confirm?.payload.changes).toHaveLength(1);
+  });
+
+  it("apply.result failure marks failed with the honest reason", () => {
+    resetStore();
+    const socket = openBridge();
+    withSelectionAndChange();
+    useSidepanelStore.getState().applyChanges("instance");
+    const requestId = useSidepanelStore.getState().applyRequestId!;
+
+    socket.message(
+      JSON.stringify(
+        createApplyResult({
+          requestId,
+          result: { success: false, error: { code: "SOURCE_NOT_FOUND", message: "no source" } },
+        }),
+      ),
+    );
+    expect(useSidepanelStore.getState().applyState).toBe("failed");
+    expect(useSidepanelStore.getState().applyResult?.error?.code).toBe("SOURCE_NOT_FOUND");
+  });
+
+  it("ignores apply.result for a stale requestId", () => {
+    resetStore();
+    const socket = openBridge();
+    withSelectionAndChange();
+    useSidepanelStore.getState().applyChanges("instance");
+    socket.message(
+      JSON.stringify(createApplyResult({ requestId: "apply-999", result: { success: true } })),
+    );
+    expect(useSidepanelStore.getState().applyState).toBe("applying");
+  });
+
+  it("apply.confirmed records the confirmed count; clearApplyState resets", () => {
+    resetStore();
+    openBridge();
+    withSelectionAndChange();
+    useSidepanelStore.getState().applyChanges("instance");
+    useSidepanelStore.setState({ applyState: "applied" });
+
+    useSidepanelStore
+      .getState()
+      .receive(createApplyConfirmed({ appliedChangeIds: ["ch-1"], failedChangeIds: [], reidentified: true }));
+    expect(useSidepanelStore.getState().applyConfirmedCount).toBe(1);
+
+    useSidepanelStore.getState().clearApplyState();
+    expect(useSidepanelStore.getState().applyState).toBe("idle");
+    expect(useSidepanelStore.getState().applyResult).toBeNull();
+    expect(useSidepanelStore.getState().applyConfirmedCount).toBeNull();
   });
 });
 

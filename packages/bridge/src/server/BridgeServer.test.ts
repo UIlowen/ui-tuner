@@ -192,4 +192,80 @@ describe("BridgeServer", () => {
     const response = await fetch(`http://127.0.0.1:${portOf(address)}/health`);
     expect(response.status).toBe(200);
   });
+
+  it("handles changes.apply via the adapter and replies apply.result (M8, plan §29)", async () => {
+    const seenRequest: unknown[] = [];
+    const adapter = {
+      id: "codex",
+      name: "Codex",
+      isAvailable: () => Promise.resolve(true),
+      applyChanges: (request: unknown) => {
+        seenRequest.push(request);
+        return Promise.resolve({ success: true, files: ["src/Card.tsx"], summary: "ok" });
+      },
+    };
+    server = new BridgeServer({ port: 0, project: PROJECT, devServerUrl: null, adapters: [adapter] });
+    const address = await server.start();
+    const socket = new WebSocket(address);
+    const received: unknown[] = [];
+    socket.on("message", (raw) => received.push(JSON.parse(raw.toString())));
+    await new Promise((resolve) => socket.on("open", resolve));
+
+    socket.send(
+      JSON.stringify({
+        type: "changes.apply",
+        payload: {
+          requestId: "req-1",
+          context: {
+            page: { url: "http://localhost:5173/" },
+            element: { id: "ut-1", tagName: "button", selector: "button", bounds: { x: 0, y: 0, width: 1, height: 1 } },
+            styles: { gap: "24px" },
+          },
+          changes: [{ id: "ch-1", elementId: "ut-1", property: "gap", previousValue: "24px", nextValue: "16px", source: "manual", createdAt: 1 }],
+          instruction: "紧凑",
+          scope: "instance",
+        },
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    socket.terminate();
+
+    const applyResult = received.find((m) => (m as { type: string }).type === "apply.result") as {
+      payload: { requestId: string; result: { success: boolean; files?: string[] } };
+    };
+    expect(applyResult.payload.requestId).toBe("req-1");
+    expect(applyResult.payload.result.success).toBe(true);
+    expect(applyResult.payload.result.files).toEqual(["src/Card.tsx"]);
+    // The adapter got the project root/framework merged in.
+    expect((seenRequest[0] as { project: { root: string; framework?: string } }).project.framework).toBe("Vite");
+  });
+
+  it("changes.apply reports AGENT_OFFLINE when no adapter is available", async () => {
+    server = new BridgeServer({ port: 0, project: PROJECT, devServerUrl: null, adapters: [] });
+    const address = await server.start();
+    const socket = new WebSocket(address);
+    const received: unknown[] = [];
+    socket.on("message", (raw) => received.push(JSON.parse(raw.toString())));
+    await new Promise((resolve) => socket.on("open", resolve));
+
+    socket.send(
+      JSON.stringify({
+        type: "changes.apply",
+        payload: {
+          requestId: "req-2",
+          context: { page: { url: "x" }, element: { id: "u", tagName: "div", selector: "div", bounds: { x: 0, y: 0, width: 1, height: 1 } }, styles: {} },
+          changes: [],
+          scope: "instance",
+        },
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    socket.terminate();
+
+    const applyResult = received.find((m) => (m as { type: string }).type === "apply.result") as {
+      payload: { result: { success: boolean; error?: { code: string } } };
+    };
+    expect(applyResult.payload.result.success).toBe(false);
+    expect(applyResult.payload.result.error?.code).toBe("AGENT_OFFLINE");
+  });
 });
