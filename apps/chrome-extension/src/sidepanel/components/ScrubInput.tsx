@@ -104,13 +104,20 @@ export function ScrubInput({
     if (!dragStart.current) return;
     dragStart.current = null;
     setDragging(false);
-    event.currentTarget.releasePointerCapture(event.pointerId);
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
+    // Commit BEFORE releasing capture, and guard the release:
+    // releasePointerCapture throws NotFoundError when the pointer was already
+    // implicitly released — that must never swallow the commit.
     commit(clamp(currentValue.current, min, max));
     pendingRef.current = null;
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // Pointer already released — safe to ignore.
+    }
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
