@@ -89,12 +89,12 @@ describe("formatChangesetForCopy", () => {
     expect(out).toContain("- color: #000 → #fff");
   });
 
-  it("renders empty previousValue as （无）", () => {
+  it("renders empty previousValue as (empty)", () => {
     const out = formatChangesetForCopy({
       changes: [change({ previousValue: "" })],
       elementNames: {},
     });
-    expect(out).toContain("- height: （无） → 52px");
+    expect(out).toContain("- height: (empty) → 52px");
   });
 
   it("falls back to elementId when no name/selection known", () => {

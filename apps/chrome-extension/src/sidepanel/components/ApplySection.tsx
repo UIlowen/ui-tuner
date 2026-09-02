@@ -163,12 +163,21 @@ export function ApplySection() {
           </button>
           <button
             type="button"
-            disabled={!bridgeConnected || elementChanges.length === 0}
+            disabled={!bridgeConnected || elementChanges.length === 0 || sourceUnknown}
+            title={
+              sourceUnknown
+                ? "无法定位源码（Preview only）——Apply 需要 ● Source linked 的元素"
+                : !bridgeConnected
+                  ? "Bridge 未连接"
+                  : elementChanges.length === 0
+                    ? "当前选中元素没有待应用的修改"
+                    : "把修改落到源码"
+            }
             onClick={() => {
               setDialogOpen(false);
               applyChanges(scope);
             }}
-            className="flex-1 rounded-md bg-zinc-100 px-3 py-1.5 text-[12px] font-semibold text-zinc-900 enabled:hover:bg-white disabled:opacity-40"
+            className="flex-1 rounded-md bg-zinc-100 px-3 py-1.5 text-[12px] font-semibold text-zinc-900 enabled:hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
           >
             Apply
           </button>
@@ -183,15 +192,17 @@ export function ApplySection() {
     <button
       type="button"
       onClick={() => setDialogOpen(true)}
-      disabled={!bridgeConnected || elementChanges.length === 0}
+      disabled={!bridgeConnected || elementChanges.length === 0 || sourceUnknown}
       title={
         !bridgeConnected
           ? "Bridge 未连接"
           : elementChanges.length === 0
             ? "当前选中元素没有待应用的修改"
-            : "把修改落到源码"
+            : sourceUnknown
+              ? "无法定位源码（Preview only）——Apply 需要 ● Source linked 的元素；可改用「复制改动」手动粘贴给 AI"
+              : "把修改落到源码"
       }
-      className="w-full rounded-md bg-violet-500/20 px-3 py-1.5 text-[12px] font-semibold text-violet-300 ring-1 ring-violet-500/50 transition-colors enabled:hover:bg-violet-500/30 disabled:opacity-40"
+      className="w-full rounded-md bg-violet-500/20 px-3 py-1.5 text-[12px] font-semibold text-violet-300 ring-1 ring-violet-500/50 transition-colors enabled:hover:bg-violet-500/30 disabled:cursor-not-allowed disabled:opacity-40"
     >
       Apply to Code
     </button>

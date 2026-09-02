@@ -838,6 +838,17 @@ const RELEVANT_STYLE_PROPS: readonly string[] = [
 const MAX_RELEVANT_STYLES = 12;
 
 /**
+ * Canonical one-line rendering of a StyleChange — `prop: old → new`. Shared by
+ * the §26 agent prompt (`assembleAgentContext`) and the Changes-tab copy
+ * snippet (`formatChangesetForCopy`) so the two never drift apart. An empty
+ * previous value renders as `(empty)`.
+ */
+export function formatStyleChangeLine(change: StyleChange): string {
+  const prev = change.previousValue.trim() === "" ? "(empty)" : change.previousValue;
+  return `${change.property}: ${prev} → ${change.nextValue}`;
+}
+
+/**
  * Assemble the agent prompt context in the plan §26 format. Pure text — used
  * by both the Side Panel preview and the MCP `ui_get_context` tool so the two
  * never drift apart.
@@ -908,7 +919,7 @@ export function assembleAgentContext(input: AgentContextInput): string {
     lines.push("(none yet)");
   } else {
     for (const change of changes) {
-      lines.push(`${change.property}: ${change.previousValue} → ${change.nextValue}`);
+      lines.push(formatStyleChangeLine(change));
     }
   }
   lines.push("");

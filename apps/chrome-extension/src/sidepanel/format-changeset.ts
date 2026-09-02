@@ -1,3 +1,4 @@
+import { formatStyleChangeLine } from "@ui-tuner/protocol";
 import type { SelectionPayload, SourceResolution, StyleChange } from "@ui-tuner/protocol";
 
 export interface FormatChangesetInput {
@@ -58,8 +59,9 @@ export function formatChangesetForCopy(input: FormatChangesetInput): string {
 
     lines.push("改动（旧值 → 新值）：");
     for (const change of group.changes) {
-      const prev = change.previousValue.trim() === "" ? "（无）" : change.previousValue;
-      lines.push(`- ${change.property}: ${prev} → ${change.nextValue}`);
+      // Bullet prefix + the shared change line (same rendering as the §26
+      // agent prompt) so Changes-copy and Agent-tab never drift.
+      lines.push(`- ${formatStyleChangeLine(change)}`);
     }
     lines.push("");
   }
