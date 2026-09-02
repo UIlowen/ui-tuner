@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useSidepanelStore } from "../../state/sidepanel-store";
 import { ApplySection } from "./ApplySection";
+import { formatChangesetForCopy } from "../format-changeset";
 
 /**
  * Changes tab (plan §13/§14): changes grouped per element, each row revertable,
@@ -8,9 +10,24 @@ import { ApplySection } from "./ApplySection";
 export function ChangesTab() {
   const changes = useSidepanelStore((s) => s.changes);
   const elementNames = useSidepanelStore((s) => s.elementNames);
+  const selection = useSidepanelStore((s) => s.selection);
+  const source = useSidepanelStore((s) => s.source);
   const revertChange = useSidepanelStore((s) => s.revertChange);
   const revertElement = useSidepanelStore((s) => s.revertElement);
   const resetChanges = useSidepanelStore((s) => s.resetChanges);
+  const [copied, setCopied] = useState(false);
+
+  const copyChanges = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        formatChangesetForCopy({ changes, elementNames, source, selection }),
+      );
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   // Group changes by element, preserving first-seen order.
   const groups: { elementId: string; tagName: string; changes: typeof changes }[] = [];
@@ -83,6 +100,14 @@ export function ChangesTab() {
 
       {changes.length > 0 && (
         <div className="mt-3 flex items-center gap-2 border-t border-zinc-800 pt-2.5">
+          <button
+            type="button"
+            onClick={() => void copyChanges()}
+            title="复制全部改动（含源码位置），粘贴到 Claude / Codex 对话框"
+            className="rounded-md bg-sky-500/15 px-2.5 py-1 text-[11px] font-medium text-sky-300 ring-1 ring-sky-500/40 transition-colors hover:bg-sky-500/25"
+          >
+            {copied ? "已复制 ✓" : "复制改动"}
+          </button>
           <button
             type="button"
             onClick={resetChanges}
