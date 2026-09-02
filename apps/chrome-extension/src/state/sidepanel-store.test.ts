@@ -590,6 +590,73 @@ describe("sidepanel store — M8 apply to code (plan §29/§30/§31)", () => {
     expect(confirm?.payload.changes).toHaveLength(1);
   });
 
+  it("static project (framework Unknown): apply success skips HMR confirm, flags reload, reloadPage posts to content", () => {
+    resetStore();
+    const socket = openBridge();
+    // Static site — no HMR.
+    socket.message(
+      JSON.stringify(
+        createBridgeWelcome({
+          bridgeVersion: "0.1.0",
+          project: { name: null, framework: "Unknown", root: "/tmp/static" },
+          devServerUrl: "http://localhost:8080",
+        }),
+      ),
+    );
+    const { port, sent: portSent } = createSpyPort();
+    useSidepanelStore.getState().connect(Channel.accept(port));
+    useSidepanelStore.getState().receive(
+      createContentReady({ url: "http://localhost:8080/", title: "Static", connectedAt: 1 }),
+    );
+    withSelectionAndChange();
+
+    useSidepanelStore.getState().applyChanges("instance");
+    const requestId = useSidepanelStore.getState().applyRequestId!;
+    portSent.length = 0;
+
+    socket.message(
+      JSON.stringify(
+        createApplyResult({ requestId, result: { success: true, files: ["index.html"], summary: "ok" } }),
+      ),
+    );
+
+    const state = useSidepanelStore.getState();
+    expect(state.applyState).toBe("applied");
+    expect(state.applyNeedsReload).toBe(true);
+    // No HMR on a static page — the confirm poll must not run.
+    expect(portSent.some((m) => (m as { type: string }).type === "sidepanel.confirmApply")).toBe(false);
+
+    // reloadPage asks the content script to reload so the source change renders.
+    useSidepanelStore.getState().reloadPage();
+    expect(portSent.some((m) => (m as { type: string }).type === "sidepanel.reloadPage")).toBe(true);
+  });
+
+  it("HMR project: applyNeedsReload stays false and confirm is sent", () => {
+    resetStore();
+    const socket = openBridge();
+    socket.message(
+      JSON.stringify(
+        createBridgeWelcome({
+          bridgeVersion: "0.1.0",
+          project: { name: "demo", framework: "Vite", root: "/tmp/demo" },
+          devServerUrl: "http://localhost:5173",
+        }),
+      ),
+    );
+    const { port } = createSpyPort();
+    useSidepanelStore.getState().connect(Channel.accept(port));
+    useSidepanelStore.getState().receive(
+      createContentReady({ url: "http://localhost:5173/", title: "Demo", connectedAt: 1 }),
+    );
+    withSelectionAndChange();
+    useSidepanelStore.getState().applyChanges("instance");
+    const requestId = useSidepanelStore.getState().applyRequestId!;
+    socket.message(
+      JSON.stringify(createApplyResult({ requestId, result: { success: true, files: ["x"] } })),
+    );
+    expect(useSidepanelStore.getState().applyNeedsReload).toBe(false);
+  });
+
   it("apply.result failure marks failed with the honest reason", () => {
     resetStore();
     const socket = openBridge();

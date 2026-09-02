@@ -17,8 +17,10 @@ export function ApplySection() {
   const applyState = useSidepanelStore((s) => s.applyState);
   const applyResult = useSidepanelStore((s) => s.applyResult);
   const applyConfirmedCount = useSidepanelStore((s) => s.applyConfirmedCount);
+  const applyNeedsReload = useSidepanelStore((s) => s.applyNeedsReload);
   const applyChanges = useSidepanelStore((s) => s.applyChanges);
   const clearApplyState = useSidepanelStore((s) => s.clearApplyState);
+  const reloadPage = useSidepanelStore((s) => s.reloadPage);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [scope, setScope] = useState<ApplyScope>("instance");
@@ -54,13 +56,29 @@ export function ApplySection() {
         {applyResult.summary && (
           <p className="mt-1 text-[10px] leading-relaxed text-emerald-200/70">{applyResult.summary}</p>
         )}
-        <button
-          type="button"
-          onClick={clearApplyState}
-          className="mt-2 rounded border border-emerald-800 px-2.5 py-1 text-[11px] font-medium text-emerald-200 hover:bg-emerald-900/40"
-        >
-          Done
-        </button>
+        {applyNeedsReload && (
+          <p className="mt-2 rounded bg-amber-500/10 px-2 py-1 text-[10px] leading-relaxed text-amber-300/90">
+            改动已写入源码。静态页面无热更新，需刷新后才会生效。
+          </p>
+        )}
+        <div className="mt-2 flex gap-2">
+          {applyNeedsReload && (
+            <button
+              type="button"
+              onClick={reloadPage}
+              className="rounded border border-emerald-700 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-emerald-200 hover:bg-emerald-500/25"
+            >
+              刷新页面查看
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={clearApplyState}
+            className="rounded border border-emerald-800 px-2.5 py-1 text-[11px] font-medium text-emerald-200 hover:bg-emerald-900/40"
+          >
+            Done
+          </button>
+        </div>
       </section>
     );
   }

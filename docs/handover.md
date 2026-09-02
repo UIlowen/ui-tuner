@@ -157,8 +157,12 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 - **关键修复**：`defaultCodexRunner` spawn 必须 `stdio:["ignore","pipe","pipe"]` —— 默认 pipe 的 stdin 永不关闭会让 codex 阻塞在 "Reading additional input from stdin…"（真机卡 7 分钟 CPU 0:00.06 的根因）。`codexEnv()` 透传代理并强制 `NO_PROXY` 含 loopback（模型流走代理、/mcp 不走）。env-gated 调试 `UI_TUNER_DEBUG_CODEX=1` 落盘 `/tmp/ui-tuner-codex-last.log`。
 - 面板 `ApplySection.tsx`（ChangesTab 挂载）：idle「Apply to Code」按钮 → §30 Dialog（scope radio instance/component + agent + sourceUnknown 警告）→ §34 applying 态 → §31 Result 卡（✓ Applied  emerald / Unable to apply changes 红 + Retry）；store `applyState/applyResult/applyConfirmedCount` + `applyChanges(scope)`（只发选中元素的 changes）+ stale 守卫。
 - HMR 重定位（§22）：content `locateAppliedElement`（data-ui-tuner-id → selector+fingerprint 回退）+ `confirmOneChange` 轮询（移除 override→读 computed→`cssValuesEqual` 比对→不匹配则恢复 override 重试，8s 超时）；确认后 drop override+记录（面板 Preview 计数归零）。
-- 测试 209 例（protocol 21 / inspector 87 / bridge 68 / extension 33）。
+- 测试 220 例（protocol 21 / inspector 87 / bridge 71 / extension 41）。
 - 真机验收通过（2026-09-01，自动化 E2E 8/8，`/tmp/ui-tuner-e2e/m8-acceptance.mjs`）：选中「查看详情」→ Height 38→52 页面实时 → Changes 记录 → §30 Dialog → codex 真实改源码（Card.tsx 加 `className="card-details-button"`、styles.css 加 `.card-details-button{height:52px}`，遵循 plain-CSS 约束未加 inline style；并给 Button 加 className prop）→ Vite HMR → confirmApply 验证源码 computed=52px → ✓ Applied 卡（1 changes · Card.tsx, styles.css）。
+- **真机自测 2（2026-09-02，对用户真实纯静态项目 vehicle-dashboard :8080，E2E 11/11 `/tmp/ui-tuner-e2e/selftest-gRange.mjs`）**：选中 `#gRangeText`（数据驱动文本 → inferred `index.html`）→ font-size 12.5→20 → Apply → codex 精确改 `.filter-bar .fb-range`（**非** `.page-header .date`）→ 刷新后源码改动生效。暴露并修复两个真实缺陷：
+  - **Apply prompt 缺精确定位** → codex 凭文本语义猜错元素。修复：prompt Target 段加 `css selector` + `domFingerprint` + 显式「按 id/selector grep 定位，勿猜」指令。
+  - **静态 HTML 无 HMR** → codex 改盘后页面不刷新、确认轮询必超时。修复：framework==="Unknown" 时跳过 confirmApply、Result 卡提示「刷新页面查看」+ `sidepanel.reloadPage` 消息（content `location.reload()`）。
+  - 配套：`formatStyleChangeLine` 抽到 protocol 统一 §26 与 Changes 复制的改动行渲染；source unknown 时 Apply 入口+对话框按钮禁用。
 
 ## 7. 项目状态：M1–M8 全部完成
 

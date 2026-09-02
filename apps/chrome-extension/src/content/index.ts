@@ -23,6 +23,7 @@ import {
   isSidepanelConfirmApplyMessage,
   isSidepanelPingMessage,
   isSidepanelPickingMessage,
+  isSidepanelReloadPageMessage,
   isSidepanelResetChangesMessage,
   isSidepanelRevertChangeMessage,
   isSidepanelRevertElementMessage,
@@ -348,6 +349,9 @@ chrome.runtime.onConnect.addListener((port) => {
       resetChanges();
     } else if (isSidepanelConfirmApplyMessage(message)) {
       void confirmApply(message.payload.changes);
+    } else if (isSidepanelReloadPageMessage(message)) {
+      // Static project (no HMR): reload so the freshly-written source renders.
+      location.reload();
     } else if (isSidepanelPingMessage(message)) {
       channel?.send(
         createContentPong({

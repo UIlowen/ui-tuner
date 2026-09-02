@@ -7,6 +7,7 @@ import {
   createChangesApply,
   createSidepanelConfirmApply,
   createSidepanelPing,
+  createSidepanelReloadPage,
   createSidepanelPicking,
   createSidepanelResetChanges,
   createSidepanelRevertChange,
@@ -105,6 +106,8 @@ interface SidepanelState {
   applyResult: ApplyChangeResult | null;
   /** How many applied changes were confirmed live in source after HMR. */
   applyConfirmedCount: number | null;
+  /** True when the project is static (no HMR) — applied changes need a page reload to render. */
+  applyNeedsReload: boolean;
 
   /** Wire an already-opened channel (App owns chrome.tabs lookup). */
   connect: (channel: Channel) => void;
@@ -146,6 +149,8 @@ interface SidepanelState {
   applyChanges: (scope: ApplyScope) => void;
   /** Back out of the Applying/Applied/Failed state to idle (dismiss result card). */
   clearApplyState: () => void;
+  /** Reload the page so applied source changes render (static projects, no HMR). */
+  reloadPage: () => void;
   /** Drop the channel and return to idle. */
   reset: () => void;
 }
@@ -248,6 +253,7 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
   applyRequestId: null,
   applyResult: null,
   applyConfirmedCount: null,
+  applyNeedsReload: false,
 
   attachBridge: (nextBridgeChannel, info) => {
     bridgeChannel = nextBridgeChannel;
@@ -283,14 +289,20 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
         if (message.payload.requestId !== get().applyRequestId) return;
         const result = message.payload.result;
         if (result.success) {
-          set({ applyState: "applied", applyResult: result });
-          // Ask the page to confirm the changes are live in source after HMR
-          // and drop the now-redundant preview overrides (plan §29).
-          const appliedChanges = get().changes.filter((c) =>
-            get().selection ? c.elementId === get().selection!.element.id : false,
-          );
-          if (channel && appliedChanges.length > 0) {
-            channel.send(createSidepanelConfirmApply(appliedChanges));
+          // Static project (framework "Unknown") has no HMR: editing the file
+          // does not hot-update the live page, so the HMR confirm-poll would
+          // always time out. Skip it and tell the user to reload instead.
+          const isStatic = get().bridgeProject?.framework === "Unknown";
+          set({ applyState: "applied", applyResult: result, applyNeedsReload: isStatic });
+          if (!isStatic) {
+            // Ask the page to confirm the changes are live in source after HMR
+            // and drop the now-redundant preview overrides (plan §29).
+            const appliedChanges = get().changes.filter((c) =>
+              get().selection ? c.elementId === get().selection!.element.id : false,
+            );
+            if (channel && appliedChanges.length > 0) {
+              channel.send(createSidepanelConfirmApply(appliedChanges));
+            }
           }
         } else {
           set({ applyState: "failed", applyResult: result });
@@ -500,11 +512,23 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       applyRequestId: requestId,
       applyResult: null,
       applyConfirmedCount: null,
+      applyNeedsReload: false,
     }));
   },
 
   clearApplyState: () => {
-    set({ applyState: "idle", applyRequestId: null, applyResult: null, applyConfirmedCount: null });
+    set({
+      applyState: "idle",
+      applyRequestId: null,
+      applyResult: null,
+      applyConfirmedCount: null,
+      applyNeedsReload: false,
+    });
+  },
+
+  reloadPage: () => {
+    if (!channel) return;
+    channel.send(createSidepanelReloadPage());
   },
 
   reset: () => {

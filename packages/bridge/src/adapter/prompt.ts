@@ -25,12 +25,23 @@ export function buildCodexApplyPrompt(request: ApplyChangeRequest): string {
   lines.push("Target element:");
   lines.push(`- tag: <${context.element.tagName}>`);
   if (context.element.text) lines.push(`- text: "${context.element.text}"`);
+  // Precise locators so Codex finds THIS element (grep the id/selector in
+  // source) instead of guessing from the text content — guessing picks the
+  // wrong rule when several elements share semantics (e.g. two date labels).
+  if (context.element.selector) lines.push(`- css selector: ${context.element.selector}`);
+  if (context.element.domFingerprint) {
+    lines.push(`- structure: ${context.element.domFingerprint} (tag#id.class>[children])`);
+  }
   if (context.component?.name) lines.push(`- component: ${context.component.name}`);
   if (context.component?.source) {
     const { file, line } = context.component.source;
     lines.push(`- source file: ${file}${line !== undefined ? `:${line}` : ""}`);
   }
   lines.push(`- scope: ${scope === "instance" ? "only this element instance" : "the whole component"}`);
+  lines.push("");
+  lines.push(
+    "IMPORTANT: locate the exact target element by its id / css selector (grep the source for it). Do NOT pick a different element merely because its class or text looks related.",
+  );
   lines.push("");
 
   // Changes ----------------------------------------------------------------

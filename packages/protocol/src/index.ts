@@ -458,6 +458,16 @@ export interface SidepanelConfirmApplyMessage {
   };
 }
 
+/**
+ * Side Panel → Content. Reload the page so freshly-applied source changes take
+ * effect — used for static projects with no HMR, where editing the file on
+ * disk does not hot-update the live page.
+ */
+export interface SidepanelReloadPageMessage {
+  type: "sidepanel.reloadPage";
+  payload: Record<string, never>;
+}
+
 /** Content → Side Panel. Which applied changes are now live in source. */
 export interface ApplyConfirmedMessage {
   type: "apply.confirmed";
@@ -501,6 +511,7 @@ export type UiTunerMessage =
   | ChangesApplyMessage
   | ApplyResultMessage
   | SidepanelConfirmApplyMessage
+  | SidepanelReloadPageMessage
   | ApplyConfirmedMessage;
 
 export type UiTunerMessageType = UiTunerMessage["type"];
@@ -531,6 +542,7 @@ const MESSAGE_TYPES: readonly UiTunerMessageType[] = [
   "changes.apply",
   "apply.result",
   "sidepanel.confirmApply",
+  "sidepanel.reloadPage",
   "apply.confirmed",
 ];
 
@@ -669,6 +681,12 @@ export function isSidepanelConfirmApplyMessage(
   return value.type === "sidepanel.confirmApply";
 }
 
+export function isSidepanelReloadPageMessage(
+  value: UiTunerMessage,
+): value is SidepanelReloadPageMessage {
+  return value.type === "sidepanel.reloadPage";
+}
+
 export function isApplyConfirmedMessage(value: UiTunerMessage): value is ApplyConfirmedMessage {
   return value.type === "apply.confirmed";
 }
@@ -785,6 +803,10 @@ export function createSidepanelConfirmApply(
   changes: StyleChange[],
 ): SidepanelConfirmApplyMessage {
   return { type: "sidepanel.confirmApply", payload: { changes } };
+}
+
+export function createSidepanelReloadPage(): SidepanelReloadPageMessage {
+  return { type: "sidepanel.reloadPage", payload: {} };
 }
 
 export function createApplyConfirmed(

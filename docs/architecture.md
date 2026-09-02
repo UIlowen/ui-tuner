@@ -167,11 +167,11 @@ ui-tuner/
 
 ### Apply to Code 流程（M8，计划 §29/§30/§31 + §22）
 
-1. Changes Tab 底部「Apply to Code」（仅当选中元素有待应用 changes 且 Bridge 在线）→ §30 Dialog：scope radio（This instance / Component）+ Agent 行（Codex ●available）+ sourceUnknown 时黄条警告（Preview only，Apply 需 ● Source linked）。
+1. Changes Tab 底部「Apply to Code」（仅当选中元素有待应用 changes 且 Bridge 在线 **且 source 非 unknown**，否则禁用并给原因）→ §30 Dialog：scope radio（This instance / Component）+ Agent 行（Codex ●available）+ sourceUnknown 时黄条警告（Preview only，Apply 需 ● Source linked；可改用「复制改动」手动粘贴给 AI）。
 2. 「Apply」→ store `applyChanges(scope)` 只把**选中元素**的 changes 连同 source/identity 组成 `changes.apply` 发 Bridge，进入 §34 applying 态。
-3. Bridge `CodexAdapter.applyChanges()`：守卫（无 source→`SOURCE_NOT_FOUND`、CLI 离线→`AGENT_OFFLINE`）→ `buildCodexApplyPrompt()`（§28 约束）→ spawn `codex exec`（**stdin=ignore**，否则 codex 阻塞读 stdin）→ `detectChangedFiles`（mtime+size，不依赖 git）比对 → 回 `apply.result`（成功 files+summary / 诚实 `APPLY_FAILED`）。
-4. 成功时面板向 content 发 `sidepanel.confirmApply {changes}` → content 对每条 change 做 HMR 重定位 + 轮询确认：移除 override 读 computed，与 `nextValue` `cssValuesEqual` 比对——Vite HMR 把新源码推来后 computed 达标即确认（drop override+记录），否则恢复 override 重试至 8s 超时 → `apply.confirmed` 回面板。
-5. 面板 §31 Result 卡：✓ Applied（emerald，列 files + summary + confirmed 计数）/ Unable to apply changes（红，列 reason + Retry）。超时/失败的 Preview 覆盖保持激活，不静默丢。
+3. Bridge `CodexAdapter.applyChanges()`：守卫（无 source→`SOURCE_NOT_FOUND`、CLI 离线→`AGENT_OFFLINE`）→ `buildCodexApplyPrompt()`（**Target 段含精确 `css selector` + `domFingerprint`（tag#id.class）+ 显式指令「按 id/selector grep 定位，勿凭文本语义猜元素」**——否则 inferred 无行号时 codex 会猜错规则；§28 约束）→ spawn `codex exec`（**stdin=ignore**，否则 codex 阻塞读 stdin）→ `detectChangedFiles`（mtime+size，不依赖 git）比对 → 回 `apply.result`（成功 files+summary / 诚实 `APPLY_FAILED`）。
+4. **HMR 项目**（framework ≠ Unknown）：成功时面板向 content 发 `sidepanel.confirmApply {changes}` → content 对每条 change 做 HMR 重定位 + 轮询确认（移除 override 读 computed，`cssValuesEqual` 比对；达标即 drop override+记录，否则恢复重试至 8s 超时）→ `apply.confirmed` 回面板。**静态项目**（framework = Unknown，无 HMR）：跳过确认轮询，置 `applyNeedsReload`，Preview 覆盖保留。
+5. 面板 §31 Result 卡：✓ Applied（emerald，列 files + summary + confirmed 计数）/ Unable to apply changes（红，列 reason + Retry）。**静态项目额外显示「改动已写入源码 · 需刷新后生效」+「刷新页面查看」按钮**（发 `sidepanel.reloadPage` → content `location.reload()`）。超时/失败的 Preview 覆盖保持激活，不静默丢。
 
 ### 选取流程（M2）
 
@@ -254,6 +254,7 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 | `changes.apply`                   | SP→Bridge     | `{requestId, scope, element: ApplyElementContext, changes[]}`（§29）；只含选中元素的 changes   |
 | `apply.result`                    | Bridge→SP     | `{requestId, success, files?, summary?, error?{code,message}}`（§31/§47）                      |
 | `sidepanel.confirmApply`          | SP→CS         | `{changes[]}` 请求 HMR 后确认改动生效（§22/§29）                                               |
+| `sidepanel.reloadPage`            | SP→CS         | `{}` 静态项目无 HMR，刷新页面让已写入源码的改动生效                                            |
 | `apply.confirmed`                 | CS→SP         | `{appliedChangeIds, failedChangeIds, reidentified}` 确认结果（§31）                            |
 
 约定：
