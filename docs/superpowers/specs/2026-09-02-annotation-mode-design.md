@@ -66,7 +66,9 @@
 
 ### 协议
 
-**零新增消息**——气泡/浮层全部页面侧闭环（changeTracker 是事实源）。
+新增**一条**消息：`sidepanel.clearSelection`（panel → content，空 payload）——「✓ 完成此元素」需要让 content 执行 clearSelection（关高亮 + 回 selection.cleared），现有消息没有面板主动清选中的路径。气泡/浮层本身零新增消息（changeTracker 是事实源，页面侧闭环）。
+
+浮层文案（还原此元素 / 关闭）的本地化：content 在 port 连接时读 `chrome.storage.local` 的 `ui-tuner:prefs` 取 locale，解析出标签传给 Annotations 构造器。已知边界：面板开着时切语言，页面浮层文案要下次面板重开（新 port）才更新——可接受。
 
 ## i18n
 
