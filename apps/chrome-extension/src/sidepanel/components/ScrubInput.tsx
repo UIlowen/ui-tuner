@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { clamp, formatNumber, parseCssValue, scrubMultiplier } from "@ui-tuner/inspector";
+import { useT } from "../../i18n/use-t";
 
 /**
  * ScrubInput (plan §10, P0): drag to scrub a numeric CSS value.
@@ -31,6 +32,7 @@ export function ScrubInput({
   onPreview,
   onCommit,
 }: ScrubInputProps) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [draft, setDraft] = useState("");
@@ -156,7 +158,7 @@ export function ScrubInput({
           else if (event.key === "Escape") setEditing(false);
         }}
         onBlur={finishEditing}
-        className="h-6 w-full rounded bg-zinc-950 px-1.5 font-mono text-[11px] text-zinc-100 outline-none ring-1 ring-violet-500/70"
+        className="h-6 w-full rounded bg-base px-1.5 font-mono text-[11px] text-text-strong outline-none ring-1 ring-violet-500/70"
       />
     );
   }
@@ -174,18 +176,18 @@ export function ScrubInput({
       onPointerCancel={endDrag}
       onKeyDown={handleKeyDown}
       onDoubleClick={startEditing}
-      title="拖动调整 · Shift ×10 · Option ×0.1 · 双击输入"
-      className={`flex h-6 min-w-0 flex-1 cursor-ew-resize items-center justify-end gap-0.5 rounded px-1.5 font-mono text-[11px] text-zinc-200 outline-none select-none ${
+      title={t("scrub.hint")}
+      className={`flex h-6 min-w-0 flex-1 cursor-ew-resize items-center justify-end gap-0.5 rounded px-1.5 font-mono text-[11px] text-text outline-none select-none ${
         dragging
           ? "bg-violet-500/20 ring-1 ring-violet-500/70"
-          : "bg-zinc-800/70 hover:bg-zinc-700/70 focus-visible:bg-zinc-700/70 focus-visible:ring-1 focus-visible:ring-zinc-500"
+          : "bg-control hover:bg-control-hover focus-visible:bg-control-hover focus-visible:ring-1 focus-visible:ring-zinc-500"
       }`}
       style={{ touchAction: "none" }}
     >
       <span ref={displayRef} className="truncate tabular-nums">
         {formatNumber(value)}
       </span>
-      {unit !== "" && <span className="text-[10px] text-zinc-500">{unit}</span>}
+      {unit !== "" && <span className="text-[10px] text-faint">{unit}</span>}
     </div>
   );
 }

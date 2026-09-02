@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { formatCssValue, parseCssValue, rgbToHex } from "@ui-tuner/inspector";
 import { useSidepanelStore } from "../../state/sidepanel-store";
+import { useT } from "../../i18n/use-t";
 import { ScrubInput } from "./ScrubInput";
 
 /**
@@ -14,7 +15,7 @@ import { ScrubInput } from "./ScrubInput";
 export function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex min-h-6 items-center gap-2">
-      <span className="w-[74px] shrink-0 truncate text-[11px] text-zinc-400" title={label}>
+      <span className="w-[74px] shrink-0 truncate text-[11px] text-dim" title={label}>
         {label}
       </span>
       <div className="flex min-w-0 flex-1 justify-end">{children}</div>
@@ -24,7 +25,7 @@ export function Row({ label, children }: { label: string; children: ReactNode })
 
 export function GroupHeader({ title }: { title: string }) {
   return (
-    <p className="mt-3 border-t border-zinc-800 pt-2 text-[10px] font-medium tracking-wider text-zinc-500 uppercase first:mt-1 first:border-t-0 first:pt-0">
+    <p className="mt-3 border-t border-edge pt-2 text-[10px] font-medium tracking-wider text-faint uppercase first:mt-1 first:border-t-0 first:pt-0">
       {title}
     </p>
   );
@@ -100,7 +101,7 @@ export function TextRow({
         onKeyDown={(event) => {
           if (event.key === "Enter") (event.target as HTMLInputElement).blur();
         }}
-        className="h-6 w-full truncate rounded bg-zinc-800/70 px-1.5 font-mono text-[11px] text-zinc-200 outline-none placeholder:text-zinc-600 hover:bg-zinc-700/70 focus-visible:bg-zinc-700/70 focus-visible:ring-1 focus-visible:ring-zinc-500"
+        className="h-6 w-full truncate rounded bg-control px-1.5 font-mono text-[11px] text-text outline-none placeholder:text-ghost hover:bg-control-hover focus-visible:bg-control-hover focus-visible:ring-1 focus-visible:ring-zinc-500"
       />
     </Row>
   );
@@ -108,6 +109,7 @@ export function TextRow({
 
 /** Color value: swatch (native color input) + hex text. */
 export function ColorRow({ property, label }: { property: string; label: string }) {
+  const t = useT();
   const raw = useSidepanelStore((s) => s.styleValues?.[property] ?? "");
   const updateStyle = useSidepanelStore((s) => s.updateStyle);
   const storeHex = rgbToHex(raw) ?? "#000000";
@@ -122,7 +124,7 @@ export function ColorRow({ property, label }: { property: string; label: string 
   return (
     <Row label={label}>
       <div className="flex h-6 min-w-0 flex-1 items-center justify-end gap-1">
-        <span className="truncate font-mono text-[10px] text-zinc-500">{raw}</span>
+        <span className="truncate font-mono text-[10px] text-faint">{raw}</span>
         <input
           type="color"
           value={hex}
@@ -134,8 +136,8 @@ export function ColorRow({ property, label }: { property: string; label: string 
             void updateStyle(property, event.target.value, true);
             setDraft(null);
           }}
-          title={`${label}（${raw}）`}
-          className="size-6 shrink-0 cursor-pointer rounded border border-zinc-700 bg-transparent p-0"
+          title={t("color.rowTitle", { label, raw })}
+          className="size-6 shrink-0 cursor-pointer rounded border border-edge-strong bg-transparent p-0"
         />
       </div>
     </Row>
@@ -156,7 +158,7 @@ export function SegmentRow({
 
   return (
     <Row label={label}>
-      <div className="flex min-w-0 overflow-hidden rounded bg-zinc-800/70">
+      <div className="flex min-w-0 overflow-hidden rounded bg-control">
         {options.map((option) => (
           <button
             key={option.value}
@@ -165,8 +167,8 @@ export function SegmentRow({
             onClick={() => void updateStyle(property, option.value, true)}
             className={`min-w-0 flex-1 px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap transition-colors ${
               raw === option.value
-                ? "bg-zinc-100 font-semibold text-zinc-900"
-                : "text-zinc-400 hover:bg-zinc-700/70 hover:text-zinc-200"
+                ? "bg-inverse font-semibold text-inverse-text"
+                : "text-dim hover:bg-control-hover hover:text-text"
             }`}
           >
             {option.label}
@@ -182,7 +184,7 @@ export function ReadOnlyRow({ property, label }: { property: string; label: stri
   const raw = useSidepanelStore((s) => s.styleValues?.[property] ?? "");
   return (
     <Row label={label}>
-      <span className="truncate font-mono text-[10px] text-zinc-500" title={raw}>
+      <span className="truncate font-mono text-[10px] text-faint" title={raw}>
         {raw === "" ? "—" : raw}
       </span>
     </Row>

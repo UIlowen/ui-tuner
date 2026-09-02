@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { formatCssValue, parseCssValue } from "@ui-tuner/inspector";
 import { useSidepanelStore } from "../../state/sidepanel-store";
+import { useT } from "../../i18n/use-t";
 import { ScrubInput } from "./ScrubInput";
 import { ColorRow, GroupHeader, ReadOnlyRow, ScrubField, SegmentRow, TextRow } from "./rows";
 
@@ -9,6 +10,7 @@ import { ColorRow, GroupHeader, ReadOnlyRow, ScrubField, SegmentRow, TextRow } f
  * Effects groups for the selected element.
  */
 export function StylePanel() {
+  const t = useT();
   const styleValues = useSidepanelStore((s) => s.styleValues);
   if (!styleValues) return null;
 
@@ -18,10 +20,10 @@ export function StylePanel() {
 
   return (
     <div className="space-y-0.5">
-      <GroupHeader title="Layout" />
+      <GroupHeader title={t("group.layout")} />
       <SegmentRow
         property="display"
-        label="Display"
+        label={t("style.display")}
         options={[
           { value: "flex", label: "flex" },
           { value: "grid", label: "grid" },
@@ -30,12 +32,12 @@ export function StylePanel() {
           { value: "none", label: "none" },
         ]}
       />
-      {(isFlex || isGrid) && <ScrubField property="gap" label="Gap" step={1} />}
+      {(isFlex || isGrid) && <ScrubField property="gap" label={t("style.gap")} step={1} />}
       {isFlex && (
         <>
           <SegmentRow
             property="flex-direction"
-            label="Direction"
+            label={t("style.direction")}
             options={[
               { value: "row", label: "row" },
               { value: "column", label: "col" },
@@ -44,7 +46,7 @@ export function StylePanel() {
           <AlignmentControl />
           <SegmentRow
             property="flex-wrap"
-            label="Wrap"
+            label={t("style.wrap")}
             options={[
               { value: "nowrap", label: "no" },
               { value: "wrap", label: "wrap" },
@@ -54,29 +56,29 @@ export function StylePanel() {
       )}
       {isGrid && (
         <>
-          <TextRow property="grid-template-columns" label="Columns" />
-          <TextRow property="grid-template-rows" label="Rows" />
+          <TextRow property="grid-template-columns" label={t("style.columns")} />
+          <TextRow property="grid-template-rows" label={t("style.rows")} />
         </>
       )}
 
-      <GroupHeader title="Size" />
-      <ScrubField property="width" label="Width" />
-      <ScrubField property="height" label="Height" />
-      <ScrubField property="min-width" label="Min W" />
-      <ScrubField property="min-height" label="Min H" />
-      <ScrubField property="max-width" label="Max W" />
-      <ScrubField property="max-height" label="Max H" />
+      <GroupHeader title={t("group.size")} />
+      <ScrubField property="width" label={t("style.width")} />
+      <ScrubField property="height" label={t("style.height")} />
+      <ScrubField property="min-width" label={t("style.minW")} />
+      <ScrubField property="min-height" label={t("style.minH")} />
+      <ScrubField property="max-width" label={t("style.maxW")} />
+      <ScrubField property="max-height" label={t("style.maxH")} />
 
-      <GroupHeader title="Spacing" />
-      <SpacingGroup kind="padding" title="Padding" />
-      <SpacingGroup kind="margin" title="Margin" />
+      <GroupHeader title={t("group.spacing")} />
+      <SpacingGroup kind="padding" title={t("style.padding")} />
+      <SpacingGroup kind="margin" title={t("style.margin")} />
 
-      <GroupHeader title="Typography" />
-      <TextRow property="font-family" label="Family" placeholder="font stack" />
-      <ScrubField property="font-size" label="Size" step={1} />
+      <GroupHeader title={t("group.typography")} />
+      <TextRow property="font-family" label={t("style.family")} placeholder={t("style.fontStackPlaceholder")} />
+      <ScrubField property="font-size" label={t("style.size")} step={1} />
       <SegmentRow
         property="font-weight"
-        label="Weight"
+        label={t("style.weight")}
         options={[
           { value: "400", label: "400" },
           { value: "500", label: "500" },
@@ -84,11 +86,11 @@ export function StylePanel() {
           { value: "700", label: "700" },
         ]}
       />
-      <ScrubField property="line-height" label="Line H" step={0.05} fallbackUnit="" />
-      <ScrubField property="letter-spacing" label="Tracking" step={0.1} />
+      <ScrubField property="line-height" label={t("style.lineH")} step={0.05} fallbackUnit="" />
+      <ScrubField property="letter-spacing" label={t("style.tracking")} step={0.1} />
       <SegmentRow
         property="text-align"
-        label="Align"
+        label={t("style.align")}
         options={[
           { value: "left", label: "L" },
           { value: "center", label: "C" },
@@ -96,21 +98,21 @@ export function StylePanel() {
           { value: "justify", label: "J" },
         ]}
       />
-      <ColorRow property="color" label="Color" />
+      <ColorRow property="color" label={t("style.color")} />
 
-      <GroupHeader title="Fill" />
-      <ColorRow property="background-color" label="Fill" />
-      <ScrubField property="opacity" label="Opacity" step={0.01} fallbackUnit="" min={0} max={1} />
-      <ReadOnlyRow property="background-image" label="Image" />
+      <GroupHeader title={t("group.fill")} />
+      <ColorRow property="background-color" label={t("style.fill")} />
+      <ScrubField property="opacity" label={t("style.opacity")} step={0.01} fallbackUnit="" min={0} max={1} />
+      <ReadOnlyRow property="background-image" label={t("style.image")} />
 
-      <GroupHeader title="Border" />
-      <ScrubField property="border-width" label="Width" />
-      <ColorRow property="border-color" label="Color" />
-      <ScrubField property="border-radius" label="Radius" />
+      <GroupHeader title={t("group.border")} />
+      <ScrubField property="border-width" label={t("style.width")} />
+      <ColorRow property="border-color" label={t("style.color")} />
+      <ScrubField property="border-radius" label={t("style.radius")} />
 
-      <GroupHeader title="Effects" />
-      <TextRow property="box-shadow" label="Shadow" placeholder="none" />
-      <ReadOnlyRow property="transform" label="Transform" />
+      <GroupHeader title={t("group.effects")} />
+      <TextRow property="box-shadow" label={t("style.shadow")} placeholder={t("style.shadowPlaceholder")} />
+      <ReadOnlyRow property="transform" label={t("style.transform")} />
     </div>
   );
 }
@@ -120,6 +122,7 @@ const ALIGN_MAIN = ["start", "center", "end"] as const;
 const ALIGN_CROSS = ["start", "center", "end"] as const;
 
 function AlignmentControl() {
+  const t = useT();
   const styleValues = useSidepanelStore((s) => s.styleValues);
   const updateStyle = useSidepanelStore((s) => s.updateStyle);
   const justify = styleValues?.["justify-content"] ?? "";
@@ -127,8 +130,8 @@ function AlignmentControl() {
 
   return (
     <div className="flex min-h-6 items-center gap-2">
-      <span className="w-[74px] shrink-0 text-[11px] text-zinc-400">Align</span>
-      <div className="ml-auto grid size-[52px] grid-cols-3 overflow-hidden rounded border border-zinc-700/80">
+      <span className="w-[74px] shrink-0 text-[11px] text-dim">{t("style.align")}</span>
+      <div className="ml-auto grid size-[52px] grid-cols-3 overflow-hidden rounded border border-edge-strong">
         {ALIGN_CROSS.flatMap((cross) =>
           ALIGN_MAIN.map((main) => {
             const active = justify === main && align === cross;
@@ -143,8 +146,8 @@ function AlignmentControl() {
                 }}
                 className={`grid place-items-center text-[9px] leading-none transition-colors ${
                   active
-                    ? "bg-zinc-100 text-zinc-900"
-                    : "bg-zinc-800/70 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-300"
+                    ? "bg-inverse text-inverse-text"
+                    : "bg-control text-faint hover:bg-control-hover hover:text-dim"
                 }`}
               >
                 <span
@@ -173,6 +176,7 @@ function AlignmentControl() {
  * (T/R/B/L) modes. Simple writes both sides of the axis in one go.
  */
 function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: string }) {
+  const t = useT();
   const styleValues = useSidepanelStore((s) => s.styleValues);
   const updateStyle = useSidepanelStore((s) => s.updateStyle);
   const [advanced, setAdvanced] = useState(false);
@@ -190,27 +194,27 @@ function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: stri
   return (
     <>
       <div className="flex min-h-6 items-center gap-2">
-        <span className="w-[74px] shrink-0 text-[11px] font-medium text-zinc-300">{title}</span>
+        <span className="w-[74px] shrink-0 text-[11px] font-medium text-text">{title}</span>
         <button
           type="button"
           onClick={() => setAdvanced(!showAdvanced)}
-          className="ml-auto rounded px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+          className="ml-auto rounded px-1.5 py-0.5 text-[10px] text-faint hover:bg-control hover:text-dim"
         >
-          {showAdvanced ? "Simple" : "Advanced"}
+          {showAdvanced ? t("style.simple") : t("style.advanced")}
         </button>
       </div>
 
       {showAdvanced ? (
         <>
-          <ScrubField property={`${kind}-top`} label="Top" />
-          <ScrubField property={`${kind}-right`} label="Right" />
-          <ScrubField property={`${kind}-bottom`} label="Bottom" />
-          <ScrubField property={`${kind}-left`} label="Left" />
+          <ScrubField property={`${kind}-top`} label={t("style.top")} />
+          <ScrubField property={`${kind}-right`} label={t("style.right")} />
+          <ScrubField property={`${kind}-bottom`} label={t("style.bottom")} />
+          <ScrubField property={`${kind}-left`} label={t("style.left")} />
         </>
       ) : (
         <>
           <AxisScrub
-            label="Vertical"
+            label={t("style.vertical")}
             raw={verticalRaw}
             onPreview={(value) => {
               void updateStyle(`${kind}-top`, value, false);
@@ -222,7 +226,7 @@ function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: stri
             }}
           />
           <AxisScrub
-            label="Horizontal"
+            label={t("style.horizontal")}
             raw={horizontalRaw}
             onPreview={(value) => {
               void updateStyle(`${kind}-left`, value, false);
@@ -255,14 +259,14 @@ function AxisScrub({
   if (!parsed) {
     return (
       <div className="flex min-h-6 items-center gap-2">
-        <span className="w-[74px] shrink-0 text-[11px] text-zinc-400">{label}</span>
-        <span className="ml-auto truncate font-mono text-[10px] text-zinc-600">{raw || "—"}</span>
+        <span className="w-[74px] shrink-0 text-[11px] text-dim">{label}</span>
+        <span className="ml-auto truncate font-mono text-[10px] text-ghost">{raw || "—"}</span>
       </div>
     );
   }
   return (
     <div className="flex min-h-6 items-center gap-2">
-      <span className="w-[74px] shrink-0 text-[11px] text-zinc-400">{label}</span>
+      <span className="w-[74px] shrink-0 text-[11px] text-dim">{label}</span>
       <div className="flex min-w-0 flex-1 justify-end">
         <ScrubInput
           value={parsed.value}

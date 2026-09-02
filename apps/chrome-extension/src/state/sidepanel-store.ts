@@ -41,6 +41,8 @@ import {
 } from "@ui-tuner/protocol";
 import { Channel } from "../messaging/channel";
 import { BridgeChannel } from "../messaging/bridge-channel";
+import { translate } from "../i18n/messages";
+import { usePrefsStore } from "./prefs";
 
 export type ConnectionStatus = "idle" | "connecting" | "connected" | "disconnected";
 export type BridgeStatus = "offline" | "connecting" | "connected";
@@ -341,7 +343,11 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
     });
     nextChannel.onDisconnect(() => {
       if (channel === nextChannel)
-        set({ status: "disconnected", statusError: "Connection closed", picking: false });
+        set({
+          status: "disconnected",
+          statusError: translate(usePrefsStore.getState().locale, "error.connectionClosed"),
+          picking: false,
+        });
     });
     nextChannel.onMessage((message) => get().receive(message));
   },
