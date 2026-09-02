@@ -42,7 +42,13 @@ export class Channel {
   }
 
   send(message: UiTunerMessage): void {
-    this.port.postMessage(message);
+    // A postMessage racing a port disconnect (panel closed / page navigated)
+    // throws "disconnected port object" — drop instead of crashing the page.
+    try {
+      this.port.postMessage(message);
+    } catch {
+      // Port went away between the caller's check and the send — safe to drop.
+    }
   }
 
   /** Returns an unsubscribe function. */

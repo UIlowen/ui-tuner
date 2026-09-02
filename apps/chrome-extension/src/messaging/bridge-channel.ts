@@ -11,7 +11,12 @@ import { isUiTunerMessage, type UiTunerMessage } from "@ui-tuner/protocol";
 
 export const BRIDGE_URL = "ws://127.0.0.1:47321";
 
+/** WebSocket.OPEN — inlined so test fakes need no real socket global. */
+const WS_OPEN = 1;
+
 export interface WebSocketLike {
+  /** WebSocket readyState (0 CONNECTING / 1 OPEN / 2 CLOSING / 3 CLOSED); optional for test fakes. */
+  readonly readyState?: number;
   send(data: string): void;
   close(code?: number, reason?: string): void;
   set onopen(handler: (() => void) | null);
@@ -37,7 +42,16 @@ export class BridgeChannel {
   }
 
   send(message: UiTunerMessage): void {
-    this.socket.send(JSON.stringify(message));
+    // A send racing a socket close (bridge restart / panel reopen) would throw
+    // a synchronous InvalidStateError and surface as an extension error page.
+    // Drop instead: the close handler already moved the store to offline, and
+    // the next selection/change re-syncs once reconnected.
+    if (this.socket.readyState !== undefined && this.socket.readyState !== WS_OPEN) return;
+    try {
+      this.socket.send(JSON.stringify(message));
+    } catch {
+      // Socket closed between the check and the send — safe to drop.
+    }
   }
 
   close(): void {
