@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rgbToHex } from "./color";
+import { colorKey, rgbToHex } from "./color";
 
 describe("rgbToHex", () => {
   it.each([
@@ -24,4 +24,37 @@ describe("rgbToHex", () => {
       expect(rgbToHex(raw)).toBeNull();
     },
   );
+});
+
+describe("colorKey", () => {
+  it.each([
+    // Same color, different notations → identical key.
+    ["rgb(47, 109, 246)", "#2f6df6"],
+    ["rgb(47 109 246)", "#2f6df6"],
+    ["#2F6DF6", "#2f6df6"],
+    ["#2f6df6", "#2f6df6"],
+  ])("gives %s and %s the same key", (a, b) => {
+    expect(colorKey(a)).not.toBeNull();
+    expect(colorKey(a)).toBe(colorKey(b));
+  });
+
+  it("keeps alpha: translucent rgb ≠ opaque hex of the same rgb", () => {
+    expect(colorKey("rgba(47, 109, 246, 0.5)")).not.toBe(colorKey("#2f6df6"));
+    expect(colorKey("rgba(47, 109, 246, 0.5)")).toBe(colorKey("rgba(47,109,246,0.5)"));
+  });
+
+  it("treats 8-digit hex alpha consistently with rgba", () => {
+    // #2f6df680 = rgb(47,109,246) at alpha 0x80/255 ≈ 0.502
+    expect(colorKey("#2f6df680")).toBe(colorKey("rgba(47, 109, 246, 0.502)"));
+    // Fully opaque 8-digit hex collapses to the #rrggbb key.
+    expect(colorKey("#2f6df6ff")).toBe(colorKey("#2f6df6"));
+  });
+
+  it.each(["", "var(--color)", "url(bg.png)"])("returns null for %s", (raw) => {
+    expect(colorKey(raw)).toBeNull();
+  });
+
+  it("normalizes transparent", () => {
+    expect(colorKey("transparent")).toBe("rgba(0,0,0,0)");
+  });
 });

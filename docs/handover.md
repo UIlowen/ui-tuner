@@ -6,13 +6,13 @@
 
 ---
 
-## 1. 当前状态快照（2026-09-01）
+## 1. 当前状态快照（2026-09-02）
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M7 完成**（M7 真机验收通过：Codex 经 MCP 获取元素 Context）                                                                                                                                                                                                          |
+| 里程碑   | **M1–M8 完成**（M8 真机验收通过：浏览器 UI 调整落到真实源码；含静态 HTML 支持 + 同色 no-op 不记录）                                                                                                                                                                                                          |
 | 分支     | `main`（本地仓库，无远端，直接提交 main）                                                                                                                                                                                                                          |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（187 例测试）                                                                                                                                                                                                          |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（224 例测试）                                                                                                                                                                                                          |
 | 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`（面板 Offline 卡的 `npx ui-tuner` 是发布后文案）；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`（否则 approval:never 自动取消 tools/call） |
 
 ## 2. 三十秒上下文
@@ -157,12 +157,14 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 - **关键修复**：`defaultCodexRunner` spawn 必须 `stdio:["ignore","pipe","pipe"]` —— 默认 pipe 的 stdin 永不关闭会让 codex 阻塞在 "Reading additional input from stdin…"（真机卡 7 分钟 CPU 0:00.06 的根因）。`codexEnv()` 透传代理并强制 `NO_PROXY` 含 loopback（模型流走代理、/mcp 不走）。env-gated 调试 `UI_TUNER_DEBUG_CODEX=1` 落盘 `/tmp/ui-tuner-codex-last.log`。
 - 面板 `ApplySection.tsx`（ChangesTab 挂载）：idle「Apply to Code」按钮 → §30 Dialog（scope radio instance/component + agent + sourceUnknown 警告）→ §34 applying 态 → §31 Result 卡（✓ Applied  emerald / Unable to apply changes 红 + Retry）；store `applyState/applyResult/applyConfirmedCount` + `applyChanges(scope)`（只发选中元素的 changes）+ stale 守卫。
 - HMR 重定位（§22）：content `locateAppliedElement`（data-ui-tuner-id → selector+fingerprint 回退）+ `confirmOneChange` 轮询（移除 override→读 computed→`cssValuesEqual` 比对→不匹配则恢复 override 重试，8s 超时）；确认后 drop override+记录（面板 Preview 计数归零）。
-- 测试 220 例（protocol 21 / inspector 87 / bridge 71 / extension 41）。
+- 测试 224 例（protocol 21 / inspector 91 / bridge 71 / extension 41）。
 - 真机验收通过（2026-09-01，自动化 E2E 8/8，`/tmp/ui-tuner-e2e/m8-acceptance.mjs`）：选中「查看详情」→ Height 38→52 页面实时 → Changes 记录 → §30 Dialog → codex 真实改源码（Card.tsx 加 `className="card-details-button"`、styles.css 加 `.card-details-button{height:52px}`，遵循 plain-CSS 约束未加 inline style；并给 Button 加 className prop）→ Vite HMR → confirmApply 验证源码 computed=52px → ✓ Applied 卡（1 changes · Card.tsx, styles.css）。
 - **真机自测 2（2026-09-02，对用户真实纯静态项目 vehicle-dashboard :8080，E2E 11/11 `/tmp/ui-tuner-e2e/selftest-gRange.mjs`）**：选中 `#gRangeText`（数据驱动文本 → inferred `index.html`）→ font-size 12.5→20 → Apply → codex 精确改 `.filter-bar .fb-range`（**非** `.page-header .date`）→ 刷新后源码改动生效。暴露并修复两个真实缺陷：
   - **Apply prompt 缺精确定位** → codex 凭文本语义猜错元素。修复：prompt Target 段加 `css selector` + `domFingerprint` + 显式「按 id/selector grep 定位，勿猜」指令。
   - **静态 HTML 无 HMR** → codex 改盘后页面不刷新、确认轮询必超时。修复：framework==="Unknown" 时跳过 confirmApply、Result 卡提示「刷新页面查看」+ `sidepanel.reloadPage` 消息（content `location.reload()`）。
   - 配套：`formatStyleChangeLine` 抽到 protocol 统一 §26 与 Changes 复制的改动行渲染；source unknown 时 Apply 入口+对话框按钮禁用。
+  - **真机自测 3（vehicle-dashboard :8080）——同色 no-op 改动修复**：选中文字元素把颜色拖走又拖回原色 → change+1 记录 `color: rgb(47, 109, 246) → #2f6df6` → Apply 后 codex 改了文件但页面无视觉变化（`var(--blue)` 本就是 `#2f6df6`）。根因：Chrome computed 颜色返回 `rgb(...)`、颜色控件提交 `#hex`，**同色不同写法**被 no-op 检测的 `nextValue === previousValue` 字符串比较误判为「有改动」。修复：`inspector/styles/color.ts` 新增 `colorKey()`（保留 alpha 的颜色归一化：opaque→`#rrggbb`，半透明→`rgba(r,g,b,a)`；8 位 hex / rgb / rgba / 逗号 / 斜杠语法都归一）；`cssValuesEqual()`（confirm.ts）改颜色感知——先字符串归一比较，不等再比 `colorKey`；content 的 commit no-op 丢弃（content/index.ts）改用 `cssValuesEqual`。如此同色改动**根本不记录、不发 codex**。注意 `rgba(...,0.5)` ≠ `rgb(...)`（alpha 不同仍算改动）。
+- 测试 224 例（protocol 21 / inspector 91 / bridge 71 / extension 41）。
 
 ## 7. 项目状态：M1–M8 全部完成
 

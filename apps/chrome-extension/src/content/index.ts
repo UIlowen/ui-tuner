@@ -152,8 +152,9 @@ function applyStylePreview(payload: {
   if (!committed) return;
 
   const change = changeTracker.find(uiTunerId, property);
-  if (change && change.nextValue === change.previousValue) {
+  if (change && cssValuesEqual(change.nextValue, change.previousValue)) {
     // Released on the original value — not a change; drop it (plan §12 spirit).
+    // Color-aware: rgb() computed value vs #hex committed swatch compare equal.
     changeTracker.revertProperty(uiTunerId, property);
     previewEngine.setOverride(uiTunerId, property, null);
   }

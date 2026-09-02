@@ -188,7 +188,7 @@ ui-tuner/
 1. 选中时 `SelectionTracker.select()` 用 `pickStyles(getComputedStyle(el))` 抓**白名单** computed style，随 `selection.changed.styles` 发到面板；`domSnapshotFor` 附带截断的 DOM 快照（`dom`，供后续 Agent 上下文用，面板不渲染）。
 2. 面板 Style Tab 各行读 `store.styleValues`（提交值快照）。ScrubInput 拖动帧 → `updateStyle(prop, "20px", false)` → `sidepanel.stylePreview {committed:false}` —— **不更新 store**，面板零重渲染。
 3. Content Script 收到 stylePreview：`(elementId, property)` 首帧先取当前 computed 值作为 `previousValue` 存入 ChangeTracker，然后 `PreviewEngine.setOverride` 重写 `<style>` 规则文本（值未变则 no-op）。
-4. 释放 → `committed:true` → ChangeTracker 定稿该条 StyleChange → 若 `nextValue === previousValue`（拖回原值）则删除记录并撤掉 override → `preview.changed {changes}` 回报面板（Changes Tab 列表 + Tab 徽标计数）。
+4. 释放 → `committed:true` → ChangeTracker 定稿该条 StyleChange → 若 `cssValuesEqual(nextValue, previousValue)`（拖回原值，**颜色感知**：`rgb(47,109,246)` ≡ `#2f6df6` 经 `colorKey` 归一判等）则删除记录并撤掉 override → `preview.changed {changes}` 回报面板（Changes Tab 列表 + Tab 徽标计数）。
 5. 选中转移时，有 change 记录的元素保留 `data-ui-tuner-id`（`keepId`），override 继续生效；全部状态（engine + tracker）在 Port 断开后仍存活，**随页面刷新消亡**（§37 in-memory 原则）。
 
 ### 变更撤销流程（M4）
@@ -291,17 +291,17 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 ## 7. 测试
 
 - `packages/protocol`（20 例）：构造器、守卫（含数组 payload 拒绝）、按类型收窄（含 M3–M7 新消息）、`assembleAgentContext`（§26 布局/exact/unknown 降级/无选中/include 过滤/level 2·3 扩展）。
-- `packages/inspector`（84 例，jsdom）：
+- `packages/inspector`（91 例，jsdom）：
   - identity：id 分配/释放、selector 唯一性回查（querySelector 往返）、文本预览、**domFingerprint（结构签名/忽略 ui-tuner 属性/上限截断）**
   - selection：payload 构建（含 styles）、breadcrumb、moveToParent/moveToAncestor（含失效 id 拒绝）、clear 清理属性、keepId 保留与 id 复用
   - snapshot：selected/parent/children 捕获、总预算截断
   - parse：px/rem/%/无单位解析、关键词拒绝、格式化去尾零、scrubMultiplier（§10 组合）、clamp
-  - color：rgb/rgba（逗号与斜杠语法）/hex3/hex6 归一、transparent/命名色拒绝
+  - color：rgb/rgba（逗号与斜杠语法）/hex3/hex6 归一、transparent/命名色拒绝、**`colorKey` 同色不同写法归一（opaque→`#rrggbb`、半透明保留 alpha、8 位 hex ↔ rgba）**
   - computed：白名单过滤、空值跳过、遍历全部白名单属性
   - PreviewEngine：懒挂载复用、按元素分组 `!important` 规则、白名单外拒绝、null 移除/空块清理、同值 no-op、removeElement、unmount
   - ChangeTracker：首记录捕获原值、scrub 帧原位更新、revert(changeId)、revertProperty、revertElement（仅该元素）、hasChangesFor、按时间序列表
   - picker / overlay：同 M2
-  - **confirm（M8 §22/§29）**：`cssValuesEqual`/`normalizeCssValue`（px 数值等价、关键词归一）
+  - **confirm（M8 §22/§29）**：`cssValuesEqual`/`normalizeCssValue`（px 数值等价、关键词归一、**颜色感知**：`colorKey` 归一 rgb/rgba/hex/8 位 hex，opaque→`#rrggbb`、半透明保留 alpha；同色不同写法判等，`rgba(...,0.5)`≠`rgb(...)`）
 - `chrome-extension`（33 例）：Channel 内存端口对（投递/丢弃/退订/断连）；store 状态机（连接、RTT、picking ack、selection+styleValues 路由、updateStyle 预览帧不改 store/提交更新/null 删除、preview.changed 镜像、elementNames 累积、revert/reset 动作出站消息、Bridge 握手 hello/welcome、selection/changes 自动 sync、断线 offline、sourceResolved 落库 + stale 守卫 + 重选/清除/断线置 null、M7：bridge.agents 落库/断线清空、agent.request 发送+sent 状态、离线 no-op、agent.applied 横幅/dismiss、agent.capture 往返含注入截图/无截图降级、**M8：applyChanges(scope) 只发选中元素 changes、apply.result 落库 + stale 守卫 + 成功发 sidepanel.confirmApply、apply.confirmed 计数、clearApplyState**、日志截断、reset）。
 - `packages/bridge`（68 例，node env）：detectProject、probeDevServer、resolveCwd、BridgeServer（含 sourceResolved 集成、端口占用干净 reject、bridge.agents 推送、agent.request 存储、agent.captureResult 结算、ui_notify_applied 广播、**changes.apply→adapter→apply.result 路由**）、resolver/indexer、resolver/resolve、resolve.example（对真实 examples/react-vite 的 10 例锚定测试）、adapter（CLI 探测真/假、二进制名、Codex 优先、**CodexAdapter.applyChanges：无 source→SOURCE_NOT_FOUND、离线→AGENT_OFFLINE、exit≠0/无改动/超时→APPLY_FAILED、成功报 files**、ClaudeCode/Cursor 诚实 NOT_IMPLEMENTED、**buildCodexApplyPrompt §28 约束、fileDiff mtime 检测**）、mcp（五工具 list/空状态诚实/sync 镜像/context 组装含 agent.request/capture 往返+image content/无面板诚实失败/notify_applied 广播）。
 - 真机 E2E（`/tmp/ui-tuner-e2e/`）：M6 9/9、M8 8/8（Select→Preview→Changes→§30 Dialog→codex 改源码→HMR 确认→✓ Applied→磁盘文件真实变更）。
