@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { formatCssValue, parseCssValue, rgbToHex } from "@ui-tuner/inspector";
 import { useSidepanelStore } from "../../state/sidepanel-store";
 import { ScrubInput } from "./ScrubInput";
@@ -110,7 +110,14 @@ export function TextRow({
 export function ColorRow({ property, label }: { property: string; label: string }) {
   const raw = useSidepanelStore((s) => s.styleValues?.[property] ?? "");
   const updateStyle = useSidepanelStore((s) => s.updateStyle);
-  const hex = rgbToHex(raw) ?? "#000000";
+  const storeHex = rgbToHex(raw) ?? "#000000";
+  // Live value while picking. Preview frames (`committed:false`) don't touch
+  // the store, so `storeHex` lags behind the picker; binding the native input
+  // straight to it would snap the swatch back to the original color on every
+  // preview.changed re-render and commit the ORIGINAL value on blur. Track the
+  // picked value locally (ScrubInput does the same via a ref) and commit it.
+  const [draft, setDraft] = useState<string | null>(null);
+  const hex = draft ?? storeHex;
 
   return (
     <Row label={label}>
@@ -119,8 +126,14 @@ export function ColorRow({ property, label }: { property: string; label: string 
         <input
           type="color"
           value={hex}
-          onChange={(event) => void updateStyle(property, event.target.value, false)}
-          onBlur={(event) => void updateStyle(property, event.target.value, true)}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            void updateStyle(property, event.target.value, false);
+          }}
+          onBlur={(event) => {
+            void updateStyle(property, event.target.value, true);
+            setDraft(null);
+          }}
           title={`${label}（${raw}）`}
           className="size-6 shrink-0 cursor-pointer rounded border border-zinc-700 bg-transparent p-0"
         />

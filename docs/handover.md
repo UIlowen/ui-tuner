@@ -12,7 +12,7 @@
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 里程碑   | **M1–M8 完成**（M8 真机验收通过：浏览器 UI 调整落到真实源码；含静态 HTML 支持 + 同色 no-op 不记录）                                                                                                                                                                                                          |
 | 分支     | `main`（本地仓库，无远端，直接提交 main）                                                                                                                                                                                                                          |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（224 例测试）                                                                                                                                                                                                          |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（240 例测试）                                                                                                                                                                                                          |
 | 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`（面板 Offline 卡的 `npx ui-tuner` 是发布后文案）；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`（否则 approval:never 自动取消 tools/call） |
 
 ## 2. 三十秒上下文
@@ -163,8 +163,11 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
   - **Apply prompt 缺精确定位** → codex 凭文本语义猜错元素。修复：prompt Target 段加 `css selector` + `domFingerprint` + 显式「按 id/selector grep 定位，勿猜」指令。
   - **静态 HTML 无 HMR** → codex 改盘后页面不刷新、确认轮询必超时。修复：framework==="Unknown" 时跳过 confirmApply、Result 卡提示「刷新页面查看」+ `sidepanel.reloadPage` 消息（content `location.reload()`）。
   - 配套：`formatStyleChangeLine` 抽到 protocol 统一 §26 与 Changes 复制的改动行渲染；source unknown 时 Apply 入口+对话框按钮禁用。
-  - **真机自测 3（vehicle-dashboard :8080）——同色 no-op 改动修复**：选中文字元素把颜色拖走又拖回原色 → change+1 记录 `color: rgb(47, 109, 246) → #2f6df6` → Apply 后 codex 改了文件但页面无视觉变化（`var(--blue)` 本就是 `#2f6df6`）。根因：Chrome computed 颜色返回 `rgb(...)`、颜色控件提交 `#hex`，**同色不同写法**被 no-op 检测的 `nextValue === previousValue` 字符串比较误判为「有改动」。修复：`inspector/styles/color.ts` 新增 `colorKey()`（保留 alpha 的颜色归一化：opaque→`#rrggbb`，半透明→`rgba(r,g,b,a)`；8 位 hex / rgb / rgba / 逗号 / 斜杠语法都归一）；`cssValuesEqual()`（confirm.ts）改颜色感知——先字符串归一比较，不等再比 `colorKey`；content 的 commit no-op 丢弃（content/index.ts）改用 `cssValuesEqual`。如此同色改动**根本不记录、不发 codex**。注意 `rgba(...,0.5)` ≠ `rgb(...)`（alpha 不同仍算改动）。
-- 测试 224 例（protocol 21 / inspector 91 / bridge 71 / extension 41）。
+- **真机自测 3（2026-09-02，vehicle-dashboard :8080）——颜色改动「提交后页面恢复原值」修复**：用户操作链 选中→改色→页面实时变→松手→change+1→**页面又变回原色**，记录的 change 是 `color: rgb(47, 109, 246) → #2f6df6`（同色）。两层根因，都已修：
+  - **主因（ColorRow 提交错值）**：颜色框是受控组件 `value={hex}`，`hex` 由 store `styleValues` 派生，而预览帧（`committed:false`）**不更新** `styleValues` → `hex` 滞后。同时 App 顶层订阅 `changes`（Changes 徽标），颜色拖动**每一帧** content 回 `preview.changed` → App 整体重渲染 → `ColorRow` 用没变的 `styleValues` 重算 `hex=#2f6df6` → React 把受控 input **拨回原色** → blur 时 `event.target.value` 已是原色 → 提交原色 → 页面恢复原色、change 前后同色。修复：`ColorRow` 加本地 `draft` state 跟踪拖动期实时色值（对齐 `ScrubInput` 用 ref 的可靠模式），`onChange` 存 draft 发预览、`onBlur` 提交 draft 后清 draft。回归测试 `rows.test.tsx`（jsdom + RTL，新增扩展组件测试基建）：复现「父组件重渲染把 input 拨回原值」，未修复时断言 `expected '#2f6df6' to be '#ff0000'` 如期失败。
+  - **兜底（同色 no-op 不记录）**：即便真提交了同色（打开取色器没动就关），也不该记成改动。`inspector/styles/color.ts` 新增 `colorKey()`（保留 alpha 的颜色归一化：opaque→`#rrggbb`，半透明→`rgba(r,g,b,a)`；8 位 hex / rgb / rgba / 逗号 / 斜杠语法都归一）；`cssValuesEqual()`（confirm.ts）颜色感知——先字符串归一比较，不等再比 `colorKey`；content 的 commit no-op 丢弃（content/index.ts）改用 `cssValuesEqual`。注意 `rgba(...,0.5)` ≠ `rgb(...)`（alpha 不同仍算改动）。
+  - 修复后符合预期逻辑：改色实时可见、**提交后保留**（override 不撤）直到 Apply；Apply 后 HMR 项目无缝换源、静态项目刷新生效。
+- 测试 240 例（protocol 21 / inspector 100 / bridge 71 / extension 48）。
 
 ## 7. 项目状态：M1–M8 全部完成
 
