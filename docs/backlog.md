@@ -15,8 +15,9 @@
 | 完整 Undo Stack              | 计划 §14，V0.1 只需 Revert 单属性/元素/全部                                         | P1                |
 | Variant Scope                | Apply Dialog 的第三种 scope（计划 §30）                                             | P1                |
 | npm 发布 CLI                 | `npx ui-tuner`（计划 §15 正式入口）当前不可用——包未发布；Offline 卡文案为发布后目标 | 发布节点          |
-| Next App Router 适配         | Source Resolver V1 只覆盖 Vite/React 常规结构（M6 指引：Next 随后）                 | M7+               |
-| 数据驱动文本索引             | 数组/接口渲染的字符串不进源码索引 → 这类元素多为 Preview only（M6 取舍）            | 待定              |
+| Next App Router 适配         | Source Resolver V1 只覆盖 Vite/React 常规结构 + 纯静态 HTML（M8 起支持 `.html`/`class=`） | M7+               |
+| 数据驱动文本索引             | JS 计算/数组渲染的字符串（如 `` `当前:${y} 年 ${m} 月` ``）无静态文本字面量 → 文本信号缺失，只能靠 id/class/tag 到 inferred，达不到 exact | 待定              |
+| Bridge 项目根自动关联        | 当前需 `--cwd` 手动匹配正在浏览的项目，指错根则解析全部 unknown（Preview only）；devServerUrl 探测也可能选中同机其它端口的服务。未来应从已连接页面的 origin 自动关联项目根/dev server | 待定              |
 | 源码索引缓存/文件监听        | M6 每次 selection 重建索引（上限 500 文件）；大项目需要缓存或 watch                 | 待定              |
 | codex MCP 免 bypass 配置     | codex exec 调 tools/call 默认被 approval:never 取消（"user cancelled MCP tool call"），需 `--dangerously-bypass-approvals-and-sandbox`；研究 trusted-MCP / 配置文件持久放行（M8 已用 flag 跑通，免 flag 仍开放） | 发布节点          |
 | ui_capture 元素级裁剪        | M7 截图为整页可视区（captureVisibleTab）；元素级裁剪需面 offscreen canvas           | 待定              |

@@ -29,7 +29,7 @@ export interface SourceIndexEntry {
   ids: SourceHit[];
 }
 
-const SOURCE_EXTENSIONS = new Set([".tsx", ".jsx", ".ts", ".js"]);
+const SOURCE_EXTENSIONS = new Set([".tsx", ".jsx", ".ts", ".js", ".html"]);
 const SKIP_DIRS = new Set(["node_modules", "dist", ".git", ".next", "build", "out", "coverage"]);
 /** Safety rails: dev projects are small, but never walk unbounded trees. */
 const MAX_FILES = 500;
@@ -71,8 +71,8 @@ function collectSourceFiles(dir: string, out: string[], budget: { remaining: num
 }
 
 const JSX_TEXT = />([^<>{}]{2,80})</gs;
-/** className="…" / '…' / {`…`} — each quote style is its own branch so inner quotes survive. */
-const CLASS_ATTR = /className\s*=\s*(?:\{\s*)?(?:"([^"]*)"|'([^']*)'|`([^`]*)`)(?:\s*\})?/g;
+/** className="…" (JSX) and class="…" (HTML / HTML-in-JS templates) — each quote style its own branch so inner quotes survive. */
+const CLASS_ATTR = /\bclass(?:Name)?\s*=\s*(?:\{\s*)?(?:"([^"]*)"|'([^']*)'|`([^`]*)`)(?:\s*\})?/g;
 const ID_ATTR = /\sid\s*=\s*"([^"]+)"/g;
 const JSX_TAG = /<([a-z][a-z0-9-]*)(?=[\s>/])/g;
 /** Text that is operator/punctuation junk, not a human-readable literal. */
@@ -137,6 +137,12 @@ function indexFile(root: string, path: string): SourceIndexEntry | null {
 }
 
 function componentNameOf(content: string, path: string): string {
+  // Static HTML has no component concept — the file stem is the honest label.
+  // (An uppercase token in an inline <script> is not a component name.)
+  if (extname(path) === ".html") {
+    const stem = path.split(sep).pop() ?? path;
+    return stem.replace(/\.[^.]+$/, "");
+  }
   const direct = /export\s+default\s+(?:async\s+)?(?:function|class)\s+([A-Z][A-Za-z0-9]*)/.exec(
     content,
   );

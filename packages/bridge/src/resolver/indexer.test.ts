@@ -95,4 +95,38 @@ describe("buildSourceIndex", () => {
     expect(entry.tags.map((hit) => hit.value)).toEqual(["section", "h2"]);
     expect(entry.ids).toEqual([{ value: "overview", line: 2 }]);
   });
+
+  it("indexes plain .html files (static projects keep source in index.html)", () => {
+    const root = fixture({
+      "index.html": [
+        "<!doctype html>",
+        '<html><body><span class="fb-range" id="gRangeText"></span></body></html>',
+      ].join("\n"),
+    });
+    const entry = buildSourceIndex(root)[0]!;
+    expect(entry.file).toBe("index.html");
+    expect(entry.ids).toEqual([{ value: "gRangeText", line: 2 }]);
+    expect(entry.classNames.map((hit) => hit.value)).toEqual(["fb-range"]);
+    expect(entry.tags.map((hit) => hit.value)).toContain("span");
+  });
+
+  it("extracts class= (HTML) as well as className= (JSX)", () => {
+    const root = fixture({
+      // No src/ here, so the root is scanned — the static-HTML case.
+      "a.html": '<div class="html-cls">y</div>',
+      "b.html": '<span class="other-cls">z</span>',
+    });
+    const byFile = Object.fromEntries(
+      buildSourceIndex(root).map((e) => [e.file, e.classNames.map((h) => h.value)]),
+    );
+    expect(byFile["a.html"]).toEqual(["html-cls"]);
+    expect(byFile["b.html"]).toEqual(["other-cls"]);
+  });
+
+  it("does not treat the JS `class` keyword or class fields as className", () => {
+    const root = fixture({
+      "src/plain.ts": "class Foo {}\nexport const bar = 1;",
+    });
+    expect(buildSourceIndex(root)[0]!.classNames).toEqual([]);
+  });
 });

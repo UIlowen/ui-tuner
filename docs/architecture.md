@@ -151,7 +151,7 @@ ui-tuner/
 
 ### Source Resolver 流程（M6，计划 §19/§20/§21）
 
-1. `bridge.sync` 带 selection 到达 Bridge → 除存储镜像外，立即对 `project.root` 做静态索引（`resolver/indexer`：扫 `src/**/*.{tsx,jsx,ts,js}`，提取默认导出组件名、JSX 文本字面量、className token、小写 JSX 标签、id，每个命中带 1-based 行号；跳过 node_modules/dist 等，上限 500 文件 / 200KB 每文件；每次解析重建，dev 项目毫秒级）。
+1. `bridge.sync` 带 selection 到达 Bridge → 除存储镜像外，立即对 `project.root` 做静态索引（`resolver/indexer`：扫 `src/**`（无 src/ 则扫根）的 `*.{tsx,jsx,ts,js,html}`，提取默认导出组件名、JSX/HTML 文本字面量、className/class token、小写标签、id，每个命中带 1-based 行号；跳过 node_modules/dist 等，上限 500 文件 / 200KB 每文件；每次解析重建，dev 项目毫秒级）。
 2. `resolver/resolve` 把 selection 的身份信号（§21：selector 的 id 锚点、text、fingerprint/outerHTML 的 class、tagName）对索引打分：文本 4（全索引唯一 +1）/ class 1（封顶 3）/ 标签 1 / id 3。
 3. 置信度判定（§20，**不伪造**）：文本命中且得分 ≥5 且领先次名 ≥2 → `exact`（组件名 + `file:line`，行号指向 JSX 调用点，与 React 语义一致——如「查看详情」按钮定位到 Card.tsx 的 `<Button>` 行）；得分 ≥3 → `inferred`（只给 `Possible: file`，**绝不给行号**）；否则 `unknown`（Preview only）。
 4. 结果以 `bridge.sourceResolved` 回发面板；解析异常一律降级 `unknown`，不影响 sync 通道。
@@ -316,7 +316,8 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 - 重连后 elementNames 需重新选中元素才有 tagName（此前 Changes 分组显示 ut 短码）。
 - **MCP / Codex 集成（M7/M8）**：codex 需走本机代理（`HTTPS_PROXY=http://127.0.0.1:7892` + `NO_PROXY=localhost,127.0.0.1` 排除 loopback）否则模型流反复重连；codex exec 调 MCP 工具默认被 approval:never 自动取消（"user cancelled MCP tool call"），需 `--dangerously-bypass-approvals-and-sandbox`（backlog：研究免 flag 的 trusted-MCP 配置）；**bridge spawn codex 必须 stdin=ignore，否则 codex 阻塞读 stdin 挂起**（已修复）。`ui_capture` 截图当前是整页可视区，元素级裁剪顺延 backlog。
 - **Apply 的 HMR 确认（M8 §22）**：confirmApply 轮询 8s——若 Agent 改了源码但 dev server HMR 未在该窗口内推到页面（慢构建/非 HMR 栈），该 change 会留在 failedChangeIds、Preview 覆盖保持，Result 卡仍显示 Applied（files 已落盘）但 confirmed 计数 < 总数。Apply 依赖元素有 linked source（§47 不猜源码）。
-- Source Resolver V1（M6）：只覆盖 Vite/React 常规结构（Next App Router 适配顺延）；数据驱动文本（数组/接口渲染的字符串）不进索引 → 这类元素多为 Preview only；`clsx(...)` 等函数调用形式的 className 只提取字符串参数之外不展开；索引每次 selection 重建，大项目（>500 源文件）截断（backlog）。
+- Source Resolver V1（M6，M8 扩展）：覆盖 Vite/React 常规结构 + **纯静态 HTML**（`.html` 文件 + `class=` 提取；纯静态项目源码多在根 `index.html`，无 src/ 则扫根）；Next App Router 适配顺延。数据驱动文本（JS 计算/数组渲染的字符串，如 `` `当前:${y} 年` ``）无静态字面量 → 文本信号缺失，只能靠 id/class/tag 到 inferred，达不到 exact；`clsx(...)` 等函数调用形式的 className 只提取字符串参数之外不展开；索引每次 selection 重建，大项目（>500 源文件）截断（backlog）。
+- **Bridge 项目根需 `--cwd` 匹配正在浏览的项目**，否则 Source Resolver 索引错树 → 全部 unknown（Preview only）、Apply 永久禁用；devServerUrl 探测也可能选中同机其它端口的服务（backlog：从已连接页面 origin 自动关联项目根/dev server）。
 - Multi Select（Shift+Click）顺延（计划 Task 2.5，backlog）；`⌘↓` 未实现（backlog）。
 - hover 高亮不进入 iframe / closed shadow root 内部元素（V0.1 边界，计划 §1.2）。
 - `document.elementFromPoint` 命中纯文本节点的父元素即选中该元素；inline 文本片段的高亮框可能与预期略有出入。
