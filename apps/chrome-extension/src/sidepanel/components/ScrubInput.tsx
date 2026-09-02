@@ -42,7 +42,14 @@ export function ScrubInput({
   const pendingRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  currentValue.current = value;
+  // Sync the live ref from the prop only while idle. During a drag (or text
+  // edit) the ref holds the live value and must NOT be reset by a re-render
+  // carrying the stale prop — preview frames never update the store, so `value`
+  // lags behind the drag, and resetting here would make pointerUp commit the
+  // ORIGINAL value (the page snaps back / a no-op change is recorded).
+  useEffect(() => {
+    if (!dragging && !editing) currentValue.current = value;
+  }, [value, dragging, editing]);
 
   useEffect(
     () => () => {
