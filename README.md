@@ -14,6 +14,9 @@
 - **Milestone 5 完成**：Local Bridge（本地服务 + WebSocket + 项目检测 + Bridge Offline 提示；CLI 正式名 `ui-tuner`，发布 npm 前用 `pnpm bridge`，真机验收通过）
 - **Milestone 6 完成**：Source Resolver（选中元素 → 组件文件+行号+置信度；Element Header 三态 Source UI；含 §39 Example A 验证项目 `examples/react-vite`）
 - **Milestone 7 完成**：Agent + MCP（Agent Tab §26 Prompt 预览 / MCP Server 五工具挂在 Bridge `/mcp` / Codex Adapter 真实检测；Codex 可经 MCP 获取当前元素 Context，真机验收通过）
+- **Milestone 8 完成**：Apply to Code（Changes Tab「Apply to Code」→ §30 Dialog → codex 真实改源码 → Vite HMR → 确认生效 → ✓ Applied；浏览器 UI 调整最终落到真实源码，真机验收通过）
+
+> **M1–M8 全部完成**，核心闭环 Select → Tune → Prompt → Apply to Code 端到端打通。
 
 ## 环境要求
 
@@ -52,6 +55,19 @@ pnpm bridge     # 启动 Local Bridge ws://127.0.0.1:47321（--cwd <项目路径
 > 修改代码后的完整循环：`pnpm build` → `chrome://extensions` 点扩展卡片刷新 → **刷新 localhost 页面**（content script 只在页面加载时注入）→ 重开 Side Panel。
 
 ## 验收
+
+### Milestone 8 — Apply to Code
+
+前置：Bridge 在跑（`pnpm bridge --cwd examples/react-vite`，**需带本机代理 env**，见 M7），示例页 `http://127.0.0.1:5173` 打开，Side Panel 已连。
+
+1. 选中「查看详情」按钮 → ● Source linked `Card · src/components/Card.tsx:10`。
+2. Style Tab 把 **Height 38 → 52**（双击 slider 输入精确值）→ 页面按钮实时变高；Changes Tab 记录 `height 38px → 52px`。
+3. Changes Tab 底部点 **Apply to Code** → §30 Dialog（scope：This instance / Component + Codex ● available）→ **Apply**。
+4. 进入 **Applying to source…**（§34）→ Codex 在后台改源码（plain-CSS 项目：改类规则，不加 inline style）。
+5. Vite HMR 推回页面，content 确认 computed 达标 → **✓ Applied**（§31，列出改动文件如 `src/components/Card.tsx, src/styles.css`），Changes 计数归零（Preview 覆盖已确认落源码）。
+6. 磁盘上 `Card.tsx` / `styles.css` 真实变更（验收红线）。
+
+> 自动化形态：`/tmp/ui-tuner-e2e/m8-acceptance.mjs`（8/8）。失败时显「Unable to apply changes + reason + Retry」（§47 诚实失败，Preview 覆盖保持不丢）。
 
 ### Milestone 7 — Agent + MCP
 
@@ -156,10 +172,10 @@ Ping page 出现 RTT 与 `→ sidepanel.ping` / `← content.pong` 日志。
 apps/chrome-extension     Chrome MV3 扩展（Side Panel / Content Script / Background）
 packages/protocol         跨上下文共享消息协议
 packages/inspector        Picker / Overlay / Selection / PreviewEngine / ChangeTracker（chrome-free）
-packages/bridge           Local Bridge：WebSocket 服务 + 项目检测 + Source Resolver + MCP Server(/mcp) + Agent Adapters（CLI bin: ui-tuner）
+packages/bridge           Local Bridge：WebSocket 服务 + 项目检测 + Source Resolver + MCP Server(/mcp) + Agent Adapters（Codex 真实 apply / 余占位；CLI bin: ui-tuner）
 examples/react-vite       §39 Example A 验证项目（独立 npm 项目：npm install && npm run dev）
 dev/                      localhost 测试页
 docs/                     architecture / handover / backlog
 ```
 
-后续 Milestone（Apply to Code M8）见执行计划 §42。
+里程碑详情见 `docs/handover.md`；增强 backlog 见 `docs/backlog.md`。

@@ -54,11 +54,21 @@ Milestone 7 交付（计划 §23–§27 + §44）：
 - **Prompt Context**（§24/§25/§26）：protocol 的 `assembleAgentContext()` 纯文本组装，**面板预览与 MCP `ui_get_context` 共用同一函数**（杜绝两处漂移）；L1=element/component/source/styles/changes/instruction，L2+=parent tree/DOM 结构，L3+=截图提示（截图本体走 ui_capture）
 - **MCP Server**（§27）：stateless StreamableHTTP（@modelcontextprotocol/sdk 1.30）内嵌 Bridge 进程，挂在同一 47321 server 的 `/mcp` 路径——与 WS 侧共享 lastSync/lastResolution/lastAgentRequest；五工具 `ui_get_selection` / `ui_get_changes` / `ui_get_context{level}` / `ui_capture{withScreenshot}` / `ui_notify_applied{files,summary}`
 - **ui_capture 往返**：Bridge→面板（WS `agent.capture`）→面板注入的 `chrome.tabs.captureVisibleTab` → `agent.captureResult` 回 Bridge → MCP 响应（截图作 MCP image content）；面板未连/超时诚实报错
-- **Codex Adapter**（§44）：`AgentAdapter` 接口 {id,name,isAvailable(),applyChanges()}；Codex/ClaudeCode/Cursor——`isAvailable()` 真实探测 CLI（`<bin> --version`），`applyChanges()` 一律诚实返回 `NOT_IMPLEMENTED`（M8），**绝不假实现成功**
+- **Codex Adapter**（§44）：`AgentAdapter` 接口 {id,name,isAvailable(),applyChanges()}；Codex/ClaudeCode/Cursor——`isAvailable()` 真实探测 CLI（`<bin> --version`）；Codex 的 `applyChanges()` 在 M8 已真实现（spawn `codex exec` + fileDiff），ClaudeCode/Cursor 仍诚实返回 `NOT_IMPLEMENTED`，**绝不假实现成功**
 
 **M7 验收标准**：Codex 可以获取当前元素 Context。
 
-不在本阶段：Apply to Code（M8）、Next App Router 适配 / 数据驱动文本索引 / HMR 重定位（backlog）。
+Milestone 8 交付（计划 §29/§30/§31/§34 + §44–§47 + §22）：
+
+- **Apply 协议**：`ApplyScope`(instance|component) / `ApplyErrorCode` / `ApplyElementContext` / `ApplyChangeRequest` / `ApplyChangeResult`；消息 `changes.apply`(SP→Bridge) / `apply.result`(Bridge→SP) / `sidepanel.confirmApply`(SP→content) / `apply.confirmed`(content→SP)
+- **CodexAdapter.applyChanges 真实现**（§44/§47）：无 source→`SOURCE_NOT_FOUND`、CLI 不在→`AGENT_OFFLINE`、否则 `buildCodexApplyPrompt()`（§28 约束：Tailwind 改 utility 不加 inline；plain CSS 改类规则；组件库保抽象；最小改动）→ spawn `codex exec` → `fileDiff.ts`（mtime+size 签名，不依赖 git）检测真实改动文件 → 成功报 files+summary；exit≠0/无改动/超时→诚实 `APPLY_FAILED`，**绝不假成功**
+- **spawn stdin 必须 `ignore`**：默认 pipe 的 stdin 永不关闭会让 codex 阻塞在 "Reading additional input from stdin…"（真机卡死根因）；`codexEnv()` 透传代理 + 强制 `NO_PROXY` 含 loopback
+- **Apply UI**（`ApplySection.tsx` 挂在 ChangesTab）：idle「Apply to Code」→ §30 Dialog（scope + agent + sourceUnknown 警告）→ §34 applying 态 → §31 Result 卡（✓ Applied emerald / Unable 红 + Retry）
+- **HMR 重定位 + 确认**（§22/§29）：content `locateAppliedElement`（data-ui-tuner-id → selector+fingerprint 回退）+ `confirmOneChange` 轮询（移除 override→读 computed→`cssValuesEqual` 比对→不匹配恢复 override 重试）；确认后 drop override+记录，面板 Preview 计数归零
+
+**M8 验收标准**：浏览器 UI 调整能够最终落到真实源码。
+
+M1–M8 全部完成。剩余为 backlog 增强项：Next App Router 适配 / 数据驱动文本索引 / 索引缓存 / HMR 跨刷新持久化（§37）/ 颜色 alpha / CLI npm 发布 / codex MCP 免 bypass 配置 / ui_capture 元素级裁剪。
 
 ## 2. Repo 结构
 
@@ -152,8 +162,16 @@ ui-tuner/
 1. **Agent Tab**（§23）：面板展示选中元素 Context 卡 + Instruction 输入 + Agent 行（Codex，●available 来自 `bridge.agents`）+ Include 开关 + Context Level + §26 Prompt 实时预览（`assembleAgentContext`）。「发送至 Bridge」把 `agent.request {instruction, include, contextLevel}` 经 WS 给 Bridge 存为 `lastAgentRequest`。
 2. **MCP Server**（§27）：内嵌 Bridge 进程，stateless StreamableHTTP 挂在同一 server 的 `/mcp`。每请求新建 McpServer+transport，deps 闭包读 Bridge 实时状态（lastSync / lastResolution / lastAgentRequest）。Codex 注册：`codex mcp add ui-tuner --url http://127.0.0.1:47321/mcp`。
 3. **五工具**：`ui_get_selection`（selection+source+project）/ `ui_get_changes`（changes）/ `ui_get_context{level}`（`assembleAgentContext` 组装，含 lastAgentRequest 的 instruction/include）/ `ui_capture{withScreenshot}`（WS 往返面板取新鲜快照+截图，截图作 MCP image content）/ `ui_notify_applied{files,summary}`（记录 + 广播 `agent.applied` 给面板弹横幅）。空状态一律诚实文本（未选中/面板未连/超时）。
-4. **Adapter**（§44）：`CodexAdapter` 等只做真实 CLI 探测；`applyChanges()` 在 M8 前一律返回 `NOT_IMPLEMENTED`，不假实现。
+4. **Adapter**（§44）：`CodexAdapter.applyChanges()` 见下方 M8 流程；ClaudeCode/Cursor 仍返回 `NOT_IMPLEMENTED`。
 5. 面板 Agent Tab 的 Prompt 预览与 Codex 实际经 `ui_get_context` 拿到的文本**出自同一函数**，保证「所见即 Agent 所得」。
+
+### Apply to Code 流程（M8，计划 §29/§30/§31 + §22）
+
+1. Changes Tab 底部「Apply to Code」（仅当选中元素有待应用 changes 且 Bridge 在线）→ §30 Dialog：scope radio（This instance / Component）+ Agent 行（Codex ●available）+ sourceUnknown 时黄条警告（Preview only，Apply 需 ● Source linked）。
+2. 「Apply」→ store `applyChanges(scope)` 只把**选中元素**的 changes 连同 source/identity 组成 `changes.apply` 发 Bridge，进入 §34 applying 态。
+3. Bridge `CodexAdapter.applyChanges()`：守卫（无 source→`SOURCE_NOT_FOUND`、CLI 离线→`AGENT_OFFLINE`）→ `buildCodexApplyPrompt()`（§28 约束）→ spawn `codex exec`（**stdin=ignore**，否则 codex 阻塞读 stdin）→ `detectChangedFiles`（mtime+size，不依赖 git）比对 → 回 `apply.result`（成功 files+summary / 诚实 `APPLY_FAILED`）。
+4. 成功时面板向 content 发 `sidepanel.confirmApply {changes}` → content 对每条 change 做 HMR 重定位 + 轮询确认：移除 override 读 computed，与 `nextValue` `cssValuesEqual` 比对——Vite HMR 把新源码推来后 computed 达标即确认（drop override+记录），否则恢复 override 重试至 8s 超时 → `apply.confirmed` 回面板。
+5. 面板 §31 Result 卡：✓ Applied（emerald，列 files + summary + confirmed 计数）/ Unable to apply changes（红，列 reason + Retry）。超时/失败的 Preview 覆盖保持激活，不静默丢。
 
 ### 选取流程（M2）
 
@@ -233,6 +251,10 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 | `agent.applied`                   | Bridge→SP     | `{files, summary, at}`，由 MCP `ui_notify_applied` 触发（§27）                                 |
 | `agent.capture`                   | Bridge→SP     | `{captureId, withScreenshot}`，由 MCP `ui_capture` 触发（§27）                                 |
 | `agent.captureResult`             | SP→Bridge     | `{captureId, selection, changes, screenshot?}` 截图 dataURL（§27）                             |
+| `changes.apply`                   | SP→Bridge     | `{requestId, scope, element: ApplyElementContext, changes[]}`（§29）；只含选中元素的 changes   |
+| `apply.result`                    | Bridge→SP     | `{requestId, success, files?, summary?, error?{code,message}}`（§31/§47）                      |
+| `sidepanel.confirmApply`          | SP→CS         | `{changes[]}` 请求 HMR 后确认改动生效（§22/§29）                                               |
+| `apply.confirmed`                 | CS→SP         | `{appliedChangeIds, failedChangeIds, reidentified}` 确认结果（§31）                            |
 
 约定：
 
@@ -262,6 +284,8 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 | 非数值（auto/normal/fit-content…）回退为文本输入                                                          | 覆盖 §9.3 CssDimension 全集，不做魔法猜测                      |
 | 组件名不在 M3 显示（"Preview only" 徽标占位）                                                             | Source Resolver 属 M6；不得伪造（计划 §20）                    |
 | 权限最小化：`activeTab`/`scripting`/`sidePanel`/`storage` + localhost host                                | 计划 §1.2/§38 安全边界                                         |
+| **`codex exec` spawn 用 `stdio:["ignore","pipe","pipe"]`**                                                | 默认 pipe 的 stdin 不关闭会让 codex 阻塞读 stdin 永久挂起      |
+| **Apply 改动检测用 mtime+size 快照比对（`fileDiff.ts`），不依赖 git**                                     | 用户项目未必是 git 仓库；§47 只报真实落盘的文件                |
 
 ## 7. 测试
 
@@ -276,9 +300,10 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
   - PreviewEngine：懒挂载复用、按元素分组 `!important` 规则、白名单外拒绝、null 移除/空块清理、同值 no-op、removeElement、unmount
   - ChangeTracker：首记录捕获原值、scrub 帧原位更新、revert(changeId)、revertProperty、revertElement（仅该元素）、hasChangesFor、按时间序列表
   - picker / overlay：同 M2
-- `chrome-extension`（27 例）：Channel 内存端口对（投递/丢弃/退订/断连）；store 状态机（连接、RTT、picking ack、selection+styleValues 路由、updateStyle 预览帧不改 store/提交更新/null 删除、preview.changed 镜像、elementNames 累积、revert/reset 动作出站消息、Bridge 握手 hello/welcome、selection/changes 自动 sync、断线 offline、sourceResolved 落库 + stale 守卫 + 重选/清除/断线置 null、**M7：bridge.agents 落库/断线清空、agent.request 发送+sent 状态、离线 no-op、agent.applied 横幅/dismiss、agent.capture 往返含注入截图/无截图降级**、日志截断、reset）。
-- `packages/bridge`（56 例，node env）：detectProject、probeDevServer、resolveCwd、BridgeServer（含 sourceResolved 集成、端口占用干净 reject、bridge.agents 推送、agent.request 存储、agent.captureResult 结算、ui_notify_applied 广播）、resolver/indexer、resolver/resolve、resolve.example（对真实 examples/react-vite 的 10 例锚定测试）、**adapter（CLI 探测真/假、二进制名、Codex 优先、applyChanges 诚实 NOT_IMPLEMENTED）**、**mcp（五工具 list/空状态诚实/sync 镜像/context 组装含 agent.request/capture 往返+image content/无面板诚实失败/notify_applied 广播）**。
-- Playwright E2E（计划 §40 Test 01–07）见 backlog，能力齐备后统一补。
+  - **confirm（M8 §22/§29）**：`cssValuesEqual`/`normalizeCssValue`（px 数值等价、关键词归一）
+- `chrome-extension`（33 例）：Channel 内存端口对（投递/丢弃/退订/断连）；store 状态机（连接、RTT、picking ack、selection+styleValues 路由、updateStyle 预览帧不改 store/提交更新/null 删除、preview.changed 镜像、elementNames 累积、revert/reset 动作出站消息、Bridge 握手 hello/welcome、selection/changes 自动 sync、断线 offline、sourceResolved 落库 + stale 守卫 + 重选/清除/断线置 null、M7：bridge.agents 落库/断线清空、agent.request 发送+sent 状态、离线 no-op、agent.applied 横幅/dismiss、agent.capture 往返含注入截图/无截图降级、**M8：applyChanges(scope) 只发选中元素 changes、apply.result 落库 + stale 守卫 + 成功发 sidepanel.confirmApply、apply.confirmed 计数、clearApplyState**、日志截断、reset）。
+- `packages/bridge`（68 例，node env）：detectProject、probeDevServer、resolveCwd、BridgeServer（含 sourceResolved 集成、端口占用干净 reject、bridge.agents 推送、agent.request 存储、agent.captureResult 结算、ui_notify_applied 广播、**changes.apply→adapter→apply.result 路由**）、resolver/indexer、resolver/resolve、resolve.example（对真实 examples/react-vite 的 10 例锚定测试）、adapter（CLI 探测真/假、二进制名、Codex 优先、**CodexAdapter.applyChanges：无 source→SOURCE_NOT_FOUND、离线→AGENT_OFFLINE、exit≠0/无改动/超时→APPLY_FAILED、成功报 files**、ClaudeCode/Cursor 诚实 NOT_IMPLEMENTED、**buildCodexApplyPrompt §28 约束、fileDiff mtime 检测**）、mcp（五工具 list/空状态诚实/sync 镜像/context 组装含 agent.request/capture 往返+image content/无面板诚实失败/notify_applied 广播）。
+- 真机 E2E（`/tmp/ui-tuner-e2e/`）：M6 9/9、M8 8/8（Select→Preview→Changes→§30 Dialog→codex 改源码→HMR 确认→✓ Applied→磁盘文件真实变更）。
 
 ## 8. 已知限制 / 风险
 
@@ -289,7 +314,8 @@ Chrome 对产物的要求决定了一次 `vite build` 不够用，因此有**三
 - Bridge 无鉴权（仅本机回环可连，§38）；47321 被占用时 CLI 报错退出而非换端口（计划 §15 固定端口）。
 - CLI 未发布 npm：`npx ui-tuner` 报 "could not determine executable to run"；本地开发用 `pnpm bridge --cwd <项目路径>`。面板 Offline 卡显示的 `npx ui-tuner` 是发布后目标文案（backlog）。
 - 重连后 elementNames 需重新选中元素才有 tagName（此前 Changes 分组显示 ut 短码）。
-- **MCP / Codex 集成（M7）**：codex 需走本机代理（`HTTPS_PROXY=http://127.0.0.1:7892` + `NO_PROXY=localhost,127.0.0.1` 排除 loopback）否则模型流反复重连；codex exec 调 MCP 工具默认被 approval:never 自动取消（"user cancelled MCP tool call"），需 `--dangerously-bypass-approvals-and-sandbox`（backlog：研究免 flag 的 trusted-MCP 配置）。`ui_capture` 截图当前是整页可视区，元素级裁剪顺延 backlog。
+- **MCP / Codex 集成（M7/M8）**：codex 需走本机代理（`HTTPS_PROXY=http://127.0.0.1:7892` + `NO_PROXY=localhost,127.0.0.1` 排除 loopback）否则模型流反复重连；codex exec 调 MCP 工具默认被 approval:never 自动取消（"user cancelled MCP tool call"），需 `--dangerously-bypass-approvals-and-sandbox`（backlog：研究免 flag 的 trusted-MCP 配置）；**bridge spawn codex 必须 stdin=ignore，否则 codex 阻塞读 stdin 挂起**（已修复）。`ui_capture` 截图当前是整页可视区，元素级裁剪顺延 backlog。
+- **Apply 的 HMR 确认（M8 §22）**：confirmApply 轮询 8s——若 Agent 改了源码但 dev server HMR 未在该窗口内推到页面（慢构建/非 HMR 栈），该 change 会留在 failedChangeIds、Preview 覆盖保持，Result 卡仍显示 Applied（files 已落盘）但 confirmed 计数 < 总数。Apply 依赖元素有 linked source（§47 不猜源码）。
 - Source Resolver V1（M6）：只覆盖 Vite/React 常规结构（Next App Router 适配顺延）；数据驱动文本（数组/接口渲染的字符串）不进索引 → 这类元素多为 Preview only；`clsx(...)` 等函数调用形式的 className 只提取字符串参数之外不展开；索引每次 selection 重建，大项目（>500 源文件）截断（backlog）。
 - Multi Select（Shift+Click）顺延（计划 Task 2.5，backlog）；`⌘↓` 未实现（backlog）。
 - hover 高亮不进入 iframe / closed shadow root 内部元素（V0.1 边界，计划 §1.2）。

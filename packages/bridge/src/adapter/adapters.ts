@@ -55,7 +55,9 @@ export const defaultCodexRunner: CodexRunner = ({ cwd, prompt, env, timeoutMs })
         CODEX_MODEL,
         prompt,
       ],
-      { cwd, env },
+      // stdin must be "ignore" (→ /dev/null): a piped-but-never-closed stdin
+      // makes codex block on "Reading additional input from stdin…" forever.
+      { cwd, env, stdio: ["ignore", "pipe", "pipe"] },
     );
     let stdout = "";
     let stderr = "";
@@ -72,6 +74,14 @@ export const defaultCodexRunner: CodexRunner = ({ cwd, prompt, env, timeoutMs })
     });
     child.on("close", (code) => {
       clearTimeout(timer);
+      if (process.env.UI_TUNER_DEBUG_CODEX) {
+        void import("node:fs").then((fs) =>
+          fs.writeFileSync(
+            "/tmp/ui-tuner-codex-last.log",
+            `exit=${code} timedOut=${timedOut}\n--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}`,
+          ),
+        );
+      }
       resolvePromise({ exitCode: code ?? -1, stdout, stderr, timedOut });
     });
   });

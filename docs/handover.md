@@ -150,11 +150,21 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 - 测试 187 例（inspector 84 / protocol 20 / bridge 56 / extension 27）。
 - 真机验收通过（2026-09-01）：Codex CLI 经 `codex mcp add ui-tuner --url http://127.0.0.1:47321/mcp` 注册后，`ui_get_context` 真实返回选中元素 Context（组件 Card · src/components/Card.tsx:10 · 指令「整体紧凑一点，标题不要变小」）。**两个 codex 侧坑**：① codex 需走本机代理（`HTTPS_PROXY=http://127.0.0.1:7892`，且 `NO_PROXY=localhost,127.0.0.1` 排除 loopback）否则模型流反复重连；② codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`（approval:never 会把 tools/call 当需审批而自动取消——"user cancelled MCP tool call"，请求根本不到 bridge）。
 
-## 7. 下一里程碑：M8 — Apply to Code
+**M8**：Apply to Code（§29 流程 / §30 Dialog / §31 Result / §34 applying / §44–§47）。
 
-**范围（计划 §45/§46/§47 等）**：`ApplyChangeRequest` / `ApplyChangeResult` 协议 + CodexAdapter.applyChanges 真实实现（把 §26 Context + Preview changes 交给 Codex 落到源码）+ 面板 Apply 入口与结果反馈 + ui_notify_applied 闭环。**验收**：Codex 将选中元素的 Preview 修改落到真实源码文件。**前置**：M1–M7 全部就绪。
+- protocol：`ApplyScope`(instance|component) / `ApplyErrorCode`(SOURCE_NOT_FOUND|AGENT_OFFLINE|APPLY_FAILED|NOT_IMPLEMENTED) / `ApplyElementContext` / `ApplyChangeRequest` / `ApplyChangeResult`；消息 `changes.apply`(SP→Bridge) / `apply.result`(Bridge→SP) / `sidepanel.confirmApply`(SP→content) / `apply.confirmed`(content→SP)。
+- bridge `adapter/prompt.ts` `buildCodexApplyPrompt()`：§28 约束（Tailwind 改 utility class 不加 inline style；CSS Module/plain CSS 改类规则；组件库保 variant/size/token 语义；最小改动）。`CodexAdapter.applyChanges()` 真实现：无 source→`SOURCE_NOT_FOUND`、不可用→`AGENT_OFFLINE`、spawn `codex exec`→`fileDiff.ts`（`snapshotSourceFiles`/`detectChangedFiles`，mtime+size 签名，不依赖 git，上限 2000 文件）检测改动→成功报 files+summary；exit≠0/无改动/超时→诚实 `APPLY_FAILED`（§47 绝不假成功）。
+- **关键修复**：`defaultCodexRunner` spawn 必须 `stdio:["ignore","pipe","pipe"]` —— 默认 pipe 的 stdin 永不关闭会让 codex 阻塞在 "Reading additional input from stdin…"（真机卡 7 分钟 CPU 0:00.06 的根因）。`codexEnv()` 透传代理并强制 `NO_PROXY` 含 loopback（模型流走代理、/mcp 不走）。env-gated 调试 `UI_TUNER_DEBUG_CODEX=1` 落盘 `/tmp/ui-tuner-codex-last.log`。
+- 面板 `ApplySection.tsx`（ChangesTab 挂载）：idle「Apply to Code」按钮 → §30 Dialog（scope radio instance/component + agent + sourceUnknown 警告）→ §34 applying 态 → §31 Result 卡（✓ Applied  emerald / Unable to apply changes 红 + Retry）；store `applyState/applyResult/applyConfirmedCount` + `applyChanges(scope)`（只发选中元素的 changes）+ stale 守卫。
+- HMR 重定位（§22）：content `locateAppliedElement`（data-ui-tuner-id → selector+fingerprint 回退）+ `confirmOneChange` 轮询（移除 override→读 computed→`cssValuesEqual` 比对→不匹配则恢复 override 重试，8s 超时）；确认后 drop override+记录（面板 Preview 计数归零）。
+- 测试 209 例（protocol 21 / inspector 87 / bridge 68 / extension 33）。
+- 真机验收通过（2026-09-01，自动化 E2E 8/8，`/tmp/ui-tuner-e2e/m8-acceptance.mjs`）：选中「查看详情」→ Height 38→52 页面实时 → Changes 记录 → §30 Dialog → codex 真实改源码（Card.tsx 加 `className="card-details-button"`、styles.css 加 `.card-details-button{height:52px}`，遵循 plain-CSS 约束未加 inline style；并给 Button 加 className prop）→ Vite HMR → confirmApply 验证源码 computed=52px → ✓ Applied 卡（1 changes · Card.tsx, styles.css）。
 
-**注意**：M6/M7 顺延项在 backlog（Next App Router 适配、数据驱动文本索引、索引缓存、HMR 重定位 §22、颜色 alpha、CLI npm 发布、codex MCP 审批免 flag 配置）。
+## 7. 项目状态：M1–M8 全部完成
+
+核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并真机验收。无后续里程碑。剩余为 backlog 增强项（非验收阻塞）。
+
+**注意**：M6/M7 顺延项在 backlog（Next App Router 适配、数据驱动文本索引、索引缓存、HMR 跨刷新持久化 §37、颜色 alpha、CLI npm 发布、codex MCP 审批免 flag 配置、ui_capture 元素级裁剪）。
 
 ## 8. 新会话启动模板（计划 §52）
 

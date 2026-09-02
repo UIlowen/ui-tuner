@@ -8,7 +8,7 @@
 | ---------------------------- | ----------------------------------------------------------------------------------- | ----------------- |
 | Multi Select                 | Shift+Click 多选，max 10（计划 Task 2.5）                                           | M2 后半段 / M3 前 |
 | ⌘↓ 选子级                    | 与 ⌘↑ 对称的向下导航                                                                | 待定              |
-| 自动重连 / 状态持久化        | 页面导航刷新后自动恢复 Port 与选中态（计划 §37；跨刷新恢复依赖 HMR 重定位 §22）     | M5 后             |
+| 自动重连 / 状态持久化        | 页面导航刷新后自动恢复 Port 与选中态（计划 §37）。注：M8 已实现 Apply 链路的 HMR 重定位（§22 locateAppliedElement/confirmApply），跨**手动刷新**的持久化仍开放 | M5 后             |
 | 颜色 alpha 保留              | 色板提交写 `#rrggbb` 丢失半透明 alpha（M3 取舍）                                    | 待定              |
 | box-shadow / grid 可视化编辑 | M3 仅文本输入（§9.8/§9.2 合理最小实现）                                             | 待定              |
 | Playwright E2E               | 计划 §40 Test 01–07（需 headed Chromium + --load-extension）                        | 能力齐备后统一补  |
@@ -18,7 +18,7 @@
 | Next App Router 适配         | Source Resolver V1 只覆盖 Vite/React 常规结构（M6 指引：Next 随后）                 | M7+               |
 | 数据驱动文本索引             | 数组/接口渲染的字符串不进源码索引 → 这类元素多为 Preview only（M6 取舍）            | 待定              |
 | 源码索引缓存/文件监听        | M6 每次 selection 重建索引（上限 500 文件）；大项目需要缓存或 watch                 | 待定              |
-| codex MCP 免 bypass 配置     | codex exec 调 tools/call 默认被 approval:never 取消（"user cancelled MCP tool call"），需 `--dangerously-bypass-approvals-and-sandbox`；研究 trusted-MCP / 配置文件持久放行 | M8 前             |
+| codex MCP 免 bypass 配置     | codex exec 调 tools/call 默认被 approval:never 取消（"user cancelled MCP tool call"），需 `--dangerously-bypass-approvals-and-sandbox`；研究 trusted-MCP / 配置文件持久放行（M8 已用 flag 跑通，免 flag 仍开放） | 发布节点          |
 | ui_capture 元素级裁剪        | M7 截图为整页可视区（captureVisibleTab）；元素级裁剪需面 offscreen canvas           | 待定              |
 
 ## Scope 外（V0.1 明确不做，计划 §1.2）
