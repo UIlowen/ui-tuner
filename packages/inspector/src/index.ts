@@ -34,3 +34,5 @@ export { PreviewEngine } from "./preview/PreviewEngine";
 export { ChangeTracker } from "./changes/ChangeTracker";
 export { InstructionStore } from "./changes/InstructionStore";
 export { cssValuesEqual, normalizeCssValue } from "./changes/confirm";
+export { StagingEngine } from "./staging/StagingEngine";
+export type { StagedEdit } from "./staging/StagingEngine";
