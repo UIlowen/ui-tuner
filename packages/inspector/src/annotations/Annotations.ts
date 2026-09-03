@@ -2,42 +2,32 @@ import type { StyleChange } from "@ui-tuner/protocol";
 import { UI_TUNER_ID_ATTR } from "../dom/identity";
 import { ANNOTATIONS_HOST_STYLE, ANNOTATIONS_SHADOW_CSS } from "../styles/annotations";
 
-export interface AnnotationsLabels {
-  revertElement: string;
-  closeLabel: string;
-}
-
 export interface AnnotationsCallbacks {
-  onRevertElement?(elementId: string): void;
+  onOpenEditor?(elementId: string): void;
 }
 
 /**
  * Change-annotation layer: one bubble per element with recorded changes,
- * pinned to the element's top-right corner; clicking a bubble toggles a
- * popover listing that element's changes. Bubbles re-measure every animation
- * frame while any is visible (same contract as Overlay), so scrolling and
- * layout shifts stay correct. Elements with changes keep their
- * `data-ui-tuner-id` (SelectionTracker keepId), which is how bubbles relocate
- * their element after re-renders.
+ * pinned to the element's top-right corner; clicking a bubble dispatches
+ * `onOpenEditor(elementId)` so the host page can open its editor card.
+ * Bubbles re-measure every animation frame while any is visible (same
+ * contract as Overlay), so scrolling and layout shifts stay correct.
+ * Elements with changes keep their `data-ui-tuner-id` (SelectionTracker
+ * keepId), which is how bubbles relocate their element after re-renders.
  */
 export class Annotations {
   static readonly ROOT_ID = "ui-tuner-annotations-root";
 
   private host: HTMLDivElement | null = null;
   private shadow: ShadowRoot | null = null;
-  private popover: HTMLDivElement | null = null;
   private bubbles = new Map<string, HTMLButtonElement>();
   /** Stable per-element annotation sequence numbers (1, 2, 3… by first-change order). */
   private numbers = new Map<string, number>();
   private nextNumber = 1;
-  private openFor: string | null = null;
   private changes: StyleChange[] = [];
   private rafId: number | null = null;
 
-  constructor(
-    private readonly labels: AnnotationsLabels,
-    private readonly callbacks: AnnotationsCallbacks = {},
-  ) {}
+  constructor(private readonly callbacks: AnnotationsCallbacks = {}) {}
 
   /** Test/DI access to the mounted host. */
   get root(): HTMLDivElement | null {
@@ -60,14 +50,9 @@ export class Annotations {
     style.textContent = ANNOTATIONS_SHADOW_CSS;
     shadow.appendChild(style);
 
-    const popover = document.createElement("div");
-    popover.className = "popover";
-    shadow.appendChild(popover);
-
     document.documentElement.appendChild(host);
     this.host = host;
     this.shadow = shadow;
-    this.popover = popover;
   }
 
   unmount(): void {
@@ -75,12 +60,10 @@ export class Annotations {
     this.bubbles.clear();
     this.numbers.clear();
     this.nextNumber = 1;
-    this.openFor = null;
     this.changes = [];
     this.host?.remove();
     this.host = null;
     this.shadow = null;
-    this.popover = null;
   }
 
   /** Re-render from the latest change records (call on every mutation). */
@@ -117,60 +100,12 @@ export class Annotations {
         const bubble = document.createElement("button");
         bubble.type = "button";
         bubble.className = "bubble";
-        bubble.addEventListener("click", () => this.togglePopover(elementId));
+        bubble.addEventListener("click", () => this.callbacks.onOpenEditor?.(elementId));
         this.shadow.appendChild(bubble);
         this.bubbles.set(elementId, bubble);
       }
     }
-    if (this.openFor && !elementIds.has(this.openFor)) this.closePopover();
     this.scheduleRender();
-  }
-
-  private togglePopover(elementId: string): void {
-    if (this.openFor === elementId) {
-      this.closePopover();
-      return;
-    }
-    this.openFor = elementId;
-    this.renderPopover();
-    this.scheduleRender();
-  }
-
-  private closePopover(): void {
-    this.openFor = null;
-    if (this.popover) this.popover.style.display = "none";
-  }
-
-  private renderPopover(): void {
-    const popover = this.popover;
-    if (!popover || !this.openFor) return;
-    const elementId = this.openFor;
-    popover.textContent = "";
-
-    const list = document.createElement("ul");
-    for (const change of this.changes.filter((c) => c.elementId === elementId)) {
-      const row = document.createElement("li");
-      row.textContent = `${change.property}: ${change.previousValue || "—"} → ${change.nextValue}`;
-      list.appendChild(row);
-    }
-    popover.appendChild(list);
-
-    const revert = document.createElement("button");
-    revert.type = "button";
-    revert.className = "revert";
-    revert.textContent = this.labels.revertElement;
-    revert.addEventListener("click", () => this.callbacks.onRevertElement?.(elementId));
-    popover.appendChild(revert);
-
-    const close = document.createElement("button");
-    close.type = "button";
-    close.className = "close";
-    close.setAttribute("aria-label", this.labels.closeLabel);
-    close.textContent = "✕";
-    close.addEventListener("click", () => this.closePopover());
-    popover.appendChild(close);
-
-    popover.style.display = "block";
   }
 
   private scheduleRender(): void {
@@ -198,7 +133,6 @@ export class Annotations {
       const rect = element?.isConnected ? element.getBoundingClientRect() : null;
       if (!rect || (rect.width === 0 && rect.height === 0)) {
         bubble.style.display = "none";
-        if (this.openFor === elementId) this.closePopover();
         continue;
       }
       anyVisible = true;
@@ -206,11 +140,6 @@ export class Annotations {
       bubble.style.display = "block";
       bubble.style.left = `${rect.right}px`;
       bubble.style.top = `${rect.top}px`;
-
-      if (this.openFor === elementId && this.popover) {
-        this.popover.style.left = `${Math.max(8, rect.right - 12)}px`;
-        this.popover.style.top = `${rect.top + 24}px`;
-      }
     }
 
     if (anyVisible) {

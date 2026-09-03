@@ -3,8 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StyleChange } from "@ui-tuner/protocol";
 import { Annotations } from "./Annotations";
 
-const LABELS = { revertElement: "还原此元素", closeLabel: "关闭" };
-
 function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
@@ -43,7 +41,7 @@ describe("Annotations", () => {
     target.setAttribute("data-ui-tuner-id", "ut-1");
     document.body.appendChild(target);
     mockRect(target, { x: 10, y: 100, width: 120, height: 40 });
-    annotations = new Annotations(LABELS);
+    annotations = new Annotations();
     annotations.mount();
   });
 
@@ -111,32 +109,14 @@ describe("Annotations", () => {
     expect(query<HTMLButtonElement>(".bubble").style.display).toBe("none");
   });
 
-  it("opens a popover listing the element's changes on bubble click", async () => {
-    annotations.sync([makeChange("ut-1")]);
-    await nextFrame();
-    query<HTMLButtonElement>(".bubble").click();
-    const popover = query(".popover");
-    expect(popover.style.display).toBe("block");
-    expect(popover.textContent).toContain("height: 38px → 52px");
-  });
-
-  it("revert button reports the element id", async () => {
-    const onRevertElement = vi.fn();
+  it("dispatches onOpenEditor when a bubble is clicked", async () => {
+    const onOpenEditor = vi.fn();
     annotations.unmount();
-    annotations = new Annotations(LABELS, { onRevertElement });
+    annotations = new Annotations({ onOpenEditor });
     annotations.mount();
     annotations.sync([makeChange("ut-1")]);
     await nextFrame();
     query<HTMLButtonElement>(".bubble").click();
-    query<HTMLButtonElement>(".popover .revert").click();
-    expect(onRevertElement).toHaveBeenCalledWith("ut-1");
-  });
-
-  it("closes the popover when the element's changes are reverted away", async () => {
-    annotations.sync([makeChange("ut-1")]);
-    await nextFrame();
-    query<HTMLButtonElement>(".bubble").click();
-    annotations.sync([]);
-    expect(query(".popover").style.display).toBe("none");
+    expect(onOpenEditor).toHaveBeenCalledWith("ut-1");
   });
 });
