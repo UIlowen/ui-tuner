@@ -177,7 +177,10 @@ export class CodexAdapter implements AgentAdapter {
     return {
       success: true,
       files,
-      summary: `Applied ${request.changes.length} change(s) to ${files.join(", ")}`,
+      summary:
+        request.changes.length === 0
+          ? `Applied the user instruction to ${files.join(", ")}`
+          : `Applied ${request.changes.length} change(s) to ${files.join(", ")}`,
     };
   }
 }

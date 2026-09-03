@@ -45,9 +45,15 @@ export function buildCodexApplyPrompt(request: ApplyChangeRequest): string {
   lines.push("");
 
   // Changes ----------------------------------------------------------------
-  lines.push("Apply these exact style changes (computed old → new):");
-  for (const change of changes) {
-    lines.push(`- ${change.property}: ${change.previousValue || "(unset)"} → ${change.nextValue}`);
+  if (changes.length > 0) {
+    lines.push("Apply these exact style changes (computed old → new):");
+    for (const change of changes) {
+      lines.push(`- ${change.property}: ${change.previousValue || "(unset)"} → ${change.nextValue}`);
+    }
+  } else {
+    lines.push(
+      "No measured property changes were captured for this element: the user's instruction below is the entire request. Read it and make the styling edit it asks for.",
+    );
   }
   lines.push("");
 

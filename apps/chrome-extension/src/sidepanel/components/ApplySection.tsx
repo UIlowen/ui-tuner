@@ -11,6 +11,7 @@ import { useT } from "../../i18n/use-t";
 export function ApplySection() {
   const t = useT();
   const changes = useSidepanelStore((s) => s.changes);
+  const instructions = useSidepanelStore((s) => s.instructions);
   const selection = useSidepanelStore((s) => s.selection);
   const source = useSidepanelStore((s) => s.source);
   const elementNames = useSidepanelStore((s) => s.elementNames);
@@ -31,6 +32,10 @@ export function ApplySection() {
   const elementChanges = selectedElementId
     ? changes.filter((c) => c.elementId === selectedElementId)
     : [];
+  // An element whose only recorded work is a natural-language instruction is
+  // still applicable: Codex gets an empty change list plus those words.
+  const elementInstruction = selectedElementId ? instructions[selectedElementId]?.trim() : undefined;
+  const hasWork = elementChanges.length > 0 || Boolean(elementInstruction);
   const agent = agents.find((a) => a.id === "codex") ?? agents[0] ?? null;
   const bridgeConnected = bridgeStatus === "connected";
 
@@ -136,7 +141,9 @@ export function ApplySection() {
         <p className="text-[12px] font-semibold text-text-strong">{t("apply.dialogTitle")}</p>
         <p className="mt-1 truncate font-mono text-[11px] text-accent-text">{componentLabel}</p>
         <p className="mt-0.5 text-[10px] text-faint">
-          {t("apply.changeCount", { count: elementChanges.length })}
+          {elementChanges.length === 0
+            ? t("apply.instructionOnly")
+            : t("apply.changeCount", { count: elementChanges.length })}
         </p>
 
         <div className="mt-2.5">
@@ -193,13 +200,13 @@ export function ApplySection() {
           </button>
           <button
             type="button"
-            disabled={!bridgeConnected || elementChanges.length === 0 || sourceUnknown}
+            disabled={!bridgeConnected || !hasWork || sourceUnknown}
             title={
               sourceUnknown
                 ? t("apply.titleSourceUnknown")
                 : !bridgeConnected
                   ? t("apply.titleBridgeOffline")
-                  : elementChanges.length === 0
+                  : !hasWork
                     ? t("apply.titleNoChanges")
                     : t("apply.titleApply")
             }
@@ -217,16 +224,16 @@ export function ApplySection() {
   }
 
   // --- Idle: Apply button ---------------------------------------------------
-  if (elementChanges.length === 0 && applyState === "idle") return null;
+  if (!hasWork && applyState === "idle") return null;
   return (
     <button
       type="button"
       onClick={() => setDialogOpen(true)}
-      disabled={!bridgeConnected || elementChanges.length === 0 || sourceUnknown}
+      disabled={!bridgeConnected || !hasWork || sourceUnknown}
       title={
         !bridgeConnected
           ? t("apply.titleBridgeOffline")
-          : elementChanges.length === 0
+          : !hasWork
             ? t("apply.titleNoChanges")
             : sourceUnknown
               ? t("apply.titleManualCopy")

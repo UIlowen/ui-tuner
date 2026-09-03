@@ -515,7 +515,7 @@ describe("sidepanel store — M8 apply to code (plan §29/§30/§31)", () => {
     expect(useSidepanelStore.getState().applyRequestId).toBe(sent.payload.requestId);
   });
 
-  it("applyChanges is a no-op without bridge, selection, or changes", () => {
+  it("applyChanges is a no-op without bridge, selection, or changes/instruction", () => {
     resetStore();
     useSidepanelStore.getState().applyChanges("instance"); // no bridge
     expect(useSidepanelStore.getState().applyState).toBe("idle");
@@ -526,6 +526,28 @@ describe("sidepanel store — M8 apply to code (plan §29/§30/§31)", () => {
     useSidepanelStore.getState().applyChanges("instance");
     expect(useSidepanelStore.getState().applyState).toBe("idle");
     expect(socket.sent.some((m) => (m as { type: string }).type === "changes.apply")).toBe(false);
+  });
+
+  it("applyChanges sends an instruction-only request when the element has no property changes", () => {
+    resetStore();
+    const socket = openBridge();
+    selectElement({ gap: "24px" });
+    // The card saved an instruction for this element, with zero change records.
+    useSidepanelStore
+      .getState()
+      .receive(createPreviewChanged([], { "ut-000001": "把这个改成主按钮" }));
+
+    socket.sent.length = 0;
+    useSidepanelStore.getState().applyChanges("instance");
+
+    const sent = socket.sent.at(-1) as {
+      type: string;
+      payload: { changes: unknown[]; instruction?: string };
+    };
+    expect(sent.type).toBe("changes.apply");
+    expect(sent.payload.changes).toHaveLength(0);
+    expect(sent.payload.instruction).toBe("把这个改成主按钮");
+    expect(useSidepanelStore.getState().applyState).toBe("applying");
   });
 
   it("applyChanges composes the per-element card instruction ahead of the global note", () => {

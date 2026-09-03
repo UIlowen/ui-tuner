@@ -463,7 +463,6 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
     // Apply only the currently-selected element's changes (plan §30 dialog is
     // per-component).
     const elementChanges = changes.filter((c) => c.elementId === elementId);
-    if (elementChanges.length === 0) return;
 
     // Compose the card's per-element instruction into the request's existing
     // `instruction` field (element instruction first, then the global Agent-tab
@@ -472,6 +471,10 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
     const instruction = [elementInstruction, agentInstruction.trim()]
       .filter((part): part is string => Boolean(part))
       .join("\n");
+
+    // An instruction-only element is real work: Codex gets an empty change list
+    // plus the user's words. Bail only when there is nothing to say at all.
+    if (elementChanges.length === 0 && !elementInstruction) return;
 
     const context: ApplyElementContext = {
       page: { url: pageUrl ?? "" },
