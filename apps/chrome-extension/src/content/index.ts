@@ -311,26 +311,16 @@ chrome.runtime.onConnect.addListener((port) => {
   channel = Channel.accept(port);
   overlay = new Overlay();
   overlay.mount();
-  // Page-side popover labels follow the panel locale (read once per connect;
-  // a mid-session locale switch refreshes on the next panel open).
-  annotations = null;
-  void chrome.storage.local
-    .get("ui-tuner:prefs")
-    .catch(() => ({}))
-    .then((stored) => {
-      const locale =
-        (stored as Record<string, { locale?: unknown }>)["ui-tuner:prefs"]?.locale === "en"
-          ? "en"
-          : "zh";
-      annotations = new Annotations(
-        locale === "zh"
-          ? { revertElement: "还原此元素", closeLabel: "关闭" }
-          : { revertElement: "Revert this element", closeLabel: "Close" },
-        { onRevertElement: (elementId) => revertElement(elementId) },
-      );
-      annotations.mount();
-      annotations.sync(changeTracker.all());
-    });
+  // Clicking a change bubble selects its element; a later task opens the
+  // page-side editor card on top of this selection.
+  annotations = new Annotations({
+    onOpenEditor: (elementId) => {
+      const el = document.querySelector('[data-ui-tuner-id="' + elementId + '"]');
+      if (el) selectElement(el);
+    },
+  });
+  annotations.mount();
+  annotations.sync(changeTracker.all());
   tracker = new SelectionTracker({
     // Elements with recorded changes keep their id attribute so preview
     // overrides keep matching when the selection moves away (plan §11/§12).
