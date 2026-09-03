@@ -1,4 +1,5 @@
 import {
+  Annotations,
   ChangeTracker,
   Overlay,
   Picker,
@@ -20,6 +21,7 @@ import {
   createPreviewChanged,
   createSelectionChanged,
   createSelectionCleared,
+  isSidepanelClearSelectionMessage,
   isSidepanelConfirmApplyMessage,
   isSidepanelPingMessage,
   isSidepanelPickingMessage,
@@ -51,6 +53,7 @@ const changeTracker = new ChangeTracker();
 
 let channel: Channel | null = null;
 let overlay: Overlay | null = null;
+let annotations: Annotations | null = null;
 let picker: Picker | null = null;
 let tracker: SelectionTracker | null = null;
 let selectionActive = false;
@@ -60,6 +63,12 @@ let lastFingerprint: string | null = null;
 
 function send(message: UiTunerMessage): void {
   channel?.send(message);
+}
+
+/** Report the change list to the panel and re-render page annotations. */
+function reportChanges(): void {
+  send(createPreviewChanged(changeTracker.all()));
+  annotations?.sync(changeTracker.all());
 }
 
 /** Attach the truncated DOM snapshot (plan §3.1) to a selection payload. */
@@ -141,7 +150,7 @@ function applyStylePreview(payload: {
   if (value === null) {
     changeTracker.revertProperty(uiTunerId, property);
     previewEngine.setOverride(uiTunerId, property, null);
-    send(createPreviewChanged(changeTracker.all()));
+    reportChanges();
     return;
   }
 
@@ -158,7 +167,7 @@ function applyStylePreview(payload: {
     changeTracker.revertProperty(uiTunerId, property);
     previewEngine.setOverride(uiTunerId, property, null);
   }
-  send(createPreviewChanged(changeTracker.all()));
+  reportChanges();
 }
 
 /**
@@ -167,7 +176,7 @@ function applyStylePreview(payload: {
  * the panel's style values reflect the page again.
  */
 function syncAfterChanges(affectedElementIds: string[]): void {
-  send(createPreviewChanged(changeTracker.all()));
+  reportChanges();
 
   const element = tracker?.selected ?? null;
   const selectedId = element ? readUiTunerId(element) : null;
@@ -276,7 +285,7 @@ async function confirmApply(changes: StyleChange[]): Promise<void> {
     }
   }
 
-  send(createPreviewChanged(changeTracker.all()));
+  reportChanges();
   send(createApplyConfirmed({ appliedChangeIds, failedChangeIds, reidentified }));
 }
 
@@ -302,24 +311,47 @@ chrome.runtime.onConnect.addListener((port) => {
   channel = Channel.accept(port);
   overlay = new Overlay();
   overlay.mount();
+  // Page-side popover labels follow the panel locale (read once per connect;
+  // a mid-session locale switch refreshes on the next panel open).
+  annotations = null;
+  void chrome.storage.local
+    .get("ui-tuner:prefs")
+    .catch(() => ({}))
+    .then((stored) => {
+      const locale =
+        (stored as Record<string, { locale?: unknown }>)["ui-tuner:prefs"]?.locale === "en"
+          ? "en"
+          : "zh";
+      annotations = new Annotations(
+        locale === "zh"
+          ? { revertElement: "还原此元素", closeLabel: "关闭" }
+          : { revertElement: "Revert this element", closeLabel: "Close" },
+        { onRevertElement: (elementId) => revertElement(elementId) },
+      );
+      annotations.mount();
+      annotations.sync(changeTracker.all());
+    });
   tracker = new SelectionTracker({
     // Elements with recorded changes keep their id attribute so preview
     // overrides keep matching when the selection moves away (plan §11/§12).
     keepId: (id) => changeTracker.hasChangesFor(id),
   });
   selectionActive = false;
-  picker = new Picker({
-    onHoverChange: (element) => overlay?.setHover(element),
-    onSelect: (element) => {
-      picker?.stop();
-      send(createPickerState(false));
-      selectElement(element);
+  picker = new Picker(
+    {
+      onHoverChange: (element) => overlay?.setHover(element),
+      onSelect: (element) => {
+        // Annotation mode persists: keep picking so the next click selects
+        // the next element. Esc / the panel toggle stops the picker.
+        selectElement(element);
+      },
+      onCancel: () => {
+        overlay?.setHover(null);
+        send(createPickerState(false));
+      },
     },
-    onCancel: () => {
-      overlay?.setHover(null);
-      send(createPickerState(false));
-    },
-  });
+    { passThroughHostIds: [Annotations.ROOT_ID] },
+  );
 
   channel.send(
     createContentReady({
@@ -331,7 +363,7 @@ chrome.runtime.onConnect.addListener((port) => {
   // Page-side changes survive reconnects (plan §37 in-memory) — resync the
   // panel's mirror so the Changes tab reflects reality after a reconnect.
   if (changeTracker.all().length > 0) {
-    send(createPreviewChanged(changeTracker.all()));
+    reportChanges();
   }
 
   channel.onMessage((message) => {
@@ -348,6 +380,8 @@ chrome.runtime.onConnect.addListener((port) => {
       revertElement(message.payload.elementId);
     } else if (isSidepanelResetChangesMessage(message)) {
       resetChanges();
+    } else if (isSidepanelClearSelectionMessage(message)) {
+      clearSelection();
     } else if (isSidepanelConfirmApplyMessage(message)) {
       void confirmApply(message.payload.changes);
     } else if (isSidepanelReloadPageMessage(message)) {
@@ -369,6 +403,8 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onDisconnect.addListener(() => {
     picker?.stop();
     overlay?.unmount();
+    annotations?.unmount();
+    annotations = null;
     // Releases selection ids, except on elements with change records — their
     // preview overrides stay visible until the page reloads.
     tracker?.clear();
