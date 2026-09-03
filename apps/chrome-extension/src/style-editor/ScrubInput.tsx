@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { clamp, formatNumber, parseCssValue, scrubMultiplier } from "@ui-tuner/inspector";
-import { useT } from "../../i18n/use-t";
+import { useT } from "../i18n/use-t";
 
 /**
  * ScrubInput (plan §10, P0): drag to scrub a numeric CSS value.

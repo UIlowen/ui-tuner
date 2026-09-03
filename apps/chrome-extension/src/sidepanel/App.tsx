@@ -14,7 +14,8 @@ import type { MessageKey } from "../i18n/messages";
 import { AgentTab } from "./components/AgentTab";
 import { ApplySection } from "./components/ApplySection";
 import { ChangesTab } from "./components/ChangesTab";
-import { StylePanel } from "./components/StylePanel";
+import { StylePanel } from "../style-editor/StylePanel";
+import { StyleEditContext } from "../style-editor/StyleEditContext";
 import { formatChangesetForCopy } from "./format-changeset";
 
 function isLocalhostUrl(url: string): boolean {
@@ -236,6 +237,8 @@ export function App() {
   const setPicking = useSidepanelStore((s) => s.setPicking);
   const clearSelection = useSidepanelStore((s) => s.clearSelection);
   const cancelElement = useSidepanelStore((s) => s.cancelElement);
+  const styleValues = useSidepanelStore((s) => s.styleValues);
+  const updateStyle = useSidepanelStore((s) => s.updateStyle);
   const [agentOpen, setAgentOpen] = useState(false);
 
   const openChannel = useCallback(async () => {
@@ -327,7 +330,11 @@ export function App() {
             <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
               <EditorHeader />
               <div className="mt-1.5">
-                <StylePanel />
+                {styleValues && (
+                  <StyleEditContext.Provider value={{ values: styleValues, updateStyle }}>
+                    <StylePanel />
+                  </StyleEditContext.Provider>
+                )}
               </div>
             </section>
             <div className="flex gap-2">

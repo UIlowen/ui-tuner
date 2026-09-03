@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { formatCssValue, parseCssValue, rgbToHex } from "@ui-tuner/inspector";
-import { useSidepanelStore } from "../../state/sidepanel-store";
-import { useT } from "../../i18n/use-t";
+import { useT } from "../i18n/use-t";
 import { ScrubInput } from "./ScrubInput";
+import { useStyleEdit } from "./StyleEditContext";
 
 /**
  * Property rows for the Style tab (plan §9). Every row reads the committed
@@ -51,8 +51,8 @@ export function ScrubField({
   min?: number;
   max?: number;
 }) {
-  const raw = useSidepanelStore((s) => s.styleValues?.[property] ?? "");
-  const updateStyle = useSidepanelStore((s) => s.updateStyle);
+  const { values, updateStyle } = useStyleEdit();
+  const raw = values[property] ?? "";
   const parsed = parseCssValue(raw);
 
   if (raw === "" || !parsed) {
@@ -86,8 +86,8 @@ export function TextRow({
   label: string;
   placeholder?: string;
 }) {
-  const value = useSidepanelStore((s) => s.styleValues?.[property] ?? "");
-  const updateStyle = useSidepanelStore((s) => s.updateStyle);
+  const { values, updateStyle } = useStyleEdit();
+  const value = values[property] ?? "";
 
   return (
     <Row label={label}>
@@ -110,8 +110,8 @@ export function TextRow({
 /** Color value: swatch (native color input) + hex text. */
 export function ColorRow({ property, label }: { property: string; label: string }) {
   const t = useT();
-  const raw = useSidepanelStore((s) => s.styleValues?.[property] ?? "");
-  const updateStyle = useSidepanelStore((s) => s.updateStyle);
+  const { values, updateStyle } = useStyleEdit();
+  const raw = values[property] ?? "";
   const storeHex = rgbToHex(raw) ?? "#000000";
   // Live value while picking. Preview frames (`committed:false`) don't touch
   // the store, so `storeHex` lags behind the picker; binding the native input
@@ -153,8 +153,8 @@ export function SegmentRow({
   label: string;
   options: { value: string; label: string; title?: string }[];
 }) {
-  const raw = useSidepanelStore((s) => s.styleValues?.[property] ?? "");
-  const updateStyle = useSidepanelStore((s) => s.updateStyle);
+  const { values, updateStyle } = useStyleEdit();
+  const raw = values[property] ?? "";
 
   return (
     <Row label={label}>
@@ -181,7 +181,8 @@ export function SegmentRow({
 
 /** Read-only value display (e.g. computed transform, background-image). */
 export function ReadOnlyRow({ property, label }: { property: string; label: string }) {
-  const raw = useSidepanelStore((s) => s.styleValues?.[property] ?? "");
+  const { values } = useStyleEdit();
+  const raw = values[property] ?? "";
   return (
     <Row label={label}>
       <span className="truncate font-mono text-[10px] text-faint" title={raw}>

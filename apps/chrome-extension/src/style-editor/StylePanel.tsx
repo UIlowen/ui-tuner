@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { formatCssValue, parseCssValue } from "@ui-tuner/inspector";
-import { useSidepanelStore } from "../../state/sidepanel-store";
-import { useT } from "../../i18n/use-t";
+import { useT } from "../i18n/use-t";
 import { ScrubInput } from "./ScrubInput";
 import { ColorRow, GroupHeader, ReadOnlyRow, ScrubField, SegmentRow, TextRow } from "./rows";
+import { useStyleEdit } from "./StyleEditContext";
 
 /**
  * Style tab (plan §9): Layout / Size / Spacing / Typography / Fill / Border /
@@ -11,10 +11,9 @@ import { ColorRow, GroupHeader, ReadOnlyRow, ScrubField, SegmentRow, TextRow } f
  */
 export function StylePanel() {
   const t = useT();
-  const styleValues = useSidepanelStore((s) => s.styleValues);
-  if (!styleValues) return null;
+  const { values } = useStyleEdit();
 
-  const display = styleValues["display"] ?? "";
+  const display = values["display"] ?? "";
   const isFlex = display === "flex" || display === "inline-flex";
   const isGrid = display === "grid" || display === "inline-grid";
 
@@ -123,10 +122,9 @@ const ALIGN_CROSS = ["start", "center", "end"] as const;
 
 function AlignmentControl() {
   const t = useT();
-  const styleValues = useSidepanelStore((s) => s.styleValues);
-  const updateStyle = useSidepanelStore((s) => s.updateStyle);
-  const justify = styleValues?.["justify-content"] ?? "";
-  const align = styleValues?.["align-items"] ?? "";
+  const { values, updateStyle } = useStyleEdit();
+  const justify = values["justify-content"] ?? "";
+  const align = values["align-items"] ?? "";
 
   return (
     <div className="flex min-h-6 items-center gap-2">
@@ -177,14 +175,13 @@ function AlignmentControl() {
  */
 function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: string }) {
   const t = useT();
-  const styleValues = useSidepanelStore((s) => s.styleValues);
-  const updateStyle = useSidepanelStore((s) => s.updateStyle);
+  const { values, updateStyle } = useStyleEdit();
   const [advanced, setAdvanced] = useState(false);
 
-  const top = styleValues?.[`${kind}-top`] ?? "";
-  const right = styleValues?.[`${kind}-right`] ?? "";
-  const bottom = styleValues?.[`${kind}-bottom`] ?? "";
-  const left = styleValues?.[`${kind}-left`] ?? "";
+  const top = values[`${kind}-top`] ?? "";
+  const right = values[`${kind}-right`] ?? "";
+  const bottom = values[`${kind}-bottom`] ?? "";
+  const left = values[`${kind}-left`] ?? "";
 
   const sidesEqual = top === bottom && left === right;
   const showAdvanced = advanced || !sidesEqual;
