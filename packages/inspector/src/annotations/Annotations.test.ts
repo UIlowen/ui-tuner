@@ -109,6 +109,46 @@ describe("Annotations", () => {
     expect(query<HTMLButtonElement>(".bubble").style.display).toBe("none");
   });
 
+  it("hides the whole layer when annotation mode is off and restores it on re-activation", async () => {
+    annotations.sync([makeChange("ut-1")]);
+    await nextFrame();
+    expect(query<HTMLButtonElement>(".bubble").style.display).toBe("block");
+
+    annotations.setVisible(false);
+    expect(annotations.root!.style.display).toBe("none");
+
+    annotations.setVisible(true);
+    await nextFrame();
+    expect(annotations.root!.style.display).not.toBe("none");
+    expect(query<HTMLButtonElement>(".bubble").style.display).toBe("block");
+  });
+
+  it("does not paint while hidden, then repaints with numbering intact", async () => {
+    annotations.sync([makeChange("ut-1")]);
+    await nextFrame();
+    annotations.setVisible(false);
+
+    const second = document.createElement("div");
+    second.setAttribute("data-ui-tuner-id", "ut-2");
+    document.body.appendChild(second);
+    mockRect(second, { x: 200, y: 100, width: 80, height: 30 });
+    annotations.sync([makeChange("ut-1"), makeChange("ut-2")]);
+    await nextFrame();
+
+    const bubbles = [
+      ...(annotations.root?.shadowRoot?.querySelectorAll<HTMLButtonElement>(".bubble") ?? []),
+    ];
+    // The bubble exists (state is kept) but was never positioned while hidden.
+    expect(bubbles).toHaveLength(2);
+    expect(bubbles[1]!.style.left).toBe("");
+    expect(annotations.numberFor("ut-2")).toBe(2);
+
+    annotations.setVisible(true);
+    await nextFrame();
+    expect(bubbles[1]!.style.left).toBe("280px");
+    expect(bubbles[1]!.textContent).toBe("2");
+  });
+
   it("renders a bubble for an instruction-only element (zero property changes)", async () => {
     annotations.sync([], { "ut-1": "改成主按钮" });
     await nextFrame();

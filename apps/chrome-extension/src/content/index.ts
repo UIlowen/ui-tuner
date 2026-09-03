@@ -103,6 +103,7 @@ function withElementContext(payload: SelectionPayload, element: Element): Select
 
 function startPicking(): void {
   picker?.start();
+  annotations?.setVisible(true);
   send(createPickerState(true));
 }
 
@@ -110,6 +111,7 @@ function stopPicking(): void {
   if (picker?.isEnabled) picker.stop();
   overlay?.setHover(null);
   closeEditorSession();
+  annotations?.setVisible(false);
   send(createPickerState(false));
 }
 
@@ -380,6 +382,9 @@ chrome.runtime.onConnect.addListener((port) => {
     },
   });
   annotations.mount();
+  // Annotation mode is off until the panel asks for picking: keep the state
+  // (bubbles survive reconnects) but paint nothing on a page being browsed.
+  annotations.setVisible(false);
   annotations.sync(changeTracker.all(), instructionStore.all());
   tracker = new SelectionTracker({
     // Annotated elements keep their id attribute when the selection moves away:
@@ -398,9 +403,9 @@ chrome.runtime.onConnect.addListener((port) => {
         openEditorCard(element);
       },
       onCancel: () => {
-        overlay?.setHover(null);
-        closeEditorSession();
-        send(createPickerState(false));
+        // Esc inside the picker exits annotation mode like the panel toggle does
+        // (the picker has already stopped itself; stopPicking guards on that).
+        stopPicking();
       },
     },
     { passThroughHostIds: [Annotations.ROOT_ID, EDITOR_CARD_ROOT_ID] },

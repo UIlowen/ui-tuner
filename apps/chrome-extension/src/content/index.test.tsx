@@ -244,4 +244,50 @@ describe("content page-side edit session", () => {
 
     act(() => port.disconnect());
   });
+
+  it("shows bubbles only while annotation mode is active", () => {
+    const connect = connectListeners[0]!;
+    const port = createFakePort();
+    act(() => connect(port.port));
+    act(() => port.emitToContent(createSidepanelResetChanges()));
+
+    const host = () => document.getElementById(Annotations.ROOT_ID)!;
+    const hidden = () => host().style.display === "none";
+    // Annotation mode is off at connect, so nothing is painted on the page.
+    expect(hidden()).toBe(true);
+
+    act(() => port.emitToContent(createSidepanelPicking(true)));
+    act(() => {
+      fireEvent.click(document.body, { clientX: 5, clientY: 5 });
+    });
+    const card = () => document.getElementById(EDITOR_CARD_ROOT_ID)!.shadowRoot!;
+    act(() => {
+      fireEvent.click(shadowButton(card(), "自然语言"));
+    });
+    act(() => {
+      fireEvent.change(card().querySelector("textarea")!, { target: { value: "圆角更大" } });
+    });
+    act(() => {
+      fireEvent.click(shadowButton(card(), "保存"));
+    });
+    expect(hidden()).toBe(false);
+    expect(host().shadowRoot!.querySelectorAll(".bubble")).toHaveLength(1);
+
+    // Panel toggle exits annotation mode → bubbles go away.
+    act(() => port.emitToContent(createSidepanelPicking(false)));
+    expect(hidden()).toBe(true);
+
+    // Re-activating brings the same annotation back.
+    act(() => port.emitToContent(createSidepanelPicking(true)));
+    expect(hidden()).toBe(false);
+    expect(host().shadowRoot!.querySelectorAll(".bubble")).toHaveLength(1);
+
+    // Esc inside the picker is the other exit path — same result.
+    act(() => {
+      fireEvent.keyDown(document, { key: "Escape" });
+    });
+    expect(hidden()).toBe(true);
+
+    act(() => port.disconnect());
+  });
 });

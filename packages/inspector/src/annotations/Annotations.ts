@@ -16,6 +16,11 @@ export interface AnnotationsCallbacks {
  * (same contract as Overlay), so scrolling and layout shifts stay correct.
  * Annotated elements keep their `data-ui-tuner-id` (SelectionTracker keepId),
  * which is how bubbles relocate their element after re-renders.
+ *
+ * The layer is only painted while annotation mode is active: the host calls
+ * `setVisible(false)` on exit so a page being merely browsed carries no marks,
+ * and `setVisible(true)` on re-entry. Hiding keeps bubbles and their sequence
+ * numbers, so re-activation restores the same annotations.
  */
 export class Annotations {
   static readonly ROOT_ID = "ui-tuner-annotations-root";
@@ -27,6 +32,7 @@ export class Annotations {
   private numbers = new Map<string, number>();
   private nextNumber = 1;
   private rafId: number | null = null;
+  private visible = true;
 
   constructor(private readonly callbacks: AnnotationsCallbacks = {}) {}
 
@@ -44,12 +50,23 @@ export class Annotations {
     return this.numbers.get(elementId) ?? null;
   }
 
+  /** Show or hide the whole layer; annotation state (bubbles + numbers) survives. */
+  setVisible(visible: boolean): void {
+    if (this.visible === visible) return;
+    this.visible = visible;
+    if (!this.host) return;
+    this.host.style.display = visible ? "" : "none";
+    if (visible) this.scheduleRender();
+    else this.stopLoop();
+  }
+
   mount(): void {
     if (this.host?.isConnected) return;
 
     const host = document.createElement("div");
     host.id = Annotations.ROOT_ID;
     host.style.cssText = ANNOTATIONS_HOST_STYLE;
+    if (!this.visible) host.style.display = "none";
 
     const shadow = host.attachShadow({ mode: "open" });
     const style = document.createElement("style");
@@ -120,7 +137,7 @@ export class Annotations {
   }
 
   private scheduleRender(): void {
-    if (this.rafId !== null || !this.host) return;
+    if (this.rafId !== null || !this.host || !this.visible) return;
     this.rafId = requestAnimationFrame(() => {
       this.rafId = null;
       this.render();
