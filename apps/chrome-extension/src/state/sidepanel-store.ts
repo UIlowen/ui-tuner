@@ -6,6 +6,7 @@ import {
   createBridgeSync,
   createChangesApply,
   createSidepanelConfirmApply,
+  createSidepanelClearSelection,
   createSidepanelPing,
   createSidepanelReloadPage,
   createSidepanelPicking,
@@ -125,6 +126,8 @@ interface SidepanelState {
   setPicking: (enabled: boolean) => void;
   /** Breadcrumb jump: select the ancestor with this uiTunerId. */
   selectAncestor: (uiTunerId: string) => void;
+  /** Annotation mode "done with this element": clear the selection, keep picking. */
+  clearSelection: () => void;
   /**
    * Send one style value for the selected element (plan §10/§11). Preview
    * frames (committed=false) only hit the page; commits also update
@@ -399,6 +402,13 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
   selectAncestor: (uiTunerId) => {
     if (!channel) return;
     const message = createSidepanelSelectAncestor(uiTunerId);
+    channel.send(message);
+    set((state) => ({ log: appendLog(state.log, "out", message) }));
+  },
+
+  clearSelection: () => {
+    if (!channel) return;
+    const message = createSidepanelClearSelection();
     channel.send(message);
     set((state) => ({ log: appendLog(state.log, "out", message) }));
   },

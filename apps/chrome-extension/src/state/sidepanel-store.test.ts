@@ -156,6 +156,16 @@ describe("sidepanel store", () => {
     expect(state.log).toHaveLength(0);
   });
 
+  it("clearSelection sends sidepanel.clearSelection", () => {
+    resetStore();
+    const { port, sent } = createSpyPort();
+    useSidepanelStore.getState().connect(Channel.accept(port));
+
+    useSidepanelStore.getState().clearSelection();
+
+    expect(sent).toEqual([{ type: "sidepanel.clearSelection", payload: {} }]);
+  });
+
   it("updateStyle sends preview frames without touching styleValues", () => {
     resetStore();
     const { port, sent } = createSpyPort();
