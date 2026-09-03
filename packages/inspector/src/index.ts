@@ -1,5 +1,10 @@
 export { Picker, type PickerCallbacks } from "./picker/Picker";
 export { Overlay } from "./overlay/Overlay";
+export {
+  Annotations,
+  type AnnotationsLabels,
+  type AnnotationsCallbacks,
+} from "./annotations/Annotations";
 export { SelectionTracker, type SelectionTrackerOptions } from "./dom/selection";
 export {
   assignUiTunerId,
