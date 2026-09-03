@@ -6,14 +6,14 @@
 
 ---
 
-## 1. 当前状态快照（2026-09-02）
+## 1. 当前状态快照（2026-09-03）
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M8 完成**（M8 真机验收通过：浏览器 UI 调整落到真实源码；含静态 HTML 支持 + 同色 no-op 不记录）                                                                                                                                                                                                          |
-| 分支     | `main`，远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`（2026-09-02 建）。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（242 例测试）                                                                                                                                                                                                          |
-| 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`（面板 Offline 卡的 `npx ui-tuner` 是发布后文案）；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`（否则 approval:never 自动取消 tools/call） |
+| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
+| 分支     | **`feat/ui-ux-polish`（30 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（**311 例测试**：protocol 26 / inspector 121 / bridge 74 / extension 90）                                                                                                                                                |
+| 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡输入框内按 Esc 会连带退出整个注释模式**（未修，backlog）；`docs/architecture.md` 仍描述注释模式之前的三 Tab 面板（未同步，读它时以本文档 §4/§6 为准） |
 
 ## 2. 三十秒上下文
 
@@ -29,9 +29,11 @@ UI Tuner = Chrome Extension + Local Bridge + MCP Server。核心闭环：**Selec
 UI Tuner/
   UI_TUNER_EXECUTION_PLAN.md   执行计划（唯一需求来源）
   docs/
-    architecture.md            已实现架构（每里程碑更新，M4 版含选取/样式/撤销流程）
+    architecture.md            已实现架构（**停留在 M8/三 Tab 面板，未同步注释模式与编辑卡**）
     handover.md                本文档
     backlog.md                 顺延项 / scope 外需求
+    superpowers/specs/         2026-09-02-annotation-mode-design.md、2026-09-03-page-editor-card-design.md
+    superpowers/plans/         同名实施计划（任务级 TDD 清单）
   dev/index.html               localhost 测试页（pnpm page 启动）
   examples/
     react-vite/                计划 §39 Example A（独立 npm 项目，不进 pnpm workspace）：
@@ -39,11 +41,12 @@ UI Tuner/
   packages/
     protocol/                  跨上下文消息类型（公共类型只放这里，规则 6）
     inspector/                 chrome-free DOM 能力：Picker / Overlay / Selection /
-                               styles(白名单/解析/取色) / PreviewEngine / ChangeTracker / snapshot /
-                               domFingerprint（§21 结构指纹）
+                               styles(白名单/解析/取色) / PreviewEngine / ChangeTracker /
+                               InstructionStore(元素→自然语言指令) / StagingEngine(保存才记录) /
+                               Annotations(页面气泡注释层) / snapshot / domFingerprint（§21）
     bridge/                    本地 Bridge：CLI(bin ui-tuner, :47321 仅 127.0.0.1) + WebSocket
                                服务 + 项目/dev server 检测 + resolver/(源码索引+打分定位)
-                               + adapter/(Codex/ClaudeCode/Cursor 检测) + mcp/(§27 五工具,
+                               + adapter/(Codex 真实现 + prompt/fileDiff) + mcp/(§27 五工具,
                                stateless StreamableHTTP 挂在同 server /mcp)；
                                不 import 浏览器 API（规则 8）
   apps/
@@ -54,9 +57,17 @@ UI Tuner/
       src/
         background/            SW：点击图标开面板
         content/               内容脚本：接线 inspector ↔ Port（chrome 知识只在这里）
-        sidepanel/             React App（App.tsx = 三 Tab；components/ = ScrubInput/StylePanel/rows/ChangesTab/AgentTab）
+          card/                **页面侧编辑卡**：EditorCard.tsx（React）+ mount-card.tsx
+                               （挂到 shadow root `ui-tuner-editor-card-root`）+ inject-styles.ts
+                               （Tailwind token scoped 到 :host，adoptedStyleSheets）
+        sidepanel/             React App（App.tsx = 两态注释面板，**已无 Style Tab**；
+                               components/ = ChangesTab / AgentTab / ApplySection）
+        style-editor/          样式控件（ScrubInput / rows / StylePanel / StyleEditContext）——
+                               从 sidepanel 抽出，供**编辑卡**复用（面板不再直接编辑）
+        i18n/                  messages.ts（zh/en，键必须齐平）+ use-t.ts
         messaging/channel.ts   Port 类型化封装（PortLike 结构接口）
-        state/                 zustand store（连接 + picking + selection + styleValues + changes）
+        state/                 zustand store（sidepanel-store：连接/picking/selection/changes/
+                               instructions/agent/apply；prefs：语言 + 主题）
 ```
 
 ## 4. 技术决策与约束（勿推翻，除非有硬理由）
@@ -80,10 +91,16 @@ UI Tuner/
 | **Source Resolver 在 bridge（Node 侧）做 regex 级静态扫描**（不在浏览器里跑）：`src/**/*.{tsx,jsx,ts,js}` 建索引（组件名/JSX 文本/className/标签/id，上限 500 文件） | 浏览器没有文件系统；V1 无 parser 依赖，Vite/React 常规结构优先（handover M6 指引）  |
 | **置信度纪律（§20）：exact 必须有 JSX 文本命中且唯一领先（给 file:line）；inferred 只给文件不给行号；unknown 不伪造**                                                | 「查看详情」按钮 → Card.tsx 调用点（与 React JSX 语义一致）                         |
 | 源码索引每次 selection 解析时重建（无缓存/无文件监听）                                                                                                               | dev 项目小，重建为毫秒级；大项目缓存属 backlog                                      |
-| 有 change 记录的元素在选中转移时保留 `data-ui-tuner-id`（SelectionTracker `keepId`）                                                                                 | 否则 Preview override CSS 与元素失联                                                |
+| 有 change 记录**或有已保存指令**的元素在选中转移时保留 `data-ui-tuner-id`（SelectionTracker `keepId`）                                                                | Preview override CSS 与元素失联；气泡也要靠它定位「仅指令」元素（无 override）       |
 | ScrubInput 拖动帧只发 `onPreview`（rAF 节流、DOM 直写不触发 React 渲染）；释放才 `onCommit`（计划 §10）                                                              | 拖拽 60fps 不重渲染面板                                                             |
 | pnpm 11 + Turborepo 2；`onlyBuiltDependencies: [esbuild]` 在 pnpm-workspace.yaml                                                                                     | pnpm ≥10 默认拦截构建脚本                                                           |
 | UI 风格：克制、高信息密度、Figma/Linear/Raycast 质感（计划 §48）；已用 zinc 暗色 + Tailwind 4                                                                        | 禁渐变堆砌/游戏化                                                                   |
+| **样式编辑只在页面编辑卡里发生；Side Panel 不再有 Style Tab / 不再下发 `sidepanel.stylePreview`（该协议消息已删除）**                                                | 设计师在元素旁边调，所见即所得；面板只负责总览/Agent/Apply（注释模式设计）          |
+| 编辑卡挂在 **shadow root**（host `ui-tuner-editor-card-root`，z-index 2147483645），Tailwind token scoped 到 `:host` / `:host(.dark)`，经 `adoptedStyleSheets` 注入 | 不污染宿主页面样式，也不被宿主样式污染                                              |
+| **「保存才记录」`StagingEngine`**：拖动/输入只 `stage`→PreviewEngine（页面实时可见但不落账）；`commit` 才写 ChangeTracker；`rollback` 还原基线                          | 取消/删除能干净还原；避免 M8 那种「拖一下就产生一条记录」的噪声                     |
+| **仅指令元素是一等公民**：`Annotations.sync(changes, instructions)` 取并集出气泡，`ChangesTab` 计数把无改动行但有指令的元素算 1 条，`applyChanges` 允许 `changes: []` + instruction | 只写自然语言（不动数值）也是有效诉求，此前会在气泡/计数/Apply 三处被当作「空」丢弃  |
+| Picker 放行注释层点击（`passThroughHostIds`）；气泡点击派发 `onOpenEditor` 而不是只读浮层                                                                            | 点气泡要能重开该元素的编辑卡（含已存指令与序号）                                    |
+| 面板两态注释模式：`picking` 只由 content 的 `picker.state` ack 决定，选中元素**不**退出注释模式；「完成此元素」走 `sidepanel.clearSelection`                           | 连续标注多个元素；避免面板乐观更新造成状态漂移                                      |
 
 ## 5. 常用命令
 
@@ -174,11 +191,45 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
   - 另：width/height 设在 `display:inline` 元素（如 `<span>`）、gap 设在非 flex/grid 容器上**本就无视觉效果**——这是 CSS 固有行为，不是 bug。
 - 测试 242 例（protocol 21 / inspector 100 / bridge 71 / extension 50）。
 
-## 7. 项目状态：M1–M8 全部完成
+**注释模式重构（2026-09-02，`docs/superpowers/{specs,plans}/2026-09-02-annotation-mode*`，7 任务；分支 `feat/ui-ux-polish`）**
 
-核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并真机验收。无后续里程碑。剩余为 backlog 增强项（非验收阻塞）。
+- 面板去 Tab → **两态注释模式**：空闲态只有「选取元素」，选中态显示 Breadcrumb + 操作；footer 吸底；Agent 高级设置折叠。新增中英文切换与亮/暗/跟随系统主题（`state/prefs.ts` + `i18n/messages.ts`，zh/en 键必须齐平，有 parity 测试）。
+- inspector `annotations/Annotations.ts`：页面侧注释层（shadow host `ui-tuner-annotations-root`），气泡为**蓝色序号圆点**，按注释先后编号、重置后重新计数；Picker 新增 `passThroughHostIds` 放行注释层点击（否则点气泡被 Picker 吃掉）。
+- protocol 新增 `sidepanel.clearSelection`（「完成此元素」）+ store `clearSelection`；**选中元素不再退出注释模式**（`picking` 只认 content 回报的 `picker.state` ack，面板不做乐观更新）；编辑卡里也有「取消」= 还原此元素改动并取消选中，注释模式保持。
+- 气泡点击语义从「只读浮层」改为派发 `onOpenEditor`（为编辑卡铺路）。
 
-**注意**：M6/M7 顺延项在 backlog（Next App Router 适配、数据驱动文本索引、索引缓存、HMR 跨刷新持久化 §37、颜色 alpha、CLI npm 发布、codex MCP 审批免 flag 配置、ui_capture 元素级裁剪）。
+**页面侧编辑卡（2026-09-03，`docs/superpowers/{specs,plans}/2026-09-03-page-editor-card*`，SDD 14 任务全绿，过程台账在 `.superpowers/sdd/2026-09-03-page-editor-card/`）**
+
+- inspector 新增 `staging/StagingEngine.ts`（**保存才记录**：stage 只写 PreviewEngine → 页面实时可见但不落账；commit 才写 ChangeTracker；rollback 还原基线）与 `changes/InstructionStore.ts`（elementId → 自然语言指令，页面侧存储）。
+- 扩展 `content/card/`：`EditorCard.tsx`（属性/自然语言两页签 + 折叠 + 取消/保存/删除）、`mount-card.tsx`（挂 shadow root `ui-tuner-editor-card-root`）、`inject-styles.ts`（Tailwind token scoped 到 `:host` / `:host(.dark)`，`adoptedStyleSheets` 注入）。样式控件从 `sidepanel/` 抽到 **`src/style-editor/`**（ScrubInput / rows / StylePanel / StyleEditContext）供卡片复用，行为保持不变。
+- protocol：`preview.changed` 增 `instructions`（elementId→指令，面板镜像）；**删除 `sidepanel.stylePreview`**——面板不再下发编辑，改由页面卡片就地编辑。
+- 面板：删掉编辑区；`ChangesTab` 组头显示该元素的自然语言指令；复制 / Agent Context / Apply prompt 三处都把元素指令纳入上下文（**元素指令在前、Agent 页全局备注在后**，合并进已有的单个 `instruction` 字段，无需改协议 schema）。
+- SDD 终审（1 Critical + 2 Important）已在 `4ce156a` 修完并复审通过：卡片 remount key、「仅指令」元素支持、apply 串联。
+- 测试 305 例（protocol 26 / inspector 121 / bridge 72 / extension 86）。
+
+**真机验收轮（2026-09-03，`f8cf5a4` + 本轮「仅指令元素走 Apply」）**
+
+复现用户报的 5 个验收问题，4 个在 HEAD 已不复现（含带 stage/气泡重开/Esc 退出的完整序列复验）；真凶是**「只写自然语言、不动数值」的元素在四处被当成空**：
+
+1. **页面没有气泡** —— `Annotations.sync` 只吃 changes，且 `SelectionTracker.keepId` 也只看 changes，选中一转移 `data-ui-tuner-id` 就被摘掉。修复：`sync(changes, instructions)` 取并集（非空指令即注释），`keepId` 同步放宽；content 每次 mutation 都传两份数据。
+2. **面板计数 `Preview · 0`** —— 修复：无改动行但有指令的元素计 1 条，且与有改动的元素不重复计数。
+3. **空态文案还指向已删除的面板 Style 面板** —— 修复：改指页面编辑卡（zh/en 同步）。
+4. **Apply 入口完全不渲染** —— 修复：`applyChanges` 守卫从「无改动就 return」改为「**既无改动又无指令**才 return」；`ApplySection` 用 `hasWork = 有改动 ∨ 有指令` 门控（按钮渲染 / 两处 disabled / 两处 title）；弹窗文案改「仅自然语言指令（无视觉改动）」而不是「0 处视觉改动」；bridge `buildCodexApplyPrompt` 在 `changes` 为空时**不再输出空的**「Apply these exact style changes」列表，改声明「无实测属性改动，用户指令即全部诉求」；`CodexAdapter` summary 不再谎称 `Applied 0 change(s)`，改 `Applied the user instruction to <files>`。协议无需改动（`changes: StyleChange[]` 本就允许空数组，`instruction?` 已存在）。
+
+- 验证：`pnpm build/test/typecheck/lint` 全绿（**311 例**）；mutation check（把 `hasWork` 强制为真 → 「无改动又无指令时按钮不渲染」用例如期失败）；真机浏览器 `.playwright-mcp/verify-instruction-only-apply.mjs`（仅指令保存 → `Preview · 1` → **「应用到代码」按钮出现**（此前完全不渲染）→ 弹窗显示「仅自然语言指令（无视觉改动）」且不再有「0 处视觉改动」）；真实 codex exec `.playwright-mcp/verify-instruction-only-codex.mjs`（`changes: []` + 指令「把这个按钮改成次要样式（ghost variant）」→ 142.7s → success，`files: ["src/components/Card.tsx"]`，summary 为 `Applied the user instruction to …`，盘上 diff **恰好一行** `<Button>` → `<Button variant="ghost">`，相邻「导出报表」按钮未被误改；验证后已还原 fixture）。
+- 环境注意：验证时 47321 上跑着用户另一个项目（vehicle-dashboard）的 Bridge，**没有抢占端口**；因此浏览器侧源码解析为 unknown，端到端 Codex 那一程改用直连 `CodexAdapter` 的方式跑（同一份 prompt/runner/fileDiff 代码路径）。
+- 未修（已进 backlog）：编辑卡 textarea 内按 Esc 会退出整个注释模式。
+
+## 7. 项目状态：核心闭环完成，`feat/ui-ux-polish` 待推送 + 待合并决策
+
+核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并多轮真机验收（M8、注释模式、页面编辑卡）。无后续里程碑，剩余为 backlog 增强项。
+
+**下一步待用户决策（截至 2026-09-03）**：
+1. `feat/ui-ux-polish`（30+ commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
+2. 合并到 `main` 的决策（PR 还是直接 merge）尚未做。
+3. `docs/architecture.md` 未同步注释模式 + 页面编辑卡（仍写三 Tab 面板与 `sidepanel.stylePreview`）；下次动架构文档时一并补。
+
+**注意**：顺延项都在 `docs/backlog.md`（Next App Router 适配、数据驱动文本索引、索引缓存、HMR 跨刷新持久化 §37、颜色 alpha、CLI npm 发布、codex MCP 免 bypass flag、ui_capture 元素级裁剪、**编辑卡内 Esc 只关卡片**）。
 
 ## 8. 新会话启动模板（计划 §52）
 
