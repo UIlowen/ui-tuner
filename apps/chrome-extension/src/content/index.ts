@@ -36,6 +36,13 @@ import {
   type UiTunerMessage,
 } from "@ui-tuner/protocol";
 import { Channel } from "../messaging/channel";
+// Editor card (Task 7/8) calls this when mounting its shadow root. Until the
+// card UI lands, stash a real reference on globalThis: a bare side-effect
+// import (or `void x`) gets tree-shaken/minified away, which would drop the
+// compiled card.css (?inline) string from the content bundle.
+import { injectCardStyles } from "./card/inject-styles";
+(globalThis as { __uiTunerInjectCardStyles?: typeof injectCardStyles }).__uiTunerInjectCardStyles =
+  injectCardStyles;
 
 /**
  * Content script — Milestone 4 scope.
