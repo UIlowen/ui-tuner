@@ -278,6 +278,14 @@ describe("creators", () => {
     });
   });
 
+  it("preview.changed carries an optional instructions map", () => {
+    const message = createPreviewChanged([], { "ut-1": "紧凑一点" });
+    expect(message.payload.instructions).toEqual({ "ut-1": "紧凑一点" });
+    expect(isPreviewChangedMessage(message)).toBe(true);
+    // 缺省可省略
+    expect(createPreviewChanged([]).payload.instructions).toBeUndefined();
+  });
+
   it("creates revert and reset messages", () => {
     expect(createSidepanelRevertChange("ch-000001")).toEqual({
       type: "sidepanel.revertChange",

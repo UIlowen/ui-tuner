@@ -175,6 +175,8 @@ export interface PreviewChangedMessage {
   type: "preview.changed";
   payload: {
     changes: StyleChange[];
+    /** elementId → 自然语言指令（可选，与 changes 搭配下发给 sidepanel）。 */
+    instructions?: Record<string, string>;
   };
 }
 
@@ -752,8 +754,11 @@ export function createSidepanelStylePreview(
   return { type: "sidepanel.stylePreview", payload };
 }
 
-export function createPreviewChanged(changes: StyleChange[]): PreviewChangedMessage {
-  return { type: "preview.changed", payload: { changes } };
+export function createPreviewChanged(
+  changes: StyleChange[],
+  instructions?: Record<string, string>,
+): PreviewChangedMessage {
+  return { type: "preview.changed", payload: instructions ? { changes, instructions } : { changes } };
 }
 
 export function createSidepanelRevertChange(changeId: string): SidepanelRevertChangeMessage {
