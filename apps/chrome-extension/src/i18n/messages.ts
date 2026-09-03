@@ -49,7 +49,7 @@ export const zh = {
   // --- Changes tab ---
   "changes.title": "Preview · {count}",
   "changes.emptyHint":
-    "在 Style 面板调整样式后，修改会记录在这里。Preview 只改浏览器，不动源码。",
+    "点「选取元素」后在页面的编辑卡里调整，保存的改动会记录在这里。Preview 只改浏览器，不动源码。",
   "changes.revertElement": "还原",
   "changes.revertProperty": "还原 {property}",
   "changes.copy": "复制改动",
@@ -221,7 +221,7 @@ export const en: Record<MessageKey, string> = {
   // --- Changes tab ---
   "changes.title": "Preview · {count}",
   "changes.emptyHint":
-    "Adjust styles in the Style panel and changes will be recorded here. Preview only changes the browser, not the source.",
+    "Click “Select element” and tune in the editor card on the page — saved changes are recorded here. Preview only changes the browser, not the source.",
   "changes.revertElement": "Revert",
   "changes.revertProperty": "Revert {property}",
   "changes.copy": "Copy changes",

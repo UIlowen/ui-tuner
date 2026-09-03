@@ -85,8 +85,10 @@ function send(message: UiTunerMessage): void {
 
 /** Report the change list to the panel and re-render page annotations. */
 function reportChanges(): void {
-  send(createPreviewChanged(changeTracker.all(), instructionStore.all()));
-  annotations?.sync(changeTracker.all());
+  const changes = changeTracker.all();
+  const instructions = instructionStore.all();
+  send(createPreviewChanged(changes, instructions));
+  annotations?.sync(changes, instructions);
 }
 
 /** Whitelisted computed styles for an element — same source as selection.styles. */
@@ -378,11 +380,12 @@ chrome.runtime.onConnect.addListener((port) => {
     },
   });
   annotations.mount();
-  annotations.sync(changeTracker.all());
+  annotations.sync(changeTracker.all(), instructionStore.all());
   tracker = new SelectionTracker({
-    // Elements with recorded changes keep their id attribute so preview
-    // overrides keep matching when the selection moves away (plan §11/§12).
-    keepId: (id) => changeTracker.hasChangesFor(id),
+    // Annotated elements keep their id attribute when the selection moves away:
+    // preview overrides target it (plan §11/§12), and bubbles need it to locate
+    // the element — including instruction-only ones, which have no overrides.
+    keepId: (id) => changeTracker.hasChangesFor(id) || instructionStore.get(id) !== undefined,
   });
   selectionActive = false;
   picker = new Picker(

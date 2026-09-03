@@ -109,6 +109,44 @@ describe("Annotations", () => {
     expect(query<HTMLButtonElement>(".bubble").style.display).toBe("none");
   });
 
+  it("renders a bubble for an instruction-only element (zero property changes)", async () => {
+    annotations.sync([], { "ut-1": "改成主按钮" });
+    await nextFrame();
+    expect(query<HTMLButtonElement>(".bubble").textContent).toBe("1");
+  });
+
+  it("numbers changed and instruction-only elements in one sequence", async () => {
+    const second = document.createElement("div");
+    second.setAttribute("data-ui-tuner-id", "ut-2");
+    document.body.appendChild(second);
+    mockRect(second, { x: 200, y: 100, width: 80, height: 30 });
+
+    annotations.sync([makeChange("ut-1")], { "ut-2": "紧凑一点" });
+    await nextFrame();
+    expect(annotations.numberFor("ut-1")).toBe(1);
+    expect(annotations.numberFor("ut-2")).toBe(2);
+  });
+
+  it("removes the bubble when the instruction is cleared", async () => {
+    annotations.sync([], { "ut-1": "改成主按钮" });
+    await nextFrame();
+    annotations.sync([], {});
+    await nextFrame();
+    expect(annotations.root?.shadowRoot?.querySelector(".bubble")).toBeNull();
+    expect(annotations.numberFor("ut-1")).toBeNull();
+  });
+
+  it("dispatches onOpenEditor when an instruction-only bubble is clicked", async () => {
+    const onOpenEditor = vi.fn();
+    annotations.unmount();
+    annotations = new Annotations({ onOpenEditor });
+    annotations.mount();
+    annotations.sync([], { "ut-1": "改成主按钮" });
+    await nextFrame();
+    query<HTMLButtonElement>(".bubble").click();
+    expect(onOpenEditor).toHaveBeenCalledWith("ut-1");
+  });
+
   it("dispatches onOpenEditor when a bubble is clicked", async () => {
     const onOpenEditor = vi.fn();
     annotations.unmount();

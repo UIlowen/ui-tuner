@@ -7,13 +7,15 @@ export interface AnnotationsCallbacks {
 }
 
 /**
- * Change-annotation layer: one bubble per element with recorded changes,
- * pinned to the element's top-right corner; clicking a bubble dispatches
+ * Change-annotation layer: one bubble per annotated element, pinned to the
+ * element's top-right corner; clicking a bubble dispatches
  * `onOpenEditor(elementId)` so the host page can open its editor card.
- * Bubbles re-measure every animation frame while any is visible (same
- * contract as Overlay), so scrolling and layout shifts stay correct.
- * Elements with changes keep their `data-ui-tuner-id` (SelectionTracker
- * keepId), which is how bubbles relocate their element after re-renders.
+ * Annotated = the element has recorded changes, a saved natural-language
+ * instruction, or both (an instruction-only element is a first-class
+ * annotation). Bubbles re-measure every animation frame while any is visible
+ * (same contract as Overlay), so scrolling and layout shifts stay correct.
+ * Annotated elements keep their `data-ui-tuner-id` (SelectionTracker keepId),
+ * which is how bubbles relocate their element after re-renders.
  */
 export class Annotations {
   static readonly ROOT_ID = "ui-tuner-annotations-root";
@@ -37,7 +39,7 @@ export class Annotations {
     return this.host?.isConnected ?? false;
   }
 
-  /** Bubble sequence number for an element, or null when it has no recorded change. */
+  /** Bubble sequence number for an annotated element, or null when it has neither changes nor an instruction. */
   numberFor(elementId: string): number | null {
     return this.numbers.get(elementId) ?? null;
   }
@@ -69,10 +71,17 @@ export class Annotations {
     this.shadow = null;
   }
 
-  /** Re-render from the latest change records (call on every mutation). */
-  sync(changes: StyleChange[]): void {
+  /**
+   * Re-render from the latest change records and saved instructions (call on
+   * every mutation). An element with a non-blank instruction is annotated even
+   * when it has zero property changes.
+   */
+  sync(changes: StyleChange[], instructions: Record<string, string> = {}): void {
     if (!this.shadow) return;
     const elementIds = new Set(changes.map((change) => change.elementId));
+    for (const [elementId, instruction] of Object.entries(instructions)) {
+      if (instruction.trim() !== "") elementIds.add(elementId);
+    }
 
     // Reset-all restarts the numbering from 1.
     if (elementIds.size === 0) {
@@ -89,14 +98,14 @@ export class Annotations {
       if (!this.numbers.has(elementId)) this.numbers.set(elementId, this.nextNumber++);
     }
 
-    // Drop bubbles whose element no longer has changes.
+    // Drop bubbles whose element is no longer annotated.
     for (const [elementId, bubble] of this.bubbles) {
       if (!elementIds.has(elementId)) {
         bubble.remove();
         this.bubbles.delete(elementId);
       }
     }
-    // Create bubbles for newly-changed elements.
+    // Create bubbles for newly-annotated elements.
     for (const elementId of elementIds) {
       if (!this.bubbles.has(elementId)) {
         const bubble = document.createElement("button");

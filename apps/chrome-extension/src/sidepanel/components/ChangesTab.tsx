@@ -40,11 +40,15 @@ export function ChangesTab() {
     if (instructions[elementId]?.trim()) ensureGroup(elementId);
   }
 
+  // An instruction-only element is one item despite having no change rows; an
+  // element with both is counted by its change rows alone (no double-count).
+  const itemCount = changes.length + groups.filter((group) => group.changes.length === 0).length;
+
   return (
     <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
       <div className="flex items-center gap-2">
         <p className="text-[12px] font-semibold text-text">
-          {t("changes.title", { count: changes.length })}
+          {t("changes.title", { count: itemCount })}
         </p>
         {groups.length > 0 && (
           <button
