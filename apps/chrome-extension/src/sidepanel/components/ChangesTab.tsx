@@ -1,35 +1,18 @@
-import { useState } from "react";
 import { useSidepanelStore } from "../../state/sidepanel-store";
 import { useT } from "../../i18n/use-t";
-import { ApplySection } from "./ApplySection";
-import { formatChangesetForCopy } from "../format-changeset";
 
 /**
- * Changes tab (plan §13/§14): changes grouped per element, each row revertable,
- * per-element Revert, and Reset All at the bottom. Apply is Milestone 8.
+ * Changes list (annotation mode OFF): changes grouped per element, each row
+ * revertable, per-element Revert, Reset All in the header. The copy/apply
+ * actions live in the panel's sticky footer (App.tsx FooterActions).
  */
 export function ChangesTab() {
   const t = useT();
   const changes = useSidepanelStore((s) => s.changes);
   const elementNames = useSidepanelStore((s) => s.elementNames);
-  const selection = useSidepanelStore((s) => s.selection);
-  const source = useSidepanelStore((s) => s.source);
   const revertChange = useSidepanelStore((s) => s.revertChange);
   const revertElement = useSidepanelStore((s) => s.revertElement);
   const resetChanges = useSidepanelStore((s) => s.resetChanges);
-  const [copied, setCopied] = useState(false);
-
-  const copyChanges = async () => {
-    try {
-      await navigator.clipboard.writeText(
-        formatChangesetForCopy({ changes, elementNames, source, selection }),
-      );
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    } catch {
-      setCopied(false);
-    }
-  };
 
   // Group changes by element, preserving first-seen order.
   const groups: { elementId: string; tagName: string; changes: typeof changes }[] = [];
@@ -48,7 +31,20 @@ export function ChangesTab() {
 
   return (
     <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
-      <p className="text-[12px] font-semibold text-text">{t("changes.title", { count: changes.length })}</p>
+      <div className="flex items-center gap-2">
+        <p className="text-[12px] font-semibold text-text">
+          {t("changes.title", { count: changes.length })}
+        </p>
+        {changes.length > 0 && (
+          <button
+            type="button"
+            onClick={resetChanges}
+            className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-medium text-danger-text hover:bg-red-500/15"
+          >
+            {t("changes.resetAll")}
+          </button>
+        )}
+      </div>
 
       {changes.length === 0 ? (
         <p className="mt-2 text-[11px] leading-relaxed text-ghost">{t("changes.emptyHint")}</p>
@@ -97,34 +93,6 @@ export function ChangesTab() {
           ))}
         </div>
       )}
-
-      {changes.length > 0 && (
-        <div className="mt-3 flex items-center gap-2 border-t border-edge pt-2.5">
-          <button
-            type="button"
-            onClick={() => void copyChanges()}
-            title={t("changes.copyTitle")}
-            className="rounded-md bg-sky-500/15 px-2.5 py-1 text-[11px] font-medium text-info-text ring-1 ring-sky-500/40 transition-colors hover:bg-sky-500/25"
-          >
-            {copied ? t("action.copied") : t("changes.copy")}
-          </button>
-          <button
-            type="button"
-            onClick={resetChanges}
-            className="rounded-md bg-red-500/15 px-2.5 py-1 text-[11px] font-medium text-danger-text ring-1 ring-red-500/40 transition-colors hover:bg-red-500/25"
-          >
-            {t("changes.resetAll")}
-          </button>
-          <span className="ml-auto font-mono text-[10px] text-ghost">
-            {t("changes.pending", { count: changes.length })}
-          </span>
-        </div>
-      )}
-
-      {/* M8 Apply to Code: dialog / applying / result, or the Apply button. */}
-      <div className="mt-2.5">
-        <ApplySection />
-      </div>
     </section>
   );
 }

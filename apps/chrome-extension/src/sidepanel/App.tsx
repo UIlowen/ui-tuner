@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Channel } from "../messaging/channel";
 import { BridgeChannel } from "../messaging/bridge-channel";
 import {
@@ -12,8 +12,10 @@ import { usePrefsStore } from "../state/prefs";
 import { useT } from "../i18n/use-t";
 import type { MessageKey } from "../i18n/messages";
 import { AgentTab } from "./components/AgentTab";
+import { ApplySection } from "./components/ApplySection";
 import { ChangesTab } from "./components/ChangesTab";
 import { StylePanel } from "./components/StylePanel";
+import { formatChangesetForCopy } from "./format-changeset";
 
 function isLocalhostUrl(url: string): boolean {
   try {
@@ -22,10 +24,6 @@ function isLocalhostUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-function formatTime(at: number): string {
-  return new Date(at).toISOString().slice(11, 23);
 }
 
 const STATUS_META: Record<ConnectionStatus, { labelKey: MessageKey; dot: string; text: string }> = {
@@ -86,8 +84,11 @@ function PrefsToggles() {
   );
 }
 
-/** Local bridge status line (plan §35: offline never blocks preview editing). */
-function BridgeCard() {
+/**
+ * Local bridge status (plan §35: offline never blocks preview editing).
+ * Offline → guidance card in the status zone; connected → one slim line.
+ */
+function BridgeStatus() {
   const t = useT();
   const bridgeStatus = useSidepanelStore((s) => s.bridgeStatus);
   const bridgeProject = useSidepanelStore((s) => s.bridgeProject);
@@ -95,20 +96,16 @@ function BridgeCard() {
 
   if (bridgeStatus === "connected") {
     return (
-      <section className="flex items-center gap-2 rounded-md border border-edge bg-surface px-3 py-2">
-        <span className="text-[10px] font-medium tracking-wider text-faint uppercase">
-          {t("bridge.title")}
-        </span>
-        <span className="font-mono text-[11px] text-text">{bridgeProject?.framework}</span>
+      <p className="flex items-center gap-1.5 px-1 text-[10px] text-faint">
+        <span className="size-1.5 rounded-full bg-emerald-400" />
+        <span className="font-medium tracking-wider uppercase">{t("bridge.title")}</span>
+        <span className="font-mono text-dim">{bridgeProject?.framework}</span>
         {bridgeDevServerUrl && (
-          <span
-            className="ml-auto truncate font-mono text-[10px] text-faint"
-            title={bridgeDevServerUrl}
-          >
+          <span className="ml-auto truncate font-mono" title={bridgeDevServerUrl}>
             {bridgeDevServerUrl.replace("http://", "")}
           </span>
         )}
-      </section>
+      </p>
     );
   }
 
@@ -149,16 +146,13 @@ function dialBridge(): void {
   });
 }
 
-type TabId = "style" | "agent" | "changes";
-
-function SelectionCard() {
+/** Slim one-line element header above the style editor (replaces SelectionCard). */
+function EditorHeader() {
   const t = useT();
   const selection = useSidepanelStore((s) => s.selection);
   const source = useSidepanelStore((s) => s.source);
-  const selectAncestor = useSidepanelStore((s) => s.selectAncestor);
-
   if (!selection) return null;
-  const { element, breadcrumb } = selection;
+  const { element } = selection;
 
   // Plan §20: three honest states — never fabricate a source location.
   const badge =
@@ -169,91 +163,79 @@ function SelectionCard() {
         : { labelKey: "source.previewOnly" as const, className: "bg-control text-faint" };
 
   return (
-    <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate font-mono text-[13px] font-semibold text-accent-text">
-          {"<"}
-          {element.tagName}
-          {">"}
-        </span>
-        <span className="flex shrink-0 items-baseline gap-2">
-          <span className={`rounded px-1 py-px text-[9px] ${badge.className}`}>
-            {t(badge.labelKey)}
-          </span>
-          <span className="font-mono text-[11px] text-dim tabular-nums">
-            {element.bounds.width} × {element.bounds.height}
-          </span>
-        </span>
+    <div className="flex items-baseline gap-2 border-b border-edge pb-1.5">
+      <span className="truncate font-mono text-[12px] font-semibold text-accent-text">
+        {"<"}
+        {element.tagName}
+        {">"}
+      </span>
+      <span className="font-mono text-[10px] text-dim tabular-nums">
+        {element.bounds.width} × {element.bounds.height}
+      </span>
+      <span className={`ml-auto rounded px-1 py-px text-[9px] ${badge.className}`}>
+        {t(badge.labelKey)}
+      </span>
+    </div>
+  );
+}
+
+/** Sticky footer (annotation mode OFF, changes exist): copy all + send to agent. */
+function FooterActions() {
+  const t = useT();
+  const changes = useSidepanelStore((s) => s.changes);
+  const elementNames = useSidepanelStore((s) => s.elementNames);
+  const selection = useSidepanelStore((s) => s.selection);
+  const source = useSidepanelStore((s) => s.source);
+  const [copied, setCopied] = useState(false);
+
+  const copyChanges = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        formatChangesetForCopy({ changes, elementNames, source, selection }),
+      );
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <footer className="flex shrink-0 items-start gap-2 border-t border-edge px-3 py-2.5">
+      <button
+        type="button"
+        onClick={() => void copyChanges()}
+        title={t("changes.copyTitle")}
+        className="shrink-0 rounded-md bg-sky-500/15 px-2.5 py-1.5 text-[11px] font-medium text-info-text ring-1 ring-sky-500/40 transition-colors hover:bg-sky-500/25"
+      >
+        {copied ? t("action.copied") : t("changes.copy")}
+      </button>
+      <div className="min-w-0 flex-1">
+        <ApplySection />
       </div>
-      <p className="mt-0.5 truncate font-mono text-[10px] text-faint" title={element.selector}>
-        {element.selector}
-      </p>
-
-      {source?.confidence === "exact" && source.file && (
-        <p
-          className="mt-1 truncate font-mono text-[10px] text-ok-text/80"
-          title={`${source.file}:${source.line}`}
-        >
-          {source.componentName ?? element.tagName} · {source.file}
-          {source.line !== undefined ? `:${source.line}` : ""}
-        </p>
-      )}
-      {source?.confidence === "inferred" && source.file && (
-        <p className="mt-1 truncate font-mono text-[10px] text-warn-text/80" title={source.file}>
-          {t("source.possible")}
-          {source.componentName ? `${source.componentName} · ` : ""}
-          {source.file}
-        </p>
-      )}
-
-      {element.text && (
-        <p className="mt-1 truncate text-[11px] text-dim" title={element.text}>
-          “{element.text}”
-        </p>
-      )}
-
-      <div className="mt-2 flex items-center gap-1 overflow-x-auto pb-0.5">
-        {breadcrumb.map((item, index) => (
-          <Fragment key={item.id}>
-            {index > 0 && <span className="shrink-0 text-[10px] text-ghost">↑</span>}
-            <button
-              type="button"
-              onClick={() => selectAncestor(item.id)}
-              title={t("selection.selectAncestor", { tag: item.tagName })}
-              className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] ${
-                index === 0
-                  ? "bg-violet-500/20 text-accent-text"
-                  : "bg-control text-dim hover:bg-control-hover hover:text-text"
-              }`}
-            >
-              {item.tagName}
-            </button>
-          </Fragment>
-        ))}
-      </div>
-      <p className="mt-1.5 text-[10px] text-ghost">{t("selection.hint")}</p>
-    </section>
+    </footer>
   );
 }
 
 /**
- * Milestone 3 Side Panel: select element → Style Inspector tabs
- * (Style / Agent / Changes) with live preview scrubbing (plan §8/§9/§10/§11).
- * Agent tab is a placeholder until Milestone 7.
+ * Two-state annotation-mode panel:
+ *  - picking ON  → pick button (exit label) + slim-header editor + "done with
+ *    this element" (clears the selection, keeps annotation mode on)
+ *  - picking OFF → changes grouped per element + collapsed Agent settings +
+ *    sticky footer (copy all / send to agent)
+ * Debug-only blocks were removed — the header pill and status zone carry the
+ * connection truth.
  */
 export function App() {
   const t = useT();
   const status = useSidepanelStore((s) => s.status);
   const statusError = useSidepanelStore((s) => s.statusError);
-  const pageTitle = useSidepanelStore((s) => s.pageTitle);
-  const pageUrl = useSidepanelStore((s) => s.pageUrl);
-  const lastRttMs = useSidepanelStore((s) => s.lastRttMs);
-  const log = useSidepanelStore((s) => s.log);
   const picking = useSidepanelStore((s) => s.picking);
   const selection = useSidepanelStore((s) => s.selection);
   const changes = useSidepanelStore((s) => s.changes);
   const setPicking = useSidepanelStore((s) => s.setPicking);
-  const [tab, setTab] = useState<TabId>("style");
+  const clearSelection = useSidepanelStore((s) => s.clearSelection);
+  const [agentOpen, setAgentOpen] = useState(false);
 
   const openChannel = useCallback(async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -292,20 +274,7 @@ export function App() {
     };
   }, [openChannel]);
 
-  const pickButtonLabel = picking
-    ? t("pick.cancel")
-    : selection
-      ? t("pick.repick")
-      : t("pick.start");
-
-  const tabs: { id: TabId; label: string }[] = [
-    { id: "style", label: t("tab.style") },
-    { id: "agent", label: t("tab.agent") },
-    {
-      id: "changes",
-      label: changes.length > 0 ? `${t("tab.changes")} ${changes.length}` : t("tab.changes"),
-    },
-  ];
+  const pickButtonLabel = picking ? t("pick.exit") : t("pick.start");
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -317,7 +286,8 @@ export function App() {
         </span>
       </header>
 
-      <main className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
+      <main className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-3 py-2.5">
+        {/* Status zone: connection errors and bridge state live here. */}
         {status === "disconnected" && (
           <section className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-danger-text">
             <p className="text-[12px] leading-relaxed">{statusError ?? t("error.notConnected")}</p>
@@ -330,6 +300,7 @@ export function App() {
             </button>
           </section>
         )}
+        <BridgeStatus />
 
         <section>
           <button
@@ -344,121 +315,58 @@ export function App() {
           >
             {pickButtonLabel}
           </button>
-          {picking && status === "connected" && (
+          {picking && status === "connected" && !selection && (
             <p className="mt-1.5 text-center text-[10px] text-info-text/80">{t("pick.hint")}</p>
           )}
         </section>
 
-        {selection ? (
-          <SelectionCard />
-        ) : status === "connected" && !picking ? (
-          <section className="rounded-md border border-dashed border-edge px-3 py-2.5 text-center text-[11px] text-ghost">
-            {t("selection.empty")}
-          </section>
-        ) : null}
-
-        <BridgeCard />
-
-        <nav className="flex gap-1 rounded-md bg-surface p-1 ring-1 ring-edge" role="tablist">
-          {tabs.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === item.id}
-              onClick={() => setTab(item.id)}
-              className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${
-                tab === item.id
-                  ? "bg-elevated text-text-strong"
-                  : "text-faint hover:bg-control hover:text-dim"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
-
-        {tab === "style" &&
-          (selection ? (
-            <StylePanel />
-          ) : (
-            <section className="rounded-md border border-dashed border-edge px-3 py-4 text-center text-[11px] leading-relaxed text-ghost">
-              {t("style.emptyHint1")}
-              <br />
-              {t("style.emptyHint2")}
-            </section>
-          ))}
-
-        {tab === "agent" && <AgentTab />}
-
-        {tab === "changes" && <ChangesTab />}
-
-        {tab === "style" && (
+        {/* Annotation mode ON + element selected: the editor. */}
+        {picking && selection && (
           <>
             <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
-              <p className="text-[10px] font-medium tracking-wider text-faint uppercase">
-                {t("page.title")}
-              </p>
-              {pageTitle !== null ? (
-                <>
-                  <p className="mt-1 truncate text-[12px] font-medium" title={pageTitle}>
-                    {pageTitle}
-                  </p>
-                  <p
-                    className="mt-0.5 truncate text-[11px] text-dim"
-                    title={pageUrl ?? undefined}
-                  >
-                    {pageUrl}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-1 text-[12px] text-faint">{t("page.waiting")}</p>
-              )}
+              <EditorHeader />
+              <div className="mt-1.5">
+                <StylePanel />
+              </div>
             </section>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="w-full rounded-md border border-edge-strong px-3 py-1.5 text-[12px] font-medium text-text transition-colors hover:bg-control"
+            >
+              {t("done.element")}
+            </button>
+          </>
+        )}
 
-            <section className="flex items-center gap-2">
+        {/* Annotation mode OFF: changes list + collapsed agent settings. */}
+        {!picking && (
+          <>
+            <ChangesTab />
+            <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
               <button
                 type="button"
-                onClick={() => useSidepanelStore.getState().ping()}
-                disabled={status !== "connected"}
-                className="flex-1 rounded-md bg-control px-3 py-1.5 text-[12px] font-medium text-text enabled:hover:bg-control-hover disabled:opacity-40"
+                onClick={() => setAgentOpen(!agentOpen)}
+                className="flex w-full items-center gap-1.5 text-[10px] font-medium tracking-wider text-faint uppercase"
               >
-                {t("page.ping")}
-              </button>
-              {lastRttMs !== null && (
-                <span className="rounded bg-control px-2 py-1 text-[11px] text-ok-text tabular-nums">
-                  {lastRttMs} ms
+                <span
+                  className={`inline-block transition-transform ${agentOpen ? "rotate-90" : ""}`}
+                >
+                  ▸
                 </span>
-              )}
-            </section>
-
-            <section className="min-h-0">
-              <p className="mb-1.5 text-[10px] font-medium tracking-wider text-faint uppercase">
-                {t("log.title")}
-              </p>
-              {log.length === 0 ? (
-                <p className="text-[11px] text-ghost">{t("log.empty")}</p>
-              ) : (
-                <ul className="space-y-1">
-                  {log.map((entry) => (
-                    <li key={entry.id} className="flex items-center gap-2 font-mono text-[11px]">
-                      <span
-                        className={entry.direction === "out" ? "text-info-text" : "text-ok-text"}
-                      >
-                        {entry.direction === "out" ? "→" : "←"}
-                      </span>
-                      <span className="text-text">{entry.type}</span>
-                      <span className="ml-auto text-ghost tabular-nums">
-                        {formatTime(entry.at)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {t("agent.advancedSettings")}
+              </button>
+              {agentOpen && (
+                <div className="mt-2">
+                  <AgentTab />
+                </div>
               )}
             </section>
           </>
         )}
       </main>
+
+      {!picking && changes.length > 0 && <FooterActions />}
     </div>
   );
 }

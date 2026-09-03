@@ -77,7 +77,7 @@ export function AgentTab() {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {lastApplied && (
         <section className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
           <div className="flex items-start justify-between gap-2">
