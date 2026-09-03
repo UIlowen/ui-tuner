@@ -32,4 +32,5 @@ export { rgbToHex } from "./styles/color";
 
 export { PreviewEngine } from "./preview/PreviewEngine";
 export { ChangeTracker } from "./changes/ChangeTracker";
+export { InstructionStore } from "./changes/InstructionStore";
 export { cssValuesEqual, normalizeCssValue } from "./changes/confirm";
