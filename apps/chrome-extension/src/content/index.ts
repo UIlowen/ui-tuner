@@ -144,6 +144,7 @@ function openEditorCard(element: Element): void {
 
   stagingEngine.begin(elementId);
   cardMount.show({
+    elementId,
     tagName: element.tagName.toLowerCase(),
     // Bubble sequence number; null when the element has no saved change yet.
     number: annotations?.numberFor(elementId) ?? null,

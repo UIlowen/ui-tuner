@@ -7,6 +7,7 @@ import type { EditorCardProps } from "./types";
 
 function baseProps(overrides: Partial<EditorCardProps> = {}): EditorCardProps {
   return {
+    elementId: "ut-000001",
     tagName: "button",
     number: null,
     initialValues: { height: "38px" },

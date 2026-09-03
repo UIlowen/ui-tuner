@@ -24,7 +24,6 @@ export class Annotations {
   /** Stable per-element annotation sequence numbers (1, 2, 3… by first-change order). */
   private numbers = new Map<string, number>();
   private nextNumber = 1;
-  private changes: StyleChange[] = [];
   private rafId: number | null = null;
 
   constructor(private readonly callbacks: AnnotationsCallbacks = {}) {}
@@ -65,7 +64,6 @@ export class Annotations {
     this.bubbles.clear();
     this.numbers.clear();
     this.nextNumber = 1;
-    this.changes = [];
     this.host?.remove();
     this.host = null;
     this.shadow = null;
@@ -73,7 +71,6 @@ export class Annotations {
 
   /** Re-render from the latest change records (call on every mutation). */
   sync(changes: StyleChange[]): void {
-    this.changes = changes;
     if (!this.shadow) return;
     const elementIds = new Set(changes.map((change) => change.elementId));
 

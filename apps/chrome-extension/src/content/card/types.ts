@@ -1,5 +1,12 @@
 /** Props for the page-side editor card (see EditorCard.tsx). */
 export interface EditorCardProps {
+  /**
+   * Identity of the element being edited. The mount keys the React render by
+   * this id so switching elements remounts the card with fresh state (a stale
+   * draft would otherwise save against the wrong element), while re-showing
+   * the same element keeps the in-progress session.
+   */
+  elementId: string;
   tagName: string;
   /** 气泡序号；null = 未保存。 */
   number: number | null;

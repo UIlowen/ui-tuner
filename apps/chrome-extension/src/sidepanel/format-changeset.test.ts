@@ -127,4 +127,31 @@ describe("formatChangesetForCopy", () => {
     const out = formatChangesetForCopy({ changes: [change({})], elementNames: {} });
     expect(out).toContain("元素：ut-a");
   });
+
+  it("includes an instruction-only element (no property changes) with its 指令 line", () => {
+    const out = formatChangesetForCopy({
+      changes: [],
+      elementNames: { "ut-solo": "button" },
+      instructions: { "ut-solo": "圆角更大" },
+    });
+    expect(out).toContain("元素：button");
+    expect(out).toContain("指令：圆角更大");
+    // No changes anywhere — the 改动 header must not render.
+    expect(out).not.toContain("改动（旧值 → 新值）：");
+  });
+
+  it("lists an instruction-only element alongside changed elements", () => {
+    const out = formatChangesetForCopy({
+      changes: [change({})],
+      elementNames: { "ut-a": "button", "ut-solo": "p" },
+      instructions: { "ut-solo": "行距松一点" },
+    });
+    // The changed group renders normally…
+    expect(out).toContain("元素：button");
+    expect(out).toContain("- height: 38px → 52px");
+    // …and the instruction-only group appears too, without its own 改动 header.
+    expect(out).toContain("元素：p");
+    expect(out).toContain("指令：行距松一点");
+    expect(out.match(/改动（旧值 → 新值）：/g)).toHaveLength(1);
+  });
 });

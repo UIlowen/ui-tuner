@@ -15,8 +15,8 @@ export interface CardMount {
   readonly isOpen: boolean;
 }
 
-/** Above every page layer (and one below the annotations/overlay max). */
-const HOST_Z_INDEX = "2147483646";
+/** Above every page layer, but one below the annotations/overlay (also 2147483646) so a covered bubble stays clickable. */
+const HOST_Z_INDEX = "2147483645";
 /** Where the card first appears (top-left of the viewport). */
 const INITIAL_OFFSET = { x: 16, y: 16 };
 
@@ -124,7 +124,10 @@ export function mountEditorCard(): CardMount {
   return {
     show(props) {
       open = true;
-      root.render(createElement(EditorCard, props));
+      // Key by elementId: switching elements remounts the card with fresh
+      // state (a reused card would leak A's instruction draft into B's 保存),
+      // while re-showing the same element keeps the in-progress session.
+      root.render(createElement(EditorCard, { ...props, key: props.elementId }));
       // The card may have grown near an edge — pull it back into view.
       clampOffset();
       applyOffset();

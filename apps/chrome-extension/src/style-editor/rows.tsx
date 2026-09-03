@@ -5,10 +5,10 @@ import { ScrubInput } from "./ScrubInput";
 import { useStyleEdit } from "./StyleEditContext";
 
 /**
- * Property rows for the Style tab (plan §9). Every row reads the committed
- * `styleValues` snapshot and dispatches `updateStyle`; scrub frames go out as
- * preview messages without touching the store, so dragging never re-renders
- * the panel.
+ * Property rows for the Style tab (plan §9). Every row reads the current
+ * `values` snapshot from the surrounding StyleEditContext and calls its
+ * `updateStyle`; preview (scrub) frames go out with `committed: false` so the
+ * context's snapshot is untouched and dragging never re-renders the panel.
  */
 
 /** Shared shell: label left, control right (Figma-style density, §48). */

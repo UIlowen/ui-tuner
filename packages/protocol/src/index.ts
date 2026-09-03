@@ -937,26 +937,23 @@ export function assembleAgentContext(input: AgentContextInput): string {
 
   // User preview changes -----------------------------------------------------
   lines.push("User preview changes:");
-  if (changes.length === 0) {
+  const instructionIds = instructions
+    ? Object.keys(instructions).filter((id) => instructions[id]?.trim())
+    : [];
+  if (changes.length === 0 && instructionIds.length === 0) {
     lines.push("(none yet)");
-  } else if (instructions && changes.some((c) => instructions[c.elementId])) {
-    // Group per element (first-seen order) so each element's instruction sits
-    // with its changes — mirrors the Changes-tab copy snippet.
-    const groups: { elementId: string; changes: StyleChange[] }[] = [];
-    for (const change of changes) {
-      let group = groups.find((g) => g.elementId === change.elementId);
-      if (!group) {
-        group = { elementId: change.elementId, changes: [] };
-        groups.push(group);
-      }
-      group.changes.push(change);
-    }
-    for (const group of groups) {
-      lines.push(`Element ${group.elementId}:`);
-      const note = instructions[group.elementId];
-      if (note) lines.push(`instruction for ${group.elementId}: ${note}`);
-      for (const change of group.changes) {
-        lines.push(formatStyleChangeLine(change));
+  } else if (instructionIds.length > 0) {
+    // Group per element (first-seen order, changed elements then
+    // instruction-only ids) so each element's instruction sits with its
+    // changes — mirrors the Changes-tab copy snippet. Instruction-only
+    // elements (saved instruction, zero property changes) are first-class.
+    const elementIds = [...new Set([...changes.map((c) => c.elementId), ...instructionIds])];
+    for (const elementId of elementIds) {
+      lines.push(`Element ${elementId}:`);
+      const note = instructions?.[elementId];
+      if (note) lines.push(`instruction for ${elementId}: ${note}`);
+      for (const change of changes) {
+        if (change.elementId === elementId) lines.push(formatStyleChangeLine(change));
       }
     }
   } else {

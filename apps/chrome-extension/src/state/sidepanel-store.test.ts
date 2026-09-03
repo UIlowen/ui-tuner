@@ -111,10 +111,10 @@ describe("sidepanel store", () => {
     expect(state.selection?.breadcrumb).toHaveLength(2);
   });
 
-  it("seeds styleValues from the selection payload", () => {
+  it("stores the selection's styles on selection.changed", () => {
     resetStore();
     selectElement({ gap: "24px", "font-size": "16px" });
-    expect(useSidepanelStore.getState().styleValues).toEqual({
+    expect(useSidepanelStore.getState().selection?.styles).toEqual({
       gap: "24px",
       "font-size": "16px",
     });
@@ -128,7 +128,6 @@ describe("sidepanel store", () => {
     useSidepanelStore.getState().receive(createSelectionCleared());
     const state = useSidepanelStore.getState();
     expect(state.selection).toBeNull();
-    expect(state.styleValues).toBeNull();
     expect(state.changes).toEqual([]); // changes survive selection clears (plan §36)
   });
 
@@ -153,7 +152,6 @@ describe("sidepanel store", () => {
     expect(state.status).toBe("idle");
     expect(state.picking).toBe(false);
     expect(state.selection).toBeNull();
-    expect(state.styleValues).toBeNull();
     expect(state.changes).toEqual([]);
     expect(state.log).toHaveLength(0);
   });
@@ -528,6 +526,65 @@ describe("sidepanel store — M8 apply to code (plan §29/§30/§31)", () => {
     useSidepanelStore.getState().applyChanges("instance");
     expect(useSidepanelStore.getState().applyState).toBe("idle");
     expect(socket.sent.some((m) => (m as { type: string }).type === "changes.apply")).toBe(false);
+  });
+
+  it("applyChanges composes the per-element card instruction ahead of the global note", () => {
+    resetStore();
+    const socket = openBridge();
+    useSidepanelStore.getState().setAgentInstruction("全局备注");
+    withSelectionAndChange();
+    // The card-saved instruction for this element arrives via preview.changed.
+    useSidepanelStore.getState().receive(
+      createPreviewChanged(
+        [
+          {
+            id: "ch-1",
+            elementId: "ut-000001",
+            property: "gap",
+            previousValue: "24px",
+            nextValue: "16px",
+            source: "manual",
+            createdAt: 1,
+          },
+        ],
+        { "ut-000001": "圆角更大" },
+      ),
+    );
+
+    socket.sent.length = 0;
+    useSidepanelStore.getState().applyChanges("instance");
+
+    const sent = socket.sent.at(-1) as { payload: { instruction?: string } };
+    // Element instruction first, then the global Agent-tab note.
+    expect(sent.payload.instruction).toBe("圆角更大\n全局备注");
+  });
+
+  it("applyChanges sends only the per-element instruction when no global note", () => {
+    resetStore();
+    const socket = openBridge();
+    withSelectionAndChange();
+    useSidepanelStore.getState().receive(
+      createPreviewChanged(
+        [
+          {
+            id: "ch-1",
+            elementId: "ut-000001",
+            property: "gap",
+            previousValue: "24px",
+            nextValue: "16px",
+            source: "manual",
+            createdAt: 1,
+          },
+        ],
+        { "ut-000001": "圆角更大" },
+      ),
+    );
+
+    socket.sent.length = 0;
+    useSidepanelStore.getState().applyChanges("instance");
+
+    const sent = socket.sent.at(-1) as { payload: { instruction?: string } };
+    expect(sent.payload.instruction).toBe("圆角更大");
   });
 
   it("apply.result success marks applied and asks content to confirm", () => {

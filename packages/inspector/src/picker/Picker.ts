@@ -15,9 +15,10 @@ export interface PickerCallbacks {
 
 export interface PickerOptions {
   /**
-   * Host element ids of our own annotation UI (e.g. Annotations.ROOT_ID).
-   * Clicks inside them pass through untouched while picking — otherwise the
-   * annotation popover's buttons would be unclickable in annotation mode.
+   * Host element ids of our own annotation UI (Annotations.ROOT_ID bubbles,
+   * the editor card root). Clicks inside them pass through untouched while
+   * picking — otherwise our own bubbles/card would be unclickable in
+   * annotation mode.
    */
   passThroughHostIds?: string[];
 }

@@ -198,6 +198,7 @@ export function App() {
   const picking = useSidepanelStore((s) => s.picking);
   const selection = useSidepanelStore((s) => s.selection);
   const changes = useSidepanelStore((s) => s.changes);
+  const instructions = useSidepanelStore((s) => s.instructions);
   const setPicking = useSidepanelStore((s) => s.setPicking);
   const [agentOpen, setAgentOpen] = useState(false);
 
@@ -307,7 +308,9 @@ export function App() {
         </section>
       </main>
 
-      {changes.length > 0 && <FooterActions />}
+      {/* Instruction-only elements are first-class: the footer (copy all /
+          send to agent) shows when there is anything to hand off. */}
+      {(changes.length > 0 || Object.keys(instructions).length > 0) && <FooterActions />}
     </div>
   );
 }

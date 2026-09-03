@@ -17,19 +17,27 @@ export function ChangesTab() {
   const revertElement = useSidepanelStore((s) => s.revertElement);
   const resetChanges = useSidepanelStore((s) => s.resetChanges);
 
-  // Group changes by element, preserving first-seen order.
+  // Group changes by element, preserving first-seen order. Elements with a
+  // saved instruction but zero property changes are first-class too — they
+  // get a group with an empty change list plus the 指令 line.
   const groups: { elementId: string; tagName: string; changes: typeof changes }[] = [];
-  for (const change of changes) {
-    let group = groups.find((entry) => entry.elementId === change.elementId);
+  const ensureGroup = (elementId: string) => {
+    let group = groups.find((entry) => entry.elementId === elementId);
     if (!group) {
       group = {
-        elementId: change.elementId,
-        tagName: elementNames[change.elementId] ?? change.elementId.replace("ut-", ""),
+        elementId,
+        tagName: elementNames[elementId] ?? elementId.replace("ut-", ""),
         changes: [],
       };
       groups.push(group);
     }
-    group.changes.push(change);
+    return group;
+  };
+  for (const change of changes) {
+    ensureGroup(change.elementId).changes.push(change);
+  }
+  for (const elementId of Object.keys(instructions)) {
+    if (instructions[elementId]?.trim()) ensureGroup(elementId);
   }
 
   return (
@@ -38,7 +46,7 @@ export function ChangesTab() {
         <p className="text-[12px] font-semibold text-text">
           {t("changes.title", { count: changes.length })}
         </p>
-        {changes.length > 0 && (
+        {groups.length > 0 && (
           <button
             type="button"
             onClick={resetChanges}
@@ -49,7 +57,7 @@ export function ChangesTab() {
         )}
       </div>
 
-      {changes.length === 0 ? (
+      {groups.length === 0 ? (
         <p className="mt-2 text-[11px] leading-relaxed text-ghost">{t("changes.emptyHint")}</p>
       ) : (
         <div className="mt-2 space-y-2.5">

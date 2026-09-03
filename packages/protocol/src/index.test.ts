@@ -598,6 +598,35 @@ describe("assembleAgentContext (plan §26)", () => {
     expect(text).not.toContain("Element ut-000001:");
   });
 
+  it("includes change-less instruction entries (instruction-only elements)", () => {
+    const text = assembleAgentContext({
+      selection: null,
+      source: null,
+      changes,
+      instruction: "",
+      instructions: { "ut-000009": "整体收紧" },
+    });
+    // The instruction-only element gets its own group even with zero changes…
+    expect(text).toContain("Element ut-000009:");
+    expect(text).toContain("instruction for ut-000009: 整体收紧");
+    // …and the changed element still lists its change (grouped form).
+    expect(text).toContain("Element ut-000001:");
+    expect(text).toContain("gap: 24px → 16px");
+  });
+
+  it("renders an instruction-only element when there are no changes at all", () => {
+    const text = assembleAgentContext({
+      selection: null,
+      source: null,
+      changes: [],
+      instruction: "",
+      instructions: { "ut-000009": "整体收紧" },
+    });
+    expect(text).not.toContain("(none yet)");
+    expect(text).toContain("Element ut-000009:");
+    expect(text).toContain("instruction for ut-000009: 整体收紧");
+  });
+
   it("omits the DOM block when include.dom is false", () => {
     const text = assembleAgentContext({
       selection,

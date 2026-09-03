@@ -33,6 +33,14 @@ export function formatChangesetForCopy(input: FormatChangesetInput): string {
     }
     group.changes.push(change);
   }
+  // Instruction-only elements are first-class: an element with a saved
+  // instruction but zero property changes still gets an entry (its 指令 line).
+  for (const elementId of Object.keys(instructions ?? {})) {
+    if (!instructions?.[elementId]?.trim()) continue;
+    if (!groups.some((g) => g.elementId === elementId)) {
+      groups.push({ elementId, changes: [] });
+    }
+  }
 
   const lines: string[] = ["请把我在浏览器里调好的样式改动应用到对应源码：", ""];
 
@@ -64,11 +72,13 @@ export function formatChangesetForCopy(input: FormatChangesetInput): string {
       lines.push(`指令：${instruction}`);
     }
 
-    lines.push("改动（旧值 → 新值）：");
-    for (const change of group.changes) {
-      // Bullet prefix + the shared change line (same rendering as the §26
-      // agent prompt) so Changes-copy and Agent-tab never drift.
-      lines.push(`- ${formatStyleChangeLine(change)}`);
+    if (group.changes.length > 0) {
+      lines.push("改动（旧值 → 新值）：");
+      for (const change of group.changes) {
+        // Bullet prefix + the shared change line (same rendering as the §26
+        // agent prompt) so Changes-copy and Agent-tab never drift.
+        lines.push(`- ${formatStyleChangeLine(change)}`);
+      }
     }
     lines.push("");
   }
