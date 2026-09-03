@@ -38,6 +38,11 @@ export class Annotations {
     return this.host?.isConnected ?? false;
   }
 
+  /** Bubble sequence number for an element, or null when it has no recorded change. */
+  numberFor(elementId: string): number | null {
+    return this.numbers.get(elementId) ?? null;
+  }
+
   mount(): void {
     if (this.host?.isConnected) return;
 

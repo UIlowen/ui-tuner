@@ -1,15 +1,18 @@
 import {
   Annotations,
   ChangeTracker,
+  InstructionStore,
   Overlay,
   Picker,
   PreviewEngine,
   SelectionTracker,
+  StagingEngine,
   UI_TUNER_ID_ATTR,
   cssValuesEqual,
   domFingerprintFor,
   domSnapshotFor,
   isStyleProperty,
+  pickStyles,
   readUiTunerId,
 } from "@ui-tuner/inspector";
 import {
@@ -36,13 +39,15 @@ import {
   type UiTunerMessage,
 } from "@ui-tuner/protocol";
 import { Channel } from "../messaging/channel";
-// Editor card (Task 7/8) calls this when mounting its shadow root. Until the
-// card UI lands, stash a real reference on globalThis: a bare side-effect
-// import (or `void x`) gets tree-shaken/minified away, which would drop the
-// compiled card.css (?inline) string from the content bundle.
-import { injectCardStyles } from "./card/inject-styles";
-(globalThis as { __uiTunerInjectCardStyles?: typeof injectCardStyles }).__uiTunerInjectCardStyles =
-  injectCardStyles;
+import type { Locale } from "../i18n/messages";
+import { usePrefsStore, type ThemePref } from "../state/prefs";
+// The editor card mount genuinely imports injectCardStyles (and the compiled
+// card.css string), so the card stylesheet reaches the content bundle on its
+// own — no tree-shake stash needed.
+import { EDITOR_CARD_ROOT_ID, mountEditorCard, type CardMount } from "./card/mount-card";
+
+/** chrome.storage key the side panel persists locale/theme under. */
+const PREFS_STORAGE_KEY = "ui-tuner:prefs";
 
 /**
  * Content script — Milestone 4 scope.
@@ -57,12 +62,20 @@ import { injectCardStyles } from "./card/inject-styles";
 // page on reload (plan §37: in-memory tab state).
 const previewEngine = new PreviewEngine();
 const changeTracker = new ChangeTracker();
+// Natural-language instructions pair with change records, so this store shares
+// changeTracker's page-scoped lifecycle: it must survive Side Panel reconnects
+// (re-creating it per connect would drop instructions while changes persist).
+const instructionStore = new InstructionStore();
 
 let channel: Channel | null = null;
 let overlay: Overlay | null = null;
 let annotations: Annotations | null = null;
 let picker: Picker | null = null;
 let tracker: SelectionTracker | null = null;
+// Editor-card session state, created per connect (DOM/React-bound) and torn
+// down on disconnect.
+let stagingEngine: StagingEngine | null = null;
+let cardMount: CardMount | null = null;
 let selectionActive = false;
 // Last selected element's identity signals, for HMR re-identify (plan §22).
 let lastSelector: string | null = null;
@@ -74,8 +87,13 @@ function send(message: UiTunerMessage): void {
 
 /** Report the change list to the panel and re-render page annotations. */
 function reportChanges(): void {
-  send(createPreviewChanged(changeTracker.all()));
+  send(createPreviewChanged(changeTracker.all(), instructionStore.all()));
   annotations?.sync(changeTracker.all());
+}
+
+/** Whitelisted computed styles for an element — same source as selection.styles. */
+function collectWhitelistedStyles(element: Element): Record<string, string> {
+  return pickStyles(getComputedStyle(element));
 }
 
 /** Attach the truncated DOM snapshot (plan §3.1) to a selection payload. */
@@ -91,6 +109,7 @@ function startPicking(): void {
 function stopPicking(): void {
   if (picker?.isEnabled) picker.stop();
   overlay?.setHover(null);
+  closeEditorSession();
   send(createPickerState(false));
 }
 
@@ -112,6 +131,51 @@ function clearSelection(): void {
   lastFingerprint = null;
   overlay?.setSelected(null);
   send(createSelectionCleared());
+}
+
+/**
+ * Open the page-side editor card for an element. Assumes the element is
+ * already selected (callers run selectElement first so overlay/panel/bridge
+ * stay consistent). Starts a "保存才记录" staging session: scrub edits only
+ * touch the preview until 保存 commits them to the change tracker.
+ */
+function openEditorCard(element: Element): void {
+  if (!stagingEngine || !cardMount || !tracker) return;
+  const elementId = readUiTunerId(element);
+  if (!elementId) return;
+
+  stagingEngine.begin(elementId);
+  cardMount.show({
+    tagName: element.tagName.toLowerCase(),
+    // Bubble sequence number; null when the element has no saved change yet.
+    number: annotations?.numberFor(elementId) ?? null,
+    initialValues: collectWhitelistedStyles(element),
+    initialInstruction: instructionStore.get(elementId) ?? "",
+    onStage: (property, value) => {
+      stagingEngine?.stage(element, property, value);
+    },
+    onSave: (instruction) => {
+      stagingEngine?.commit(element);
+      instructionStore.set(elementId, instruction);
+      reportChanges();
+      cardMount?.hide();
+    },
+    onCancel: () => {
+      stagingEngine?.rollback();
+      cardMount?.hide();
+    },
+    onDelete: () => {
+      stagingEngine?.end(); // discard any unsaved staged edits first
+      revertElement(elementId); // clears committed changes + instruction, reports
+      cardMount?.hide();
+    },
+  });
+}
+
+/** End the staging session and close the card (Esc / exit annotation / disconnect). */
+function closeEditorSession(): void {
+  stagingEngine?.end();
+  cardMount?.hide();
 }
 
 function moveToParent(): void {
@@ -202,16 +266,25 @@ function revertChange(changeId: string): void {
 
 /** Revert every change of one element (plan §14). */
 function revertElement(uiTunerId: string): void {
+  const hadInstruction = instructionStore.get(uiTunerId) !== undefined;
+  instructionStore.delete(uiTunerId);
   const removed = changeTracker.revertElement(uiTunerId);
-  if (removed.length === 0) return;
-  previewEngine.removeElement(uiTunerId);
+  // No-op only when there were neither style changes nor an instruction.
+  if (removed.length === 0 && !hadInstruction) return;
+  if (removed.length > 0) previewEngine.removeElement(uiTunerId);
   syncAfterChanges([uiTunerId]);
 }
 
 /** Reset all preview changes (plan §13/§14). */
 function resetChanges(): void {
   const affected = [...new Set(changeTracker.all().map((change) => change.elementId))];
-  if (affected.length === 0) return;
+  const hadInstructions = Object.keys(instructionStore.all()).length > 0;
+  instructionStore.clear();
+  if (affected.length === 0) {
+    // No style changes, but clearing instructions still needs reporting.
+    if (hadInstructions) reportChanges();
+    return;
+  }
   changeTracker.clear();
   previewEngine.unmount();
   syncAfterChanges(affected);
@@ -303,6 +376,7 @@ document.addEventListener(
     if (picker?.isEnabled || !selectionActive) return;
     if (event.key === "Escape") {
       event.preventDefault();
+      closeEditorSession();
       clearSelection();
     } else if ((event.metaKey || event.ctrlKey) && event.key === "ArrowUp") {
       event.preventDefault();
@@ -316,14 +390,38 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== UI_TUNER_PORT_NAME) return;
 
   channel = Channel.accept(port);
+
+  // The content script is a separate JS context from the side panel, so the
+  // editor card's useT()/theme read from a prefs store that must be hydrated
+  // here. mountEditorCard subscribes to the store and mirrors the resolved
+  // theme as the `dark` class on the card host.
+  void chrome.storage.local
+    .get(PREFS_STORAGE_KEY)
+    .then((stored: Record<string, unknown>) => {
+      const prefs = stored[PREFS_STORAGE_KEY] as { locale?: unknown; theme?: unknown } | undefined;
+      if (!prefs) return;
+      if (prefs.locale === "zh" || prefs.locale === "en") {
+        usePrefsStore.getState().setLocale(prefs.locale as Locale);
+      }
+      if (prefs.theme === "light" || prefs.theme === "dark" || prefs.theme === "system") {
+        usePrefsStore.getState().setTheme(prefs.theme as ThemePref);
+      }
+    })
+    .catch(() => {
+      // Storage unavailable — run on in-memory defaults.
+    });
+
   overlay = new Overlay();
   overlay.mount();
-  // Clicking a change bubble selects its element; a later task opens the
-  // page-side editor card on top of this selection.
+  // Clicking a change bubble selects its element, then opens the editor card
+  // on top of that selection (same as the pick path).
   annotations = new Annotations({
     onOpenEditor: (elementId) => {
       const el = document.querySelector('[data-ui-tuner-id="' + elementId + '"]');
-      if (el) selectElement(el);
+      if (el) {
+        selectElement(el);
+        openEditorCard(el);
+      }
     },
   });
   annotations.mount();
@@ -341,14 +439,18 @@ chrome.runtime.onConnect.addListener((port) => {
         // Annotation mode persists: keep picking so the next click selects
         // the next element. Esc / the panel toggle stops the picker.
         selectElement(element);
+        openEditorCard(element);
       },
       onCancel: () => {
         overlay?.setHover(null);
+        closeEditorSession();
         send(createPickerState(false));
       },
     },
-    { passThroughHostIds: [Annotations.ROOT_ID] },
+    { passThroughHostIds: [Annotations.ROOT_ID, EDITOR_CARD_ROOT_ID] },
   );
+  stagingEngine = new StagingEngine(previewEngine, changeTracker);
+  cardMount = mountEditorCard();
 
   channel.send(
     createContentReady({
@@ -399,6 +501,10 @@ chrome.runtime.onConnect.addListener((port) => {
 
   port.onDisconnect.addListener(() => {
     picker?.stop();
+    // End any unsaved staging session, close the card, and tear down its host
+    // so a reconnect mounts a fresh one (no duplicate root id).
+    closeEditorSession();
+    cardMount?.unmount();
     overlay?.unmount();
     annotations?.unmount();
     annotations = null;
@@ -410,5 +516,7 @@ chrome.runtime.onConnect.addListener((port) => {
     picker = null;
     overlay = null;
     tracker = null;
+    stagingEngine = null;
+    cardMount = null;
   });
 });

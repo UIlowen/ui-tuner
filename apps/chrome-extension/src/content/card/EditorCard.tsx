@@ -61,6 +61,7 @@ export function EditorCard(props: EditorCardProps) {
       {/* Header: drag handle + tag + badge + collapse toggle */}
       <header className="flex shrink-0 items-center gap-1.5 border-b border-edge px-2 py-1.5">
         <span
+          data-drag-handle
           aria-label={t("card.dragHandle")}
           title={t("card.dragHandle")}
           className="cursor-grab select-none px-0.5 text-[11px] leading-none text-ghost"

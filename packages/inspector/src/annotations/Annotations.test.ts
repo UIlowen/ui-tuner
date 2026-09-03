@@ -119,4 +119,24 @@ describe("Annotations", () => {
     query<HTMLButtonElement>(".bubble").click();
     expect(onOpenEditor).toHaveBeenCalledWith("ut-1");
   });
+
+  it("numberFor returns the sequence number, or null for unchanged elements", async () => {
+    expect(annotations.numberFor("ut-1")).toBeNull();
+
+    const second = document.createElement("div");
+    second.setAttribute("data-ui-tuner-id", "ut-2");
+    document.body.appendChild(second);
+    mockRect(second, { x: 200, y: 100, width: 80, height: 30 });
+
+    annotations.sync([makeChange("ut-1"), makeChange("ut-2")]);
+    await nextFrame();
+    expect(annotations.numberFor("ut-1")).toBe(1);
+    expect(annotations.numberFor("ut-2")).toBe(2);
+
+    // Once an element's changes are gone it loses its number again.
+    annotations.sync([makeChange("ut-2")]);
+    await nextFrame();
+    expect(annotations.numberFor("ut-1")).toBeNull();
+    expect(annotations.numberFor("ut-2")).toBe(2);
+  });
 });
