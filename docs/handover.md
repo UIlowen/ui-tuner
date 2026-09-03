@@ -11,8 +11,8 @@
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
-| 分支     | **`feat/ui-ux-polish`（30 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（**311 例测试**：protocol 26 / inspector 121 / bridge 74 / extension 90）                                                                                                                                                |
+| 分支     | **`feat/ui-ux-polish`（33 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（**314 例测试**：protocol 26 / inspector 123 / bridge 74 / extension 91）                                                                                                                                                |
 | 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡输入框内按 Esc 会连带退出整个注释模式**（未修，backlog）；`docs/architecture.md` 仍描述注释模式之前的三 Tab 面板（未同步，读它时以本文档 §4/§6 为准） |
 
 ## 2. 三十秒上下文
@@ -101,6 +101,7 @@ UI Tuner/
 | **仅指令元素是一等公民**：`Annotations.sync(changes, instructions)` 取并集出气泡，`ChangesTab` 计数把无改动行但有指令的元素算 1 条，`applyChanges` 允许 `changes: []` + instruction | 只写自然语言（不动数值）也是有效诉求，此前会在气泡/计数/Apply 三处被当作「空」丢弃  |
 | Picker 放行注释层点击（`passThroughHostIds`）；气泡点击派发 `onOpenEditor` 而不是只读浮层                                                                            | 点气泡要能重开该元素的编辑卡（含已存指令与序号）                                    |
 | 面板两态注释模式：`picking` 只由 content 的 `picker.state` ack 决定，选中元素**不**退出注释模式；「完成此元素」走 `sidepanel.clearSelection`                           | 连续标注多个元素；避免面板乐观更新造成状态漂移                                      |
+| **气泡只在注释模式激活时绘制**：`Annotations.setVisible()` 由 content 的 `startPicking`/`stopPicking` 驱动（连接时默认 false，Picker 的 Esc 也走 `stopPicking`）；隐藏改宿主节点 `display` 而非卸载重挂，隐藏期停掉 rAF | 单纯浏览页面时不该带标注；走 display 才能让序号与气泡状态跨模式切换存活，重新激活原样恢复 |
 
 ## 5. 常用命令
 
@@ -220,12 +221,20 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 - 环境注意：验证时 47321 上跑着用户另一个项目（vehicle-dashboard）的 Bridge，**没有抢占端口**；因此浏览器侧源码解析为 unknown，端到端 Codex 那一程改用直连 `CodexAdapter` 的方式跑（同一份 prompt/runner/fileDiff 代码路径）。
 - 未修（已进 backlog）：编辑卡 textarea 内按 Esc 会退出整个注释模式。
 
+**气泡随注释模式显隐（2026-09-03，`61dc977`）**
+
+用户要求：**退出注释模式后不显示标注气泡，激活后再显示**。
+
+- 实现：`Annotations.setVisible(visible)` —— 隐藏改**宿主节点** `style.display`，不卸载重挂，因此气泡与序号（`numbers`/`nextNumber`）跨模式切换存活，重新激活即原样恢复；`scheduleRender()` 增加 `!this.visible` 门控、隐藏时 `stopLoop()`，隐藏期零开销；`mount()` 也遵守该标志（重连后仍是隐藏态）。content 侧 `startPicking` → `setVisible(true)`、`stopPicking` → `setVisible(false)`，连接后先 `mount()` 再置 false；Picker 自己的 Esc（`onCancel`）改为复用 `stopPicking()`，两条退出路径共用一处实现。
+- 验证：inspector 13/13、content 3/3，全量 **314 例**绿；两次 mutation check（去掉 `stopPicking` 里的隐藏 → content 用例如期失败；去掉 `scheduleRender` 的可见性门控 → inspector「隐藏期不绘制」用例如期失败，报 `expected '280px' to be ''`）；真机浏览器 `.playwright-mcp/verify-annotation-visibility.mjs` **9/9 通过**：连接后不可见 → 注释模式内保存后气泡「1」可见且 Preview 生效（height 80→120px）→ 面板「退出注释模式」后不可见、**Preview 改动仍在**、面板 `Preview · 1` 未丢 → 重新激活气泡恢复且**序号仍是 1** → Esc 退出同样隐藏。
+- 踩坑记录：首版验证脚本用气泡的**内联样式**（`display`/`left`）判定「是否显示」，结果退出后误报 ❌ —— 内联位置是**故意保留**的（序号靠它恢复），真正的隐藏发生在宿主层。改为量**渲染几何**（`getBoundingClientRect().width > 0`）+ **命中测试**（`elementFromPoint` 是否落在注释宿主上）后 9/9 通过。教训：验收断言要量用户实际能看到/点到的东西，不要量实现留下的中间状态。
+
 ## 7. 项目状态：核心闭环完成，`feat/ui-ux-polish` 待推送 + 待合并决策
 
 核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并多轮真机验收（M8、注释模式、页面编辑卡）。无后续里程碑，剩余为 backlog 增强项。
 
 **下一步待用户决策（截至 2026-09-03）**：
-1. `feat/ui-ux-polish`（30+ commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
+1. `feat/ui-ux-polish`（33 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
 2. 合并到 `main` 的决策（PR 还是直接 merge）尚未做。
 3. `docs/architecture.md` 未同步注释模式 + 页面编辑卡（仍写三 Tab 面板与 `sidepanel.stylePreview`）；下次动架构文档时一并补。
 
