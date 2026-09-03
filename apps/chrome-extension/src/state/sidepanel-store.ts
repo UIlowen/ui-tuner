@@ -129,6 +129,11 @@ interface SidepanelState {
   /** Annotation mode "done with this element": clear the selection, keep picking. */
   clearSelection: () => void;
   /**
+   * Annotation mode "cancel this element": revert its recorded changes and
+   * clear the selection, keeping annotation mode on. No-op with no selection.
+   */
+  cancelElement: () => void;
+  /**
    * Send one style value for the selected element (plan §10/§11). Preview
    * frames (committed=false) only hit the page; commits also update
    * `styleValues` locally.
@@ -412,6 +417,13 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
     const message = createSidepanelClearSelection();
     channel.send(message);
     set((state) => ({ log: appendLog(state.log, "out", message) }));
+  },
+
+  cancelElement: () => {
+    const elementId = get().selection?.element.id;
+    if (!elementId) return;
+    get().revertElement(elementId);
+    get().clearSelection();
   },
 
   updateStyle: (property, value, committed) => {

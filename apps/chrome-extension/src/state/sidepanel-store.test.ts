@@ -168,6 +168,33 @@ describe("sidepanel store", () => {
     expect(sent).toEqual([{ type: "sidepanel.clearSelection", payload: {} }]);
   });
 
+  it("cancelElement reverts the selected element's changes and clears the selection, keeping annotation mode", () => {
+    resetStore();
+    const { port, sent } = createSpyPort();
+    useSidepanelStore.getState().connect(Channel.accept(port));
+    useSidepanelStore.getState().receive(createPickerState(true));
+    selectElement({ gap: "24px" });
+
+    useSidepanelStore.getState().cancelElement();
+
+    expect(sent).toEqual([
+      { type: "sidepanel.revertElement", payload: { elementId: "ut-000001" } },
+      { type: "sidepanel.clearSelection", payload: {} },
+    ]);
+    // Annotation mode persists — cancel only drops this element's edits.
+    expect(useSidepanelStore.getState().picking).toBe(true);
+  });
+
+  it("cancelElement without a selection sends nothing", () => {
+    resetStore();
+    const { port, sent } = createSpyPort();
+    useSidepanelStore.getState().connect(Channel.accept(port));
+
+    useSidepanelStore.getState().cancelElement();
+
+    expect(sent).toHaveLength(0);
+  });
+
   it("updateStyle sends preview frames without touching styleValues", () => {
     resetStore();
     const { port, sent } = createSpyPort();

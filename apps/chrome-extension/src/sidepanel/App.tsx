@@ -235,6 +235,7 @@ export function App() {
   const changes = useSidepanelStore((s) => s.changes);
   const setPicking = useSidepanelStore((s) => s.setPicking);
   const clearSelection = useSidepanelStore((s) => s.clearSelection);
+  const cancelElement = useSidepanelStore((s) => s.cancelElement);
   const [agentOpen, setAgentOpen] = useState(false);
 
   const openChannel = useCallback(async () => {
@@ -329,13 +330,22 @@ export function App() {
                 <StylePanel />
               </div>
             </section>
-            <button
-              type="button"
-              onClick={clearSelection}
-              className="w-full rounded-md border border-edge-strong px-3 py-1.5 text-[12px] font-medium text-text transition-colors hover:bg-control"
-            >
-              {t("done.element")}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={cancelElement}
+                className="rounded-md border border-edge px-3 py-1.5 text-[12px] font-medium text-dim transition-colors hover:bg-control hover:text-text"
+              >
+                {t("action.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="flex-1 rounded-md border border-edge-strong px-3 py-1.5 text-[12px] font-medium text-text transition-colors hover:bg-control"
+              >
+                {t("done.element")}
+              </button>
+            </div>
           </>
         )}
 
