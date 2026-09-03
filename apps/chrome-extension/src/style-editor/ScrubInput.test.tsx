@@ -62,6 +62,8 @@ describe("ScrubInput drag", () => {
     );
     // Not dragging: a new prop (e.g. a revert) should take over the display.
     rerender(<ScrubInput value={40} unit="px" onPreview={onPreview} onCommit={onCommit} />);
-    expect(sliderOf(container).querySelector("span")?.textContent).toBe("40");
+    // The value span carries tabular-nums (the hover drag-affordance glyph
+    // is a separate span and must not be mistaken for the value).
+    expect(sliderOf(container).querySelector("span.tabular-nums")?.textContent).toBe("40");
   });
 });

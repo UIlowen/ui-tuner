@@ -127,9 +127,9 @@ function AlignmentControl() {
   const align = values["align-items"] ?? "";
 
   return (
-    <div className="flex min-h-6 items-center gap-2">
-      <span className="w-[74px] shrink-0 text-[11px] text-dim">{t("style.align")}</span>
-      <div className="ml-auto grid size-[52px] grid-cols-3 overflow-hidden rounded border border-edge-strong">
+    <div className="flex min-h-6 items-center gap-1.5">
+      <span className="w-[64px] shrink-0 text-[11px] text-dim">{t("style.align")}</span>
+      <div className="ml-auto grid size-[48px] grid-cols-3 overflow-hidden rounded border border-edge-strong">
         {ALIGN_CROSS.flatMap((cross) =>
           ALIGN_MAIN.map((main) => {
             const active = justify === main && align === cross;
@@ -190,8 +190,8 @@ function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: stri
 
   return (
     <>
-      <div className="flex min-h-6 items-center gap-2">
-        <span className="w-[74px] shrink-0 text-[11px] font-medium text-text">{title}</span>
+      <div className="flex min-h-6 items-center gap-1.5">
+        <span className="w-[64px] shrink-0 text-[11px] font-medium text-text">{title}</span>
         <button
           type="button"
           onClick={() => setAdvanced(!showAdvanced)}
@@ -255,15 +255,15 @@ function AxisScrub({
   const parsed = parseCssValue(raw);
   if (!parsed) {
     return (
-      <div className="flex min-h-6 items-center gap-2">
-        <span className="w-[74px] shrink-0 text-[11px] text-dim">{label}</span>
+      <div className="flex min-h-6 items-center gap-1.5">
+        <span className="w-[64px] shrink-0 text-[11px] text-dim">{label}</span>
         <span className="ml-auto truncate font-mono text-[10px] text-ghost">{raw || "—"}</span>
       </div>
     );
   }
   return (
-    <div className="flex min-h-6 items-center gap-2">
-      <span className="w-[74px] shrink-0 text-[11px] text-dim">{label}</span>
+    <div className="flex min-h-6 items-center gap-1.5">
+      <span className="w-[64px] shrink-0 text-[11px] text-dim">{label}</span>
       <div className="flex min-w-0 flex-1 justify-end">
         <ScrubInput
           value={parsed.value}

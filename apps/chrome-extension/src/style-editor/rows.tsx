@@ -14,8 +14,8 @@ import { useStyleEdit } from "./StyleEditContext";
 /** Shared shell: label left, control right (Figma-style density, §48). */
 export function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-6 items-center gap-2">
-      <span className="w-[74px] shrink-0 truncate text-[11px] text-dim" title={label}>
+    <div className="flex min-h-6 items-center gap-1.5">
+      <span className="w-[64px] shrink-0 truncate text-[11px] text-dim" title={label}>
         {label}
       </span>
       <div className="flex min-w-0 flex-1 justify-end">{children}</div>
@@ -25,7 +25,7 @@ export function Row({ label, children }: { label: string; children: ReactNode })
 
 export function GroupHeader({ title }: { title: string }) {
   return (
-    <p className="mt-3 border-t border-edge pt-2 text-[10px] font-medium tracking-wider text-faint uppercase first:mt-1 first:border-t-0 first:pt-0">
+    <p className="mt-2 border-t border-edge pt-1.5 text-[10px] font-medium tracking-wider text-faint uppercase first:mt-0 first:border-t-0 first:pt-0">
       {title}
     </p>
   );
@@ -101,7 +101,7 @@ export function TextRow({
         onKeyDown={(event) => {
           if (event.key === "Enter") (event.target as HTMLInputElement).blur();
         }}
-        className="h-6 w-full truncate rounded bg-control px-1.5 font-mono text-[11px] text-text outline-none placeholder:text-ghost hover:bg-control-hover focus-visible:bg-control-hover focus-visible:ring-1 focus-visible:ring-zinc-500"
+        className="h-6 w-full truncate rounded bg-control px-1 font-mono text-[11px] text-text outline-none placeholder:text-ghost hover:bg-control-hover focus-visible:bg-control-hover focus-visible:ring-1 focus-visible:ring-zinc-500"
       />
     </Row>
   );
@@ -137,7 +137,7 @@ export function ColorRow({ property, label }: { property: string; label: string 
             setDraft(null);
           }}
           title={t("color.rowTitle", { label, raw })}
-          className="size-6 shrink-0 cursor-pointer rounded border border-edge-strong bg-transparent p-0"
+          className="size-5 shrink-0 cursor-pointer rounded border border-edge-strong bg-transparent p-0"
         />
       </div>
     </Row>
