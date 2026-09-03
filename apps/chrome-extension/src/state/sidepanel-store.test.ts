@@ -158,85 +158,6 @@ describe("sidepanel store", () => {
     expect(state.log).toHaveLength(0);
   });
 
-  it("clearSelection sends sidepanel.clearSelection", () => {
-    resetStore();
-    const { port, sent } = createSpyPort();
-    useSidepanelStore.getState().connect(Channel.accept(port));
-
-    useSidepanelStore.getState().clearSelection();
-
-    expect(sent).toEqual([{ type: "sidepanel.clearSelection", payload: {} }]);
-  });
-
-  it("cancelElement reverts the selected element's changes and clears the selection, keeping annotation mode", () => {
-    resetStore();
-    const { port, sent } = createSpyPort();
-    useSidepanelStore.getState().connect(Channel.accept(port));
-    useSidepanelStore.getState().receive(createPickerState(true));
-    selectElement({ gap: "24px" });
-
-    useSidepanelStore.getState().cancelElement();
-
-    expect(sent).toEqual([
-      { type: "sidepanel.revertElement", payload: { elementId: "ut-000001" } },
-      { type: "sidepanel.clearSelection", payload: {} },
-    ]);
-    // Annotation mode persists — cancel only drops this element's edits.
-    expect(useSidepanelStore.getState().picking).toBe(true);
-  });
-
-  it("cancelElement without a selection sends nothing", () => {
-    resetStore();
-    const { port, sent } = createSpyPort();
-    useSidepanelStore.getState().connect(Channel.accept(port));
-
-    useSidepanelStore.getState().cancelElement();
-
-    expect(sent).toHaveLength(0);
-  });
-
-  it("updateStyle sends preview frames without touching styleValues", () => {
-    resetStore();
-    const { port, sent } = createSpyPort();
-    useSidepanelStore.getState().connect(Channel.accept(port));
-    selectElement({ gap: "24px" });
-
-    useSidepanelStore.getState().updateStyle("gap", "20px", false);
-
-    expect(sent).toEqual([
-      {
-        type: "sidepanel.stylePreview",
-        payload: { uiTunerId: "ut-000001", property: "gap", value: "20px", committed: false },
-      },
-    ]);
-    // Scrub frames must not re-render the panel — baseline stays at 24px.
-    expect(useSidepanelStore.getState().styleValues).toEqual({ gap: "24px" });
-  });
-
-  it("updateStyle commits update styleValues and null deletes the property", () => {
-    resetStore();
-    const { port, sent } = createSpyPort();
-    useSidepanelStore.getState().connect(Channel.accept(port));
-    selectElement({ gap: "24px" });
-
-    useSidepanelStore.getState().updateStyle("gap", "16px", true);
-    expect(useSidepanelStore.getState().styleValues).toEqual({ gap: "16px" });
-
-    useSidepanelStore.getState().updateStyle("gap", null, true);
-    expect(useSidepanelStore.getState().styleValues).toEqual({});
-    expect(sent).toHaveLength(2);
-  });
-
-  it("updateStyle is a no-op without a channel or selection", () => {
-    resetStore();
-    const { port, sent } = createSpyPort();
-
-    // No selection yet.
-    useSidepanelStore.getState().connect(Channel.accept(port));
-    useSidepanelStore.getState().updateStyle("gap", "16px", true);
-    expect(sent).toHaveLength(0);
-  });
-
   it("stores page-side change records from preview.changed", () => {
     resetStore();
     const change: StyleChange = {
@@ -250,6 +171,14 @@ describe("sidepanel store", () => {
     };
     useSidepanelStore.getState().receive(createPreviewChanged([change]));
     expect(useSidepanelStore.getState().changes).toEqual([change]);
+  });
+
+  it("stores instructions from preview.changed", () => {
+    resetStore();
+    useSidepanelStore
+      .getState()
+      .receive(createPreviewChanged([], { "ut-1": "紧凑一点" }));
+    expect(useSidepanelStore.getState().instructions).toEqual({ "ut-1": "紧凑一点" });
   });
 
   it("remembers element names from selections for the changes tab", () => {

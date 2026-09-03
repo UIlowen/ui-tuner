@@ -56,6 +56,7 @@ export const zh = {
   "changes.copyTitle": "复制全部改动（含源码位置），粘贴到 Claude / Codex 对话框",
   "changes.resetAll": "全部重置",
   "changes.pending": "{count} 项待应用",
+  "changes.instruction": "指令",
 
   // --- Agent tab ---
   "agent.applied": "{agent} 已修改源码：{summary}（{count} 个文件）",
@@ -227,6 +228,7 @@ export const en: Record<MessageKey, string> = {
   "changes.copyTitle": "Copy all changes (with source locations) to paste into a Claude / Codex chat",
   "changes.resetAll": "Reset All",
   "changes.pending": "{count} pending",
+  "changes.instruction": "Instruction",
 
   // --- Agent tab ---
   "agent.applied": "{agent} updated source: {summary} ({count} files)",

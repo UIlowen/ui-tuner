@@ -6,7 +6,6 @@ import {
   createBridgeSync,
   createChangesApply,
   createSidepanelConfirmApply,
-  createSidepanelClearSelection,
   createSidepanelPing,
   createSidepanelReloadPage,
   createSidepanelPicking,
@@ -14,7 +13,6 @@ import {
   createSidepanelRevertChange,
   createSidepanelRevertElement,
   createSidepanelSelectAncestor,
-  createSidepanelStylePreview,
   isAgentAppliedMessage,
   isAgentCaptureMessage,
   isApplyConfirmedMessage,
@@ -73,6 +71,8 @@ interface SidepanelState {
   styleValues: Record<string, string> | null;
   /** Page-side change records (content is the source of truth, plan §12). */
   changes: StyleChange[];
+  /** elementId → natural-language instruction, from preview.changed payloads. */
+  instructions: Record<string, string>;
   /** elementId → tagName, accumulated from selections (Changes tab labels). */
   elementNames: Record<string, string>;
   /** Local bridge link state (plan §35: offline never blocks preview editing). */
@@ -126,19 +126,6 @@ interface SidepanelState {
   setPicking: (enabled: boolean) => void;
   /** Breadcrumb jump: select the ancestor with this uiTunerId. */
   selectAncestor: (uiTunerId: string) => void;
-  /** Annotation mode "done with this element": clear the selection, keep picking. */
-  clearSelection: () => void;
-  /**
-   * Annotation mode "cancel this element": revert its recorded changes and
-   * clear the selection, keeping annotation mode on. No-op with no selection.
-   */
-  cancelElement: () => void;
-  /**
-   * Send one style value for the selected element (plan §10/§11). Preview
-   * frames (committed=false) only hit the page; commits also update
-   * `styleValues` locally.
-   */
-  updateStyle: (property: string, value: string | null, committed: boolean) => void;
   /** Revert one recorded change (plan §14). */
   revertChange: (changeId: string) => void;
   /** Revert every change of one element (plan §14). */
@@ -248,6 +235,7 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
   selection: null,
   styleValues: null,
   changes: [],
+  instructions: {},
   elementNames: {},
   bridgeStatus: "offline",
   bridgeProject: null,
@@ -346,6 +334,7 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       selection: null,
       styleValues: null,
       changes: [],
+      instructions: {},
       elementNames: {},
       source: null,
     });
@@ -383,7 +372,10 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       set({ selection: null, styleValues: null, source: null });
       sendBridgeSync();
     } else if (isPreviewChangedMessage(message)) {
-      set({ changes: message.payload.changes });
+      set({
+        changes: message.payload.changes,
+        instructions: message.payload.instructions ?? {},
+      });
       sendBridgeSync();
     } else if (isApplyConfirmedMessage(message)) {
       // M8 §29: page confirmed which applied changes are live in source.
@@ -410,40 +402,6 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
     const message = createSidepanelSelectAncestor(uiTunerId);
     channel.send(message);
     set((state) => ({ log: appendLog(state.log, "out", message) }));
-  },
-
-  clearSelection: () => {
-    if (!channel) return;
-    const message = createSidepanelClearSelection();
-    channel.send(message);
-    set((state) => ({ log: appendLog(state.log, "out", message) }));
-  },
-
-  cancelElement: () => {
-    const elementId = get().selection?.element.id;
-    if (!elementId) return;
-    get().revertElement(elementId);
-    get().clearSelection();
-  },
-
-  updateStyle: (property, value, committed) => {
-    const elementId = get().selection?.element.id;
-    if (!channel || !elementId) return;
-    const message = createSidepanelStylePreview({
-      uiTunerId: elementId,
-      property,
-      value,
-      committed,
-    });
-    channel.send(message);
-    set((state) => {
-      const log = appendLog(state.log, "out", message);
-      if (!committed || !state.styleValues) return { log };
-      const styleValues = { ...state.styleValues };
-      if (value === null) delete styleValues[property];
-      else styleValues[property] = value;
-      return { log, styleValues };
-    });
   },
 
   revertChange: (changeId) => {
@@ -575,6 +533,7 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       selection: null,
       styleValues: null,
       changes: [],
+      instructions: {},
       elementNames: {},
       bridgeStatus: "offline",
       bridgeProject: null,
@@ -610,6 +569,7 @@ export function reportConnectFailure(reason: string): void {
     selection: null,
     styleValues: null,
     changes: [],
+    instructions: {},
     elementNames: {},
     bridgeStatus: "offline",
     bridgeProject: null,

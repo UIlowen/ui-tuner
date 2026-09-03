@@ -2,14 +2,17 @@ import { useSidepanelStore } from "../../state/sidepanel-store";
 import { useT } from "../../i18n/use-t";
 
 /**
- * Changes list (annotation mode OFF): changes grouped per element, each row
- * revertable, per-element Revert, Reset All in the header. The copy/apply
- * actions live in the panel's sticky footer (App.tsx FooterActions).
+ * Changes list: changes grouped per element, each row revertable, per-element
+ * Revert, Reset All in the header. The element's natural-language instruction
+ * (entered in the page-side editor card) shows under the group header when
+ * present. The copy/apply actions live in the panel's sticky footer
+ * (App.tsx FooterActions).
  */
 export function ChangesTab() {
   const t = useT();
   const changes = useSidepanelStore((s) => s.changes);
   const elementNames = useSidepanelStore((s) => s.elementNames);
+  const instructions = useSidepanelStore((s) => s.instructions);
   const revertChange = useSidepanelStore((s) => s.revertChange);
   const revertElement = useSidepanelStore((s) => s.revertElement);
   const resetChanges = useSidepanelStore((s) => s.resetChanges);
@@ -67,6 +70,11 @@ export function ChangesTab() {
                   {t("changes.revertElement")}
                 </button>
               </div>
+              {instructions[group.elementId] && (
+                <p className="mt-1 text-[10px] text-dim">
+                  {t("changes.instruction")}：{instructions[group.elementId]}
+                </p>
+              )}
               <ul className="mt-1 space-y-0.5">
                 {group.changes.map((change) => (
                   <li key={change.id} className="flex items-baseline gap-2 text-[11px]">

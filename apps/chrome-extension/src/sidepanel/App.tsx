@@ -14,8 +14,6 @@ import type { MessageKey } from "../i18n/messages";
 import { AgentTab } from "./components/AgentTab";
 import { ApplySection } from "./components/ApplySection";
 import { ChangesTab } from "./components/ChangesTab";
-import { StylePanel } from "../style-editor/StylePanel";
-import { StyleEditContext } from "../style-editor/StyleEditContext";
 import { formatChangesetForCopy } from "./format-changeset";
 
 function isLocalhostUrl(url: string): boolean {
@@ -147,40 +145,7 @@ function dialBridge(): void {
   });
 }
 
-/** Slim one-line element header above the style editor (replaces SelectionCard). */
-function EditorHeader() {
-  const t = useT();
-  const selection = useSidepanelStore((s) => s.selection);
-  const source = useSidepanelStore((s) => s.source);
-  if (!selection) return null;
-  const { element } = selection;
-
-  // Plan §20: three honest states — never fabricate a source location.
-  const badge =
-    source?.confidence === "exact"
-      ? { labelKey: "source.exact" as const, className: "bg-emerald-500/15 text-ok-text" }
-      : source?.confidence === "inferred"
-        ? { labelKey: "source.inferred" as const, className: "bg-amber-500/15 text-warn-text" }
-        : { labelKey: "source.previewOnly" as const, className: "bg-control text-faint" };
-
-  return (
-    <div className="flex items-baseline gap-2 border-b border-edge pb-1.5">
-      <span className="truncate font-mono text-[12px] font-semibold text-accent-text">
-        {"<"}
-        {element.tagName}
-        {">"}
-      </span>
-      <span className="font-mono text-[10px] text-dim tabular-nums">
-        {element.bounds.width} × {element.bounds.height}
-      </span>
-      <span className={`ml-auto rounded px-1 py-px text-[9px] ${badge.className}`}>
-        {t(badge.labelKey)}
-      </span>
-    </div>
-  );
-}
-
-/** Sticky footer (annotation mode OFF, changes exist): copy all + send to agent. */
+/** Sticky footer (changes exist): copy all + send to agent. */
 function FooterActions() {
   const t = useT();
   const changes = useSidepanelStore((s) => s.changes);
@@ -219,11 +184,9 @@ function FooterActions() {
 }
 
 /**
- * Two-state annotation-mode panel:
- *  - picking ON  → pick button (exit label) + slim-header editor + "done with
- *    this element" (clears the selection, keeps annotation mode on)
- *  - picking OFF → changes grouped per element + collapsed Agent settings +
- *    sticky footer (copy all / send to agent)
+ * Editing happens in the page-side editor card; the panel now always shows the
+ * changes list + collapsed Agent settings, plus the pick toggle and a sticky
+ * footer (copy all / send to agent) when changes exist.
  * Debug-only blocks were removed — the header pill and status zone carry the
  * connection truth.
  */
@@ -235,10 +198,6 @@ export function App() {
   const selection = useSidepanelStore((s) => s.selection);
   const changes = useSidepanelStore((s) => s.changes);
   const setPicking = useSidepanelStore((s) => s.setPicking);
-  const clearSelection = useSidepanelStore((s) => s.clearSelection);
-  const cancelElement = useSidepanelStore((s) => s.cancelElement);
-  const styleValues = useSidepanelStore((s) => s.styleValues);
-  const updateStyle = useSidepanelStore((s) => s.updateStyle);
   const [agentOpen, setAgentOpen] = useState(false);
 
   const openChannel = useCallback(async () => {
@@ -324,66 +283,30 @@ export function App() {
           )}
         </section>
 
-        {/* Annotation mode ON + element selected: the editor. */}
-        {picking && selection && (
-          <>
-            <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
-              <EditorHeader />
-              <div className="mt-1.5">
-                {styleValues && (
-                  <StyleEditContext.Provider value={{ values: styleValues, updateStyle }}>
-                    <StylePanel />
-                  </StyleEditContext.Provider>
-                )}
-              </div>
-            </section>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={cancelElement}
-                className="rounded-md border border-edge px-3 py-1.5 text-[12px] font-medium text-dim transition-colors hover:bg-control hover:text-text"
-              >
-                {t("action.cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="flex-1 rounded-md border border-edge-strong px-3 py-1.5 text-[12px] font-medium text-text transition-colors hover:bg-control"
-              >
-                {t("done.element")}
-              </button>
+        {/* Changes list + collapsed agent settings (editing lives on the page). */}
+        <ChangesTab />
+        <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
+          <button
+            type="button"
+            onClick={() => setAgentOpen(!agentOpen)}
+            className="flex w-full items-center gap-1.5 text-[10px] font-medium tracking-wider text-faint uppercase"
+          >
+            <span
+              className={`inline-block transition-transform ${agentOpen ? "rotate-90" : ""}`}
+            >
+              ▸
+            </span>
+            {t("agent.advancedSettings")}
+          </button>
+          {agentOpen && (
+            <div className="mt-2">
+              <AgentTab />
             </div>
-          </>
-        )}
-
-        {/* Annotation mode OFF: changes list + collapsed agent settings. */}
-        {!picking && (
-          <>
-            <ChangesTab />
-            <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
-              <button
-                type="button"
-                onClick={() => setAgentOpen(!agentOpen)}
-                className="flex w-full items-center gap-1.5 text-[10px] font-medium tracking-wider text-faint uppercase"
-              >
-                <span
-                  className={`inline-block transition-transform ${agentOpen ? "rotate-90" : ""}`}
-                >
-                  ▸
-                </span>
-                {t("agent.advancedSettings")}
-              </button>
-              {agentOpen && (
-                <div className="mt-2">
-                  <AgentTab />
-                </div>
-              )}
-            </section>
-          </>
-        )}
+          )}
+        </section>
       </main>
 
-      {!picking && changes.length > 0 && <FooterActions />}
+      {changes.length > 0 && <FooterActions />}
     </div>
   );
 }
