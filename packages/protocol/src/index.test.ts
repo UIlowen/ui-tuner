@@ -19,6 +19,7 @@ import {
   createPreviewChanged,
   createSelectionChanged,
   createSelectionCleared,
+  createSidepanelClearSelection,
   createSidepanelConfirmApply,
   createSidepanelPing,
   createSidepanelPicking,
@@ -45,6 +46,7 @@ import {
   isPreviewChangedMessage,
   isSelectionChangedMessage,
   isSelectionClearedMessage,
+  isSidepanelClearSelectionMessage,
   isSidepanelConfirmApplyMessage,
   isSidepanelPingMessage,
   isSidepanelPickingMessage,
@@ -108,6 +110,7 @@ function createEveryMessage(): UiTunerMessage[] {
     createSidepanelRevertChange("ch-000001"),
     createSidepanelRevertElement("ut-000001"),
     createSidepanelResetChanges(),
+    createSidepanelClearSelection(),
     createBridgeHello({ extensionVersion: "0.1.0", pageUrl: "http://localhost:5173/" }),
     createBridgeWelcome({
       bridgeVersion: "0.1.0",
@@ -286,6 +289,10 @@ describe("creators", () => {
     });
     expect(createSidepanelResetChanges()).toEqual({
       type: "sidepanel.resetChanges",
+      payload: {},
+    });
+    expect(createSidepanelClearSelection()).toEqual({
+      type: "sidepanel.clearSelection",
       payload: {},
     });
   });
@@ -474,6 +481,7 @@ describe("per-type guards", () => {
     expect(messages.filter(isSidepanelRevertChangeMessage)).toHaveLength(1);
     expect(messages.filter(isSidepanelRevertElementMessage)).toHaveLength(1);
     expect(messages.filter(isSidepanelResetChangesMessage)).toHaveLength(1);
+    expect(messages.filter(isSidepanelClearSelectionMessage)).toHaveLength(1);
     expect(messages.filter(isBridgeHelloMessage)).toHaveLength(1);
     expect(messages.filter(isBridgeWelcomeMessage)).toHaveLength(1);
     expect(messages.filter(isBridgeSyncMessage)).toHaveLength(1);

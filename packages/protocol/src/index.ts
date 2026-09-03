@@ -204,6 +204,15 @@ export interface SidepanelResetChangesMessage {
   payload: Record<string, never>;
 }
 
+/**
+ * Side Panel → Content. Clear the current selection without leaving
+ * annotation mode (the "done with this element" button); picking stays on.
+ */
+export interface SidepanelClearSelectionMessage {
+  type: "sidepanel.clearSelection";
+  payload: Record<string, never>;
+}
+
 // ---------------------------------------------------------------------------
 // M5 — local bridge messages (plan §15/§16), carried over WebSocket
 // ---------------------------------------------------------------------------
@@ -499,6 +508,7 @@ export type UiTunerMessage =
   | SidepanelRevertChangeMessage
   | SidepanelRevertElementMessage
   | SidepanelResetChangesMessage
+  | SidepanelClearSelectionMessage
   | BridgeHelloMessage
   | BridgeWelcomeMessage
   | BridgeSyncMessage
@@ -530,6 +540,7 @@ const MESSAGE_TYPES: readonly UiTunerMessageType[] = [
   "sidepanel.revertChange",
   "sidepanel.revertElement",
   "sidepanel.resetChanges",
+  "sidepanel.clearSelection",
   "bridge.hello",
   "bridge.welcome",
   "bridge.sync",
@@ -625,6 +636,12 @@ export function isSidepanelResetChangesMessage(
   value: UiTunerMessage,
 ): value is SidepanelResetChangesMessage {
   return value.type === "sidepanel.resetChanges";
+}
+
+export function isSidepanelClearSelectionMessage(
+  value: UiTunerMessage,
+): value is SidepanelClearSelectionMessage {
+  return value.type === "sidepanel.clearSelection";
 }
 
 export function isBridgeHelloMessage(value: UiTunerMessage): value is BridgeHelloMessage {
@@ -749,6 +766,10 @@ export function createSidepanelRevertElement(elementId: string): SidepanelRevert
 
 export function createSidepanelResetChanges(): SidepanelResetChangesMessage {
   return { type: "sidepanel.resetChanges", payload: {} };
+}
+
+export function createSidepanelClearSelection(): SidepanelClearSelectionMessage {
+  return { type: "sidepanel.clearSelection", payload: {} };
 }
 
 export function createBridgeHello(payload: BridgeHelloMessage["payload"]): BridgeHelloMessage {
