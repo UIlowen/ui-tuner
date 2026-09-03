@@ -461,7 +461,10 @@ chrome.runtime.onConnect.addListener((port) => {
   );
   // Page-side changes survive reconnects (plan §37 in-memory) — resync the
   // panel's mirror so the Changes tab reflects reality after a reconnect.
-  if (changeTracker.all().length > 0) {
+  // Instructions also survive (module-level store), and an instruction-only
+  // element has zero change records, so guard on instructions too — otherwise
+  // a reconnect would silently drop it from the panel.
+  if (changeTracker.all().length > 0 || Object.keys(instructionStore.all()).length > 0) {
     reportChanges();
   }
 
