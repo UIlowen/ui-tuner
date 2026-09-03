@@ -27,7 +27,6 @@ import {
   createSidepanelRevertChange,
   createSidepanelRevertElement,
   createSidepanelSelectAncestor,
-  createSidepanelStylePreview,
   isAgentAppliedMessage,
   isAgentCaptureMessage,
   isAgentCaptureResultMessage,
@@ -54,7 +53,6 @@ import {
   isSidepanelRevertChangeMessage,
   isSidepanelRevertElementMessage,
   isSidepanelSelectAncestorMessage,
-  isSidepanelStylePreviewMessage,
   isUiTunerMessage,
   UI_TUNER_PORT_NAME,
   type ApplyElementContext,
@@ -90,12 +88,6 @@ function createEveryMessage(): UiTunerMessage[] {
     }),
     createSelectionCleared(),
     createSidepanelSelectAncestor("ut-000002"),
-    createSidepanelStylePreview({
-      uiTunerId: "ut-000001",
-      property: "gap",
-      value: "16px",
-      committed: false,
-    }),
     createPreviewChanged([
       {
         id: "ch-000001",
@@ -250,19 +242,7 @@ describe("creators", () => {
     });
   });
 
-  it("creates style preview messages", () => {
-    expect(
-      createSidepanelStylePreview({
-        uiTunerId: "ut-000001",
-        property: "padding-top",
-        value: null,
-        committed: true,
-      }),
-    ).toEqual({
-      type: "sidepanel.stylePreview",
-      payload: { uiTunerId: "ut-000001", property: "padding-top", value: null, committed: true },
-    });
-
+  it("creates preview.changed messages", () => {
     const change = {
       id: "ch-000002",
       elementId: "ut-000001",
@@ -484,7 +464,6 @@ describe("per-type guards", () => {
     expect(messages.filter(isSelectionChangedMessage)).toHaveLength(1);
     expect(messages.filter(isSelectionClearedMessage)).toHaveLength(1);
     expect(messages.filter(isSidepanelSelectAncestorMessage)).toHaveLength(1);
-    expect(messages.filter(isSidepanelStylePreviewMessage)).toHaveLength(1);
     expect(messages.filter(isPreviewChangedMessage)).toHaveLength(1);
     expect(messages.filter(isSidepanelRevertChangeMessage)).toHaveLength(1);
     expect(messages.filter(isSidepanelRevertElementMessage)).toHaveLength(1);

@@ -11,7 +11,6 @@ import {
   cssValuesEqual,
   domFingerprintFor,
   domSnapshotFor,
-  isStyleProperty,
   pickStyles,
   readUiTunerId,
 } from "@ui-tuner/inspector";
@@ -33,7 +32,6 @@ import {
   isSidepanelRevertChangeMessage,
   isSidepanelRevertElementMessage,
   isSidepanelSelectAncestorMessage,
-  isSidepanelStylePreviewMessage,
   type SelectionPayload,
   type StyleChange,
   type UiTunerMessage,
@@ -155,7 +153,7 @@ function openEditorCard(element: Element): void {
       stagingEngine?.stage(element, property, value);
     },
     onSave: (instruction) => {
-      stagingEngine?.commit(element);
+      stagingEngine?.commit();
       instructionStore.set(elementId, instruction);
       reportChanges();
       cardMount?.hide();
@@ -193,52 +191,6 @@ function moveToAncestor(uiTunerId: string): void {
   if (!payload) return;
   overlay.setSelected(tracker.selected, clearSelection);
   send(createSelectionChanged(withElementContext(payload, tracker.selected!)));
-}
-
-/**
- * Side Panel style scrub (plan §10/§11): every frame rewrites the preview
- * `<style>` override; a committed frame records the StyleChange. Scrubbing
- * back to the page's original value drops the record and override again.
- */
-function applyStylePreview(payload: {
-  uiTunerId: string;
-  property: string;
-  value: string | null;
-  committed: boolean;
-}): void {
-  if (!tracker || !selectionActive) return;
-  const element = tracker.selected;
-  if (!element || readUiTunerId(element) !== payload.uiTunerId) return;
-  if (!isStyleProperty(payload.property)) return;
-
-  const { uiTunerId, property, value, committed } = payload;
-  if (!changeTracker.find(uiTunerId, property)) {
-    // First touch: capture the page's real value before the override lands.
-    const originalValue = getComputedStyle(element).getPropertyValue(property).trim();
-    if (value !== null) changeTracker.record(uiTunerId, property, value, originalValue);
-  }
-
-  if (value === null) {
-    changeTracker.revertProperty(uiTunerId, property);
-    previewEngine.setOverride(uiTunerId, property, null);
-    reportChanges();
-    return;
-  }
-
-  previewEngine.mount();
-  previewEngine.setOverride(uiTunerId, property, value);
-  changeTracker.record(uiTunerId, property, value, "");
-
-  if (!committed) return;
-
-  const change = changeTracker.find(uiTunerId, property);
-  if (change && cssValuesEqual(change.nextValue, change.previousValue)) {
-    // Released on the original value — not a change; drop it (plan §12 spirit).
-    // Color-aware: rgb() computed value vs #hex committed swatch compare equal.
-    changeTracker.revertProperty(uiTunerId, property);
-    previewEngine.setOverride(uiTunerId, property, null);
-  }
-  reportChanges();
 }
 
 /**
@@ -474,8 +426,6 @@ chrome.runtime.onConnect.addListener((port) => {
       else stopPicking();
     } else if (isSidepanelSelectAncestorMessage(message)) {
       moveToAncestor(message.payload.uiTunerId);
-    } else if (isSidepanelStylePreviewMessage(message)) {
-      applyStylePreview(message.payload);
     } else if (isSidepanelRevertChangeMessage(message)) {
       revertChange(message.payload.changeId);
     } else if (isSidepanelRevertElementMessage(message)) {

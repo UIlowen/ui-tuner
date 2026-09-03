@@ -154,22 +154,6 @@ export interface SidepanelSelectAncestorMessage {
 // M3 — style inspector messages
 // ---------------------------------------------------------------------------
 
-/**
- * Side Panel → Content. Set one CSS property on the selected element via the
- * preview `<style>` override (plan §11). `committed: false` frames arrive
- * while scrubbing; `committed: true` on release records a StyleChange.
- * `value: null` removes the override.
- */
-export interface SidepanelStylePreviewMessage {
-  type: "sidepanel.stylePreview";
-  payload: {
-    uiTunerId: string;
-    property: string;
-    value: string | null;
-    committed: boolean;
-  };
-}
-
 /** Content → Side Panel. The page-side change list changed (plan §12/§13). */
 export interface PreviewChangedMessage {
   type: "preview.changed";
@@ -507,7 +491,6 @@ export type UiTunerMessage =
   | SelectionChangedMessage
   | SelectionClearedMessage
   | SidepanelSelectAncestorMessage
-  | SidepanelStylePreviewMessage
   | PreviewChangedMessage
   | SidepanelRevertChangeMessage
   | SidepanelRevertElementMessage
@@ -539,7 +522,6 @@ const MESSAGE_TYPES: readonly UiTunerMessageType[] = [
   "selection.changed",
   "selection.cleared",
   "sidepanel.selectAncestor",
-  "sidepanel.stylePreview",
   "preview.changed",
   "sidepanel.revertChange",
   "sidepanel.revertElement",
@@ -612,12 +594,6 @@ export function isSidepanelSelectAncestorMessage(
   value: UiTunerMessage,
 ): value is SidepanelSelectAncestorMessage {
   return value.type === "sidepanel.selectAncestor";
-}
-
-export function isSidepanelStylePreviewMessage(
-  value: UiTunerMessage,
-): value is SidepanelStylePreviewMessage {
-  return value.type === "sidepanel.stylePreview";
 }
 
 export function isPreviewChangedMessage(value: UiTunerMessage): value is PreviewChangedMessage {
@@ -748,12 +724,6 @@ export function createSelectionCleared(): SelectionClearedMessage {
 
 export function createSidepanelSelectAncestor(uiTunerId: string): SidepanelSelectAncestorMessage {
   return { type: "sidepanel.selectAncestor", payload: { uiTunerId } };
-}
-
-export function createSidepanelStylePreview(
-  payload: SidepanelStylePreviewMessage["payload"],
-): SidepanelStylePreviewMessage {
-  return { type: "sidepanel.stylePreview", payload };
 }
 
 export function createPreviewChanged(

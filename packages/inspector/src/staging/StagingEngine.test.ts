@@ -37,7 +37,7 @@ describe("StagingEngine", () => {
   it("commit records staged edits with the captured original value", () => {
     engine.begin("ut-1");
     engine.stage(el, "height", "52px");
-    const recorded = engine.commit(el);
+    const recorded = engine.commit();
     expect(recorded).toBe(true);
     const change = changes.find("ut-1", "height");
     expect(change?.nextValue).toBe("52px");
@@ -49,7 +49,7 @@ describe("StagingEngine", () => {
     el.style.height = "38px";
     engine.begin("ut-1");
     engine.stage(el, "height", "38px"); // 等于原值
-    const recorded = engine.commit(el);
+    const recorded = engine.commit();
     expect(recorded).toBe(false);
     expect(changes.find("ut-1", "height")).toBeUndefined();
   });

@@ -51,7 +51,7 @@ export class StagingEngine {
   }
 
   /** Record every staged edit; returns true when at least one real change landed. */
-  commit(element: Element): boolean {
+  commit(): boolean {
     if (!this.elementId) return false;
     const elementId = this.elementId;
     let recordedAny = false;
