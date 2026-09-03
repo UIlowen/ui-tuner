@@ -116,4 +116,24 @@ describe("Picker", () => {
 
     picker.stop();
   });
+
+  it("passes clicks on pass-through hosts through untouched", () => {
+    const host = document.createElement("div");
+    host.id = "anno-root";
+    const inner = document.createElement("button");
+    host.appendChild(inner);
+    document.body.appendChild(host);
+
+    const picker = new Picker({ onHoverChange, onSelect, onCancel }, {
+      passThroughHostIds: ["anno-root"],
+    });
+    picker.start();
+    const click = mouse("click", 0, 0);
+    inner.dispatchEvent(click);
+
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(click.defaultPrevented).toBe(false);
+
+    picker.stop();
+  });
 });
