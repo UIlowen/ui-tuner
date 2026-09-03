@@ -367,7 +367,8 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       set((state) => ({
         selection: message.payload,
         styleValues: message.payload.styles,
-        picking: false,
+        // Annotation mode persists across selections — `picking` is owned by
+        // picker.state acks only (Esc / panel toggle).
         elementNames: rememberElementNames(state.elementNames, message.payload),
         // Pending: the bridge re-resolves source for the new selection.
         source: null,

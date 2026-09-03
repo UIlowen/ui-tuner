@@ -98,13 +98,15 @@ describe("sidepanel store", () => {
     expect(useSidepanelStore.getState().picking).toBe(false);
   });
 
-  it("stores the selection and exits picking on selection.changed", () => {
+  it("stores the selection and keeps picking on selection.changed (annotation mode persists)", () => {
     resetStore();
     useSidepanelStore.getState().receive(createPickerState(true));
     selectElement({ gap: "24px" });
 
     const state = useSidepanelStore.getState();
-    expect(state.picking).toBe(false);
+    // Annotation mode persists across selections — only picker.state acks
+    // (Esc / panel toggle) turn it off.
+    expect(state.picking).toBe(true);
     expect(state.selection?.element.tagName).toBe("button");
     expect(state.selection?.breadcrumb).toHaveLength(2);
   });
