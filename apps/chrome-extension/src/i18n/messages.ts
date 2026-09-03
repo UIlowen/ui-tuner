@@ -156,6 +156,17 @@ export const zh = {
   "scrub.hint": "拖动调整 · Shift ×10 · Option ×0.1 · 双击输入",
   "color.rowTitle": "{label}（{raw}）",
 
+  // --- Page editor card ---
+  "card.properties": "属性精调",
+  "card.naturalLanguage": "自然语言",
+  "card.save": "保存",
+  "card.delete": "删除",
+  "card.collapse": "折叠",
+  "card.expand": "展开",
+  "card.dragHandle": "拖动卡片",
+  "card.unsaved": "未保存",
+  "card.instructionPlaceholder": "对这个元素的修改要求…",
+
   // --- header toggles ---
   "lang.toggleTitle": "Switch to English",
   "theme.light": "亮色",
@@ -315,6 +326,17 @@ export const en: Record<MessageKey, string> = {
   "style.shadowPlaceholder": "none",
   "scrub.hint": "Drag to adjust · Shift ×10 · Option ×0.1 · double-click to type",
   "color.rowTitle": "{label} ({raw})",
+
+  // --- Page editor card ---
+  "card.properties": "Properties",
+  "card.naturalLanguage": "Natural Language",
+  "card.save": "Save",
+  "card.delete": "Delete",
+  "card.collapse": "Collapse",
+  "card.expand": "Expand",
+  "card.dragHandle": "Drag card",
+  "card.unsaved": "Unsaved",
+  "card.instructionPlaceholder": "Describe the changes you want for this element…",
 
   // --- header toggles ---
   "lang.toggleTitle": "切换到中文",
