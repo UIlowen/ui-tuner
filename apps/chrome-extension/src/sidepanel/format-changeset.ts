@@ -5,6 +5,8 @@ export interface FormatChangesetInput {
   changes: StyleChange[];
   /** elementId → tagName label, accumulated from selections. */
   elementNames: Record<string, string>;
+  /** Per-element natural-language instructions (elementId → instruction). */
+  instructions?: Record<string, string>;
   /** Source resolution for the currently selected element (if linked). */
   source?: SourceResolution | null;
   /** Current selection, for element tag/text fallback. */
@@ -19,7 +21,7 @@ export interface FormatChangesetInput {
  * Grouped per element, newest group last, matching the Changes tab order.
  */
 export function formatChangesetForCopy(input: FormatChangesetInput): string {
-  const { changes, elementNames, source, selection } = input;
+  const { changes, elementNames, instructions, source, selection } = input;
 
   // Group by element, preserving first-seen order (same as ChangesTab).
   const groups: { elementId: string; changes: StyleChange[] }[] = [];
@@ -55,6 +57,11 @@ export function formatChangesetForCopy(input: FormatChangesetInput): string {
     }
     if (selection?.element.id === group.elementId && selection.element.selector) {
       lines.push(`选择器：${selection.element.selector}`);
+    }
+
+    const instruction = instructions?.[group.elementId];
+    if (instruction) {
+      lines.push(`指令：${instruction}`);
     }
 
     lines.push("改动（旧值 → 新值）：");

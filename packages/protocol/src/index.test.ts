@@ -577,6 +577,48 @@ describe("assembleAgentContext (plan §26)", () => {
     expect(text).toContain("(none — pick an element in the browser first)");
   });
 
+  it("groups changes per element with its instruction when instructions are provided", () => {
+    const text = assembleAgentContext({
+      selection: null,
+      source: null,
+      changes: [
+        ...changes,
+        {
+          id: "ch-2",
+          elementId: "ut-000002",
+          property: "color",
+          previousValue: "#000000",
+          nextValue: "#ffffff",
+          source: "manual",
+          createdAt: 2,
+        },
+      ],
+      instruction: "",
+      instructions: { "ut-000001": "整体紧凑一点" },
+    });
+    // Element with an instruction shows it above its change lines.
+    expect(text).toContain("Element ut-000001:");
+    expect(text).toContain("instruction for ut-000001: 整体紧凑一点");
+    const instrIdx = text.indexOf("instruction for ut-000001: 整体紧凑一点");
+    expect(instrIdx).toBeGreaterThan(text.indexOf("User preview changes:"));
+    expect(instrIdx).toBeLessThan(text.indexOf("gap: 24px → 16px"));
+    // Element without an instruction still lists its change.
+    expect(text).toContain("Element ut-000002:");
+    expect(text).toContain("color: #000000 → #ffffff");
+    expect(text).not.toContain("instruction for ut-000002");
+  });
+
+  it("keeps the flat change list when no instructions are provided", () => {
+    const text = assembleAgentContext({
+      selection: null,
+      source: null,
+      changes,
+      instruction: "",
+    });
+    expect(text).toContain("User preview changes:\ngap: 24px → 16px");
+    expect(text).not.toContain("Element ut-000001:");
+  });
+
   it("omits the DOM block when include.dom is false", () => {
     const text = assembleAgentContext({
       selection,

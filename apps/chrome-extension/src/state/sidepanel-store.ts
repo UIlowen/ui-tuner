@@ -195,8 +195,8 @@ function rememberElementNames(
 /** Mirror selection + change records to the bridge (M5 acceptance, §16). */
 function sendBridgeSync(): void {
   if (!bridgeChannel) return;
-  const { selection, changes } = useSidepanelStore.getState();
-  bridgeChannel.send(createBridgeSync({ selection, changes }));
+  const { selection, changes, instructions } = useSidepanelStore.getState();
+  bridgeChannel.send(createBridgeSync({ selection, changes, instructions }));
 }
 
 /** Reply to a bridge ui_capture request (M7, plan §27) with fresh state. */

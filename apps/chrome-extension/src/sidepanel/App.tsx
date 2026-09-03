@@ -150,6 +150,7 @@ function FooterActions() {
   const t = useT();
   const changes = useSidepanelStore((s) => s.changes);
   const elementNames = useSidepanelStore((s) => s.elementNames);
+  const instructions = useSidepanelStore((s) => s.instructions);
   const selection = useSidepanelStore((s) => s.selection);
   const source = useSidepanelStore((s) => s.source);
   const [copied, setCopied] = useState(false);
@@ -157,7 +158,7 @@ function FooterActions() {
   const copyChanges = async () => {
     try {
       await navigator.clipboard.writeText(
-        formatChangesetForCopy({ changes, elementNames, source, selection }),
+        formatChangesetForCopy({ changes, elementNames, instructions, source, selection }),
       );
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);

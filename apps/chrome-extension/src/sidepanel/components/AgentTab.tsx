@@ -34,6 +34,7 @@ export function AgentTab() {
   const selection = useSidepanelStore((s) => s.selection);
   const source = useSidepanelStore((s) => s.source);
   const changes = useSidepanelStore((s) => s.changes);
+  const instructions = useSidepanelStore((s) => s.instructions);
   const bridgeStatus = useSidepanelStore((s) => s.bridgeStatus);
   const agents = useSidepanelStore((s) => s.agents);
   const agentInstruction = useSidepanelStore((s) => s.agentInstruction);
@@ -60,10 +61,11 @@ export function AgentTab() {
         source,
         changes,
         instruction: agentInstruction,
+        instructions,
         include: agentInclude,
         level: agentContextLevel,
       }),
-    [selection, source, changes, agentInstruction, agentInclude, agentContextLevel],
+    [selection, source, changes, agentInstruction, instructions, agentInclude, agentContextLevel],
   );
 
   const copyPrompt = async () => {

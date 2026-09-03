@@ -222,7 +222,7 @@ describe("sidepanel store", () => {
         type: "bridge.hello",
         payload: { extensionVersion: "0.1.0", pageUrl: "http://localhost:5173/" },
       },
-      { type: "bridge.sync", payload: { selection: null, changes: [] } },
+      { type: "bridge.sync", payload: { selection: null, changes: [], instructions: {} } },
     ]);
     expect(useSidepanelStore.getState().bridgeStatus).toBe("connected");
 

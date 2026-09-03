@@ -255,6 +255,8 @@ export interface BridgeSyncMessage {
   payload: {
     selection: SelectionPayload | null;
     changes: StyleChange[];
+    /** elementId → 自然语言指令（可选，与 changes 搭配下发给 agent 上下文）。 */
+    instructions?: Record<string, string>;
   };
 }
 
@@ -852,6 +854,8 @@ export interface AgentContextInput {
   changes: StyleChange[];
   /** User instruction from the Agent tab (may be empty). */
   instruction: string;
+  /** Per-element natural-language instructions (elementId → instruction). */
+  instructions?: Record<string, string>;
   include?: AgentInclude;
   /** Context depth (plan §25); default Level 1 per §24. */
   level?: ContextLevel;
@@ -913,7 +917,7 @@ export function assembleAgentContext(input: AgentContextInput): string {
     parentTree: false,
   };
   const level = input.level ?? 1;
-  const { selection, source, changes, instruction } = input;
+  const { selection, source, changes, instruction, instructions } = input;
   const lines: string[] = [];
 
   // Selected component -------------------------------------------------------
@@ -965,6 +969,26 @@ export function assembleAgentContext(input: AgentContextInput): string {
   lines.push("User preview changes:");
   if (changes.length === 0) {
     lines.push("(none yet)");
+  } else if (instructions && changes.some((c) => instructions[c.elementId])) {
+    // Group per element (first-seen order) so each element's instruction sits
+    // with its changes — mirrors the Changes-tab copy snippet.
+    const groups: { elementId: string; changes: StyleChange[] }[] = [];
+    for (const change of changes) {
+      let group = groups.find((g) => g.elementId === change.elementId);
+      if (!group) {
+        group = { elementId: change.elementId, changes: [] };
+        groups.push(group);
+      }
+      group.changes.push(change);
+    }
+    for (const group of groups) {
+      lines.push(`Element ${group.elementId}:`);
+      const note = instructions[group.elementId];
+      if (note) lines.push(`instruction for ${group.elementId}: ${note}`);
+      for (const change of group.changes) {
+        lines.push(formatStyleChangeLine(change));
+      }
+    }
   } else {
     for (const change of changes) {
       lines.push(formatStyleChangeLine(change));
