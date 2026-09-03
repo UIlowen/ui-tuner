@@ -63,12 +63,36 @@ describe("Annotations", () => {
     expect(host?.shadowRoot).not.toBeNull();
   });
 
-  it("shows a bubble with the change count for each changed element", async () => {
-    annotations.sync([makeChange("ut-1"), makeChange("ut-1", "width", "200px")]);
+  it("numbers bubbles in annotation order, not change count", async () => {
+    const second = document.createElement("div");
+    second.setAttribute("data-ui-tuner-id", "ut-2");
+    document.body.appendChild(second);
+    mockRect(second, { x: 200, y: 100, width: 80, height: 30 });
+
+    annotations.sync([
+      makeChange("ut-1"),
+      makeChange("ut-1", "width", "200px"),
+      makeChange("ut-2"),
+    ]);
     await nextFrame();
-    const bubble = query<HTMLButtonElement>(".bubble");
-    expect(bubble.style.display).toBe("block");
-    expect(bubble.textContent).toBe("2");
+
+    const bubbles = [
+      ...(annotations.root?.shadowRoot?.querySelectorAll<HTMLButtonElement>(".bubble") ?? []),
+    ];
+    // Identify bubbles by their pinned corner (rect.right): ut-1 → 130px, ut-2 → 280px.
+    const byLeft = new Map(bubbles.map((b) => [b.style.left, b.textContent]));
+    expect(byLeft.get("130px")).toBe("1"); // two changes, but the number is the sequence
+    expect(byLeft.get("280px")).toBe("2");
+  });
+
+  it("restarts numbering after all changes are reset", async () => {
+    annotations.sync([makeChange("ut-1")]);
+    await nextFrame();
+    annotations.sync([]);
+    await nextFrame();
+    annotations.sync([makeChange("ut-1")]);
+    await nextFrame();
+    expect(query<HTMLButtonElement>(".bubble").textContent).toBe("1");
   });
 
   it("removes the bubble when the element's changes are gone", async () => {

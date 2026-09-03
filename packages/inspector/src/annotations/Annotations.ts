@@ -27,6 +27,9 @@ export class Annotations {
   private shadow: ShadowRoot | null = null;
   private popover: HTMLDivElement | null = null;
   private bubbles = new Map<string, HTMLButtonElement>();
+  /** Stable per-element annotation sequence numbers (1, 2, 3… by first-change order). */
+  private numbers = new Map<string, number>();
+  private nextNumber = 1;
   private openFor: string | null = null;
   private changes: StyleChange[] = [];
   private rafId: number | null = null;
@@ -70,6 +73,8 @@ export class Annotations {
   unmount(): void {
     this.stopLoop();
     this.bubbles.clear();
+    this.numbers.clear();
+    this.nextNumber = 1;
     this.openFor = null;
     this.changes = [];
     this.host?.remove();
@@ -83,6 +88,21 @@ export class Annotations {
     this.changes = changes;
     if (!this.shadow) return;
     const elementIds = new Set(changes.map((change) => change.elementId));
+
+    // Reset-all restarts the numbering from 1.
+    if (elementIds.size === 0) {
+      this.numbers.clear();
+      this.nextNumber = 1;
+    }
+    // Elements whose changes are fully gone lose their number (a later
+    // re-change gets a fresh one).
+    for (const elementId of this.numbers.keys()) {
+      if (!elementIds.has(elementId)) this.numbers.delete(elementId);
+    }
+    // First-seen elements take the next sequence number.
+    for (const elementId of elementIds) {
+      if (!this.numbers.has(elementId)) this.numbers.set(elementId, this.nextNumber++);
+    }
 
     // Drop bubbles whose element no longer has changes.
     for (const [elementId, bubble] of this.bubbles) {
@@ -182,9 +202,7 @@ export class Annotations {
         continue;
       }
       anyVisible = true;
-      bubble.textContent = String(
-        this.changes.filter((c) => c.elementId === elementId).length,
-      );
+      bubble.textContent = String(this.numbers.get(elementId) ?? "");
       bubble.style.display = "block";
       bubble.style.left = `${rect.right}px`;
       bubble.style.top = `${rect.top}px`;

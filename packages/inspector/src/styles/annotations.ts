@@ -13,14 +13,14 @@ export const ANNOTATIONS_SHADOW_CSS = `
   .bubble {
     position: fixed;
     transform: translate(-50%, -50%);
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
     border: none;
-    border-radius: 9px;
-    background: #8b5cf6;
+    border-radius: 50%;
+    background: #3b82f6;
     color: #fff;
-    font: 600 11px/18px ui-sans-serif, system-ui, sans-serif;
+    font: 600 11px/20px ui-sans-serif, system-ui, sans-serif;
     text-align: center;
     cursor: pointer;
     pointer-events: auto;
