@@ -10,10 +10,10 @@
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
-| 分支     | **`feat/ui-ux-polish`（36 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（**328 例测试**：protocol 26 / inspector 123 / bridge 74 / extension 105）                                                                                                                                                |
-| 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡输入框内按 Esc 会连带退出整个注释模式**（未修，backlog）；`docs/architecture.md` 仍描述注释模式之前的三 Tab 面板（未同步，读它时以本文档 §4/§6 为准） |
+| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
+| 分支     | **`feat/ui-ux-polish`（38 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（**373 例测试**：protocol 26 / inspector 123 / bridge 74 / extension 150）                                                                                                                                                |
+| 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡的麦克风是禁用占位**（灰态 + 「语音输入即将上线」，未接语音识别）；**编辑卡指令输入框内按 Esc 会连带退出整个注释模式**（未修，backlog）；`docs/architecture.md` 仍描述注释模式之前的三 Tab 面板（未同步，读它时以本文档 §4/§6 为准） |
 
 ## 2. 三十秒上下文
 
@@ -57,13 +57,16 @@ UI Tuner/
       src/
         background/            SW：点击图标开面板
         content/               内容脚本：接线 inspector ↔ Port（chrome 知识只在这里）
-          card/                **页面侧编辑卡**：EditorCard.tsx（React）+ mount-card.tsx
-                               （挂到 shadow root `ui-tuner-editor-card-root`）+ inject-styles.ts
+          card/                **页面侧编辑卡**：EditorCard.tsx（React，紧凑/展开两态）+
+                               mount-card.tsx（挂到 shadow root `ui-tuner-editor-card-root`）+
+                               placement.ts（就近弹出的纯函数）+ inject-styles.ts
                                （Tailwind token scoped 到 :host，adoptedStyleSheets）
         sidepanel/             React App（App.tsx = 两态注释面板，**已无 Style Tab**；
                                components/ = ChangesTab / AgentTab / ApplySection）
         style-editor/          样式控件（ScrubInput / rows / StylePanel / StyleEditContext）——
                                从 sidepanel 抽出，供**编辑卡**复用（面板不再直接编辑）
+        ui/                    icons.tsx（Remix Icon 派生的内联 SVG 组件）+ REMIXICON-LICENSE
+        styles/                sidepanel.css（主题令牌）+ tokens.test.ts（与 card.css 的防漂移守卫）
         i18n/                  messages.ts（zh/en，键必须齐平）+ use-t.ts
         messaging/channel.ts   Port 类型化封装（PortLike 结构接口）
         state/                 zustand store（sidepanel-store：连接/picking/selection/changes/
@@ -105,6 +108,11 @@ UI Tuner/
 | **退出注释模式只清「页面侧」选中视觉**：`clearPageSelection()`（≠ `clearSelection()`）清 tracker/overlay 但**不发 `selection.cleared`**，也保留 `lastSelector`/`lastFingerprint` | 用户要「退出后页面干净」，但 `ApplySection` 整体门控在 `selection` 上——发了 cleared 就等于顺手删掉 Apply 入口；保留指纹是为了 apply 后 HMR 重定位（`locateAppliedElement`） |
 | **卡片高亮「已改动」属性行**：`changedProperties` 由 content 从 ChangeTracker 去重算出 → `EditorCard` 转成 `StyleEditApi.changed` → `rows.tsx` 的 `useIsChanged()` 给 `Row` 打 `data-changed` + 紫色左边线；卡片挂载时把**第一处**标记 `scrollIntoView({block:"nearest"})` | 几十个属性里看不出上一步改了什么；body 只有 320px 高，不滚动的话标记等于没有。复合控件（间距轴 / 对齐九宫格）一次写多个属性，传全部、命中任一即亮 |
 | **编辑卡就近弹出**：`content/card/placement.ts` 纯函数按「右→左→下→上」四候选取第一个放得下的，都不行才 clamp；`mount-card.show(props, anchor)` 用 **`flushSync`** 先提交渲染再量 `container.getBoundingClientRect()` | 卡片贴在元素旁边才符合「在元素上调」的心智；不先同步渲染就量尺寸，会拿到未渲染的 0×0 而漏判所有溢出 |
+| **编辑卡只有紧凑/展开两态**（Codex 式），且**默认态由 props 推出、不记忆**：`number !== null ∨ changedProperties 非空 ∨ 已有指令` → 展开，否则紧凑（单行输入 + ✓） | 新选元素的常见诉求是「写一句话」，紧凑态就够；已注释的元素必须展开，否则上一轮的改动行高亮与自动滚动会被藏在一行输入框后面。由 props 推出 → `types.ts`/`placement.ts`/`content/index.ts` 都不用加接线，`key: elementId` 的 remount 天然按元素重算 |
+| **图标一律来自 `src/ui/icons.tsx`**（Remix Icon v4.9.1 派生的内联 SVG，`viewBox="0 0 24 24"` + `fill="currentColor"`，许可全文在 `src/ui/REMIXICON-LICENSE`）；不再用 Unicode 字符当图标 | Remix 是**填充型**几何，必须显式 `fill="currentColor"` 才跟随主题（否则暗色下是死黑）；不用图标字体是因为 `manifest.json` 没有 `web_accessible_resources`，字体会逼出一次 manifest 变更 |
+| **23 个主题令牌在 `styles/sidepanel.css`（`:root`/`.dark`）与 `content/card/card.css`（`:host`/`:host(.dark)`）之间逐字复制**，3 个圆角（`--radius-card/control/pill`）作为字面量写在各自的 `@theme inline`；`styles/tokens.test.ts` 是唯一的防漂移守卫 | shadow root 里 `:root` 拿不到页面根，所以重复是**必要的**（选择器不同，抽不出共享文件）；但没有任何构建步骤会发现两边漂移——一处改名就让那个界面裸奔，故用测试断言三组令牌名集合相等 |
+| **卡片尺寸变化后必须重新 clamp**：mount 层对 `container` 挂 `ResizeObserver` → `clampOffset()` + `applyOffset()`（`unmount()` 里 disconnect） | 放置只在 `show()` 时按当时量到的尺寸做一次，而紧凑态 40px ↔ 展开态 ~396px 差一个数量级，指令 textarea 还能被用户拖高；贴底元素展开后 footer 会掉到视口外，**取消/保存点不到**（真机验收实测 bottom 916 > 720） |
+| **content 侧监听 `chrome.storage.onChanged` 同步 locale/theme**（`applyStoredPrefs()` 与 connect 时的 hydrate 共用一处） | 面板是另一个 JS 上下文且是唯一写入方；只在 connect 时读一次，切主题/语言后**已打开页面上的卡片会停在旧主题直到刷新**（真机验收实测：面板已暗、卡片仍亮） |
 
 ## 5. 常用命令
 
@@ -245,16 +253,37 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 - 踩坑记录：脚本用 `[role="slider"][aria-valuenow="16"]` 定位「圆角」滑块，结果 `.first()` 命中的是**字号**（computed font-size 也是 16），于是「标记圆角」和「radius 变成 24px」两条误报 ❌——产品行为其实是对的（它老老实实高亮了真正被改的字号行）。修法：把 fixture 的 border-radius 设成**卡片内唯一**的 36px，并**紧跟保存加一条「radius 确实生效」的断言**，让定位错误立刻暴露在源头而不是污染后面的判断。教训延续上一轮：断言要量用户看到的东西，而定位器要保证自己指向的确实是那个东西。
 - 未修（已在 backlog）：编辑卡输入框内按 Esc 仍会连带退出整个注释模式。
 
+**Codex 风格视觉重做（2026-09-04，编辑卡两态 + Remix 图标 + 属性控件/面板换外观）**
+
+用户带 Codex 注释交互截图（选中加注释 / 文字描述 / 属性展开 / 点气泡查看注释）要求「按照他的交互逻辑以及面板的 UI 样式、属性控件组件去修改目前的面板，所有 icon 用 remix 平台的开源图标」。四项决策已锁定：**范围 = 编辑卡 + Side Panel 一起**、**交互结构 = Codex 两态**（取代「属性精调 / 自然语言」页签 + 折叠条）、**属性控件 = 保留拖拽只换外观**、**麦克风 = 放图标但禁用**。
+
+- **图标系统**：`remixicon` v4.9.1 作为 extension 的 devDependency（**只是路径数据来源**，不进运行时依赖），手工抽出 `src/ui/icons.tsx` 的 28 个组件（`makeIcon(d)` 共用 `viewBox="0 0 24 24"` + `fill="currentColor"` + `aria-hidden`），许可全文拷到 `src/ui/REMIXICON-LICENSE`（注意包内许可不是标准 Apache-2.0，而是「Remix Icon License v1.0」）。**不用图标字体**：`manifest.json` 没有 `web_accessible_resources`，字体会逼出一次 manifest 变更，内联 SVG 不用。全项目从此不再有 Unicode 字符当图标（⠿ ▴ ▾ ⇔ ▸ ↩ ✕ ☀ ☾ ◐ ✓ 全删）。
+- **令牌**：新增 3 个圆角（`--radius-card: 14px` / `--radius-control: 6px` / `--radius-pill: 999px`），作为字面量分别写进 `styles/sidepanel.css` 与 `content/card/card.css` 各自的 `@theme inline`；散落的硬编码色（`ring-violet-500/70`、`bg-violet-500/20`、`ring-zinc-500`）换成 `ring-accent-text/60`、`bg-accent-text/15` 等令牌，亮暗两套才都对。**明确不做「共享 tokens.css」抽取**（两边选择器不同——`:root`/`.dark` vs `:host`/`:host(.dark)`，抽不干净，只换来构建风险），改为新增 `styles/tokens.test.ts` 用正则提取两个文件的 `--*` 声明名、断言三组集合相等。
+- **编辑卡两态**：`EditorCard.tsx` 重写，删掉 `mode` / `collapsed` 两个 state，只留 `viewState: "compact" | "expanded"`，**默认态由 props 推出且不记忆**（`annotated = number !== null ∨ changedProperties 非空 ∨ 已有指令`）。紧凑态一行 = 序号徽章 + `div` 标签 pill + 单行 `<input>`（Enter = 提交）+ 禁用麦克风 + 圆形 ✓；展开态 = 拖拽把手/徽章/标签/收起箭头 + `rows={3}` textarea + `StylePanel` + 底部 删除/麦克风/取消/保存；卡宽 280 → **320px**，外壳 `rounded-card`。**`types.ts` / `placement.ts` / `content/index.ts` 因此不需要新接线**（默认态完全由已有 props 推出），`key: elementId` 的 remount 天然按元素重算。**明确不做**：7 个属性分组不改成手风琴（截图只露出两组，但折叠分组会让 `rows.test.tsx` 的行查询失效，且属于新增行为而非「照搬交互」）。
+- **属性控件**：`ScrubInput.tsx` **一行逻辑都没动**——`role="slider"` + aria 三件套、pointer capture、`scrubMultiplier`（Shift ×10 / Option ×0.1）、rAF 节流 `flushPreview`、拖拽期 `applyDragValue` 直写 DOM、`releasePointerCapture` 的 try/catch 守卫、方向键、双击进 `<input>`、以及「`currentValue` ref 只在 idle 时同步 prop」那段（M8 真机自测 3 的回归修复）全部原样保留；只把 idle 外观从实心 `bg-control` 换成凹陷字段 `bg-inset rounded-control`、拖拽/聚焦换成 `bg-accent-text/15 ring-accent-text/60`、`⇔` 换成 `DragIcon`。`rows.tsx` 的 `SegmentRow` 新增可选 `icon`（有则渲图标 + `aria-label`，无则照旧渲文字，所以 display/direction/wrap/weight 仍是文字）；`GroupHeader` 新增 `icon`，`StylePanel` 七个分组各传一个；`ColorRow` 右侧显示计算值原文（`rgba(18, 18, 20, 1)`），本地 `draft` 追踪保留。**所有 `data-changed` / `title` / `aria-*` 钩子一个没少**——改动行高亮与自动滚动都靠它们。
+- **Side Panel**：`App.tsx`（主题 ☀☾◐ → Remix 图标，「中/EN」保留文字）、`ChangesTab.tsx`（还原 / 全部重置换图标，每行改成「属性名暗 / 旧值划线 → 新值亮」两列）、`AgentTab.tsx`、`ApplySection.tsx`（应用到代码 / 已应用 / 重试 / 忽略 加图标，圆角统一 `rounded-control`）。**store / 协议 / 数据流一行未动**，面板宽度也不动（由用户拖拽决定）。
+- **i18n**：删 `card.properties` / `card.naturalLanguage`（页签没了），改 `card.instructionPlaceholder` 为「这个元素要怎么改？」，新增 `card.submit` / `card.micSoon`；`card.collapse` / `card.expand` 保留但语义变成「收起为紧凑态 / 展开」。zh/en 键齐平由 `messages.test.ts` 守着。
+
+**真机验收暴露的两个真实缺陷（都超出了原计划的「不改文件」清单，已修）**：
+
+1. **贴底元素展开后 footer 掉到视口外，取消/保存点不到** —— 放置只在 `show()` 时按**当时**量到的尺寸做一次，而紧凑态 40px ↔ 展开态 ~396px 差一个数量级（实测 `bottom 916 > 720`），指令 textarea 还能被用户拖高。修复在 **mount 层**（不动 props/协议）：`mount-card.tsx` 对 `container` 挂 `ResizeObserver` → `clampOffset()` + `applyOffset()`，`unmount()` 里 disconnect。移动宿主不会改变 container 的尺寸，所以不会自激。
+2. **面板切了暗色，已打开页面上的卡片仍是亮色** —— prefs 只在 connect 时 hydrate 一次，而面板是另一个 JS 上下文且是唯一写入方。修复在 `content/index.ts`：抽出 `applyStoredPrefs()`（connect 路径与实时路径共用），并新增 `chrome.storage.onChanged` 监听（只对 `areaName === "local"` 生效）。
+
+- 验证：`pnpm build/test/typecheck/lint` 全绿，**373 例**（extension 105 → **150**：icons 28 / tokens 3 / EditorCard 重写 10 / mount-card +1 / content +1 / rows & ScrubInput 断言未改仍通过）；**mutation check 4 次全部如期杀死**（默认态硬写成 `"compact"` → 展开态用例失败；去掉麦克风 `disabled` → 麦克风用例失败；`card.css` 改一个令牌名 → `tokens.test.ts` 失败；注释掉 observer 里的 `clampOffset()` → 新增的重 clamp 用例失败，报 `translate(312px, 700px)` ≠ `translate(312px, 372px)`）。
+- 真机浏览器 `.playwright-mcp/verify-codex-card-ui.mjs` **62/62 断言全过**：新选取 `#boxA` → 紧凑态（徽章/标签/单行输入/禁用麦克风/圆形 ✓ 都在，整卡在视口内）→ 输入一句话 + ✓ → 气泡「1」+ 面板 `Preview · 1`；点气泡 → 展开、改动行高亮且 `inView`；按标签定位「高」滑块 → 断言 `inBody && grabbable` → 真实鼠标拖 +40px → 80→120px → 双击行内 input 填 140 + Enter → 140px；三个边角元素（`#boxRight` / `#boxBottom` / `#boxCorner`）紧凑态放置 + 必要时翻边，**展开后**断言仍在视口内、保存按钮命中卡片宿主、不遮住目标元素；亮/暗两套主题各采样卡片与面板图标，断言 `fill === currentColor` 且暗色下没有 `rgb(0, 0, 0)`（图标随主题变色，不是死黑）。
+- **踩坑记录（本轮 5 条 ❌ 里有 3 条是探针自己的错、2 条是真 bug）**：① 徽章探针用 `[data-drag-handle]`，但那个属性在紧凑态挂在徽章上、展开态挂在拖拽把手上 → 改为 `[class*="bg-accent-text"]` 并把 `dragHandle` 单独回报；② `input[class*="ring-accent-text"]` 也会命中 `TextRow`（它的 `focus-visible:ring-accent-text/50`），`.first()` 在 DOM 序里是间距行 → 140 被打进间距、多出一条 change；改用**行级定位** `div:has(> span[title="高"]) input`；③ 拖动前不检查目标是否真的可点 → 「高」滑块的 rect 在 320px body 底边下 3px，鼠标落在 footer 上，于是三条拖动断言全红而产品没错；现在每次拖动前都按标签滚进可视区并断言 `inBody && grabbable`；④ 主题探针读卡片宿主的 `dark` class，但切主题时根本没有卡片打开 → 永远 false，「亮色」那组采样其实没被强制成亮色；改为按面板按钮的可访问名（`主题：亮色（点击切换）`）驱动。**教训强化版：断言前先证明探针指向的确实是那个东西、且那个东西真的可被用户点到——否则失败里混着自己的 bug，会把对的实现改坏。**
+- 已知遗留：`mount-card.test.tsx` 的 `act(...)` 警告是既有噪声，本轮未动。
+
 ## 7. 项目状态：核心闭环完成，`feat/ui-ux-polish` 待推送 + 待合并决策
 
 核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并多轮真机验收（M8、注释模式、页面编辑卡）。无后续里程碑，剩余为 backlog 增强项。
 
 **下一步待用户决策（截至 2026-09-04）**：
-1. `feat/ui-ux-polish`（36 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
+1. `feat/ui-ux-polish`（38 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
 2. 合并到 `main` 的决策（PR 还是直接 merge）尚未做。
 3. `docs/architecture.md` 未同步注释模式 + 页面编辑卡（仍写三 Tab 面板与 `sidepanel.stylePreview`）；下次动架构文档时一并补。
 
-**注意**：顺延项都在 `docs/backlog.md`（Next App Router 适配、数据驱动文本索引、索引缓存、HMR 跨刷新持久化 §37、颜色 alpha、CLI npm 发布、codex MCP 免 bypass flag、ui_capture 元素级裁剪、**编辑卡内 Esc 只关卡片**）。
+**注意**：顺延项都在 `docs/backlog.md`（Next App Router 适配、数据驱动文本索引、索引缓存、HMR 跨刷新持久化 §37、颜色 alpha、CLI npm 发布、codex MCP 免 bypass flag、ui_capture 元素级裁剪、**编辑卡内 Esc 只关卡片**、**编辑卡语音输入**（麦克风目前是禁用占位））。
 
 ## 8. 新会话启动模板（计划 §52）
 
