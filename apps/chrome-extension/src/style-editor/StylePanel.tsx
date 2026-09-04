@@ -12,10 +12,15 @@ import {
 } from "./rows";
 import { useStyleEdit } from "./StyleEditContext";
 
+/** Subtle horizontal divider between property groups. */
+function Divider() {
+  return <div className="my-1.5 h-px bg-edge" />;
+}
+
 /**
  * Curated property list aligned with Codex: only the ~17 commonly-adjustable
- * CSS properties, flat (no group headers). Flex-specific rows (direction /
- * justify / align / gap) only render when display is flex.
+ * CSS properties, grouped with dividers (no group headers). Flex-specific rows
+ * (direction / justify / align / gap) only render when display is flex.
  */
 export function StylePanel() {
   const { values } = useStyleEdit();
@@ -25,10 +30,14 @@ export function StylePanel() {
 
   return (
     <div className="space-y-1">
+      {/* Group 1: Color & Opacity */}
       <ColorRow property="color" label="文本颜色" />
       <ColorRow property="background-color" label="背景" />
       <ScrubField property="opacity" label="Opacity" step={0.01} fallbackUnit="" min={0} max={1} />
 
+      <Divider />
+
+      {/* Group 2: Typography */}
       <SelectRow
         property="font-family"
         label="字体"
@@ -51,10 +60,16 @@ export function StylePanel() {
         ]}
       />
 
+      <Divider />
+
+      {/* Group 3: Border */}
       <ScrubField property="border-radius" label="边框圆角半径" />
       <ColorRow property="border-color" label="边框颜色" />
       <ScrubField property="border-width" label="边框宽度" />
 
+      <Divider />
+
+      {/* Group 4: Size & Spacing */}
       <ScrubField property="width" label="宽度" />
       <ScrubField property="height" label="高度" />
 
@@ -63,6 +78,9 @@ export function StylePanel() {
 
       {isFlex && (
         <>
+          <Divider />
+
+          {/* Group 5: Flex Layout */}
           <SelectRow
             property="flex-direction"
             label="布局方向"
