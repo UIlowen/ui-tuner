@@ -169,7 +169,6 @@ export function EditorCard(props: EditorCardProps) {
   const submit = (): void => props.onSave(instruction);
 
   const tagName = props.tagName ?? "";
-  const hasInstruction = instruction.trim() !== "";
 
   if (viewState === "compact") {
     return (
@@ -247,14 +246,14 @@ export function EditorCard(props: EditorCardProps) {
           data-drag-handle
           aria-label={t("card.dragHandle")}
           title={t("card.dragHandle")}
-          className="shrink-0 cursor-grab text-ghost select-none transition-colors hover:text-dim"
+          className="grid h-7 w-7 shrink-0 cursor-grab place-items-center rounded-pill bg-inset text-dim select-none transition-colors hover:bg-control hover:text-text"
         >
           <DragIcon className="size-3.5" />
         </span>
       </header>
 
-      {/* Element tag subtitle (shown when instruction occupies the header) */}
-      {hasInstruction && tagName && (
+      {/* Element tag subtitle */}
+      {tagName && (
         <div className="flex shrink-0 items-center gap-1.5 border-b border-edge px-2 py-1">
           <span className="text-[10px] font-medium uppercase tracking-wider text-faint">
             {tagName}
