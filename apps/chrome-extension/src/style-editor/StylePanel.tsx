@@ -24,6 +24,7 @@ import {
   SegmentRow,
   TextRow,
   useIsChanged,
+  useIsDirty,
 } from "./rows";
 import { useStyleEdit } from "./StyleEditContext";
 
@@ -40,7 +41,7 @@ export function StylePanel() {
   const isGrid = display === "grid" || display === "inline-grid";
 
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1">
       <GroupHeader title={t("group.layout")} icon={<LayoutIcon className="size-3" />} />
       <SegmentRow
         property="display"
@@ -166,6 +167,7 @@ function AlignmentControl() {
   const t = useT();
   const { values, updateStyle, revertStyle } = useStyleEdit();
   const isChanged = useIsChanged(["justify-content", "align-items"]);
+  const isDirty = useIsDirty(["justify-content", "align-items"]);
   const justify = values["justify-content"] ?? "";
   const align = values["align-items"] ?? "";
 
@@ -173,6 +175,7 @@ function AlignmentControl() {
     <Row
       label={t("style.align")}
       changed={isChanged}
+      dirty={isDirty}
       onReset={() => revertStyle(["justify-content", "align-items"])}
     >
       <div className="grid size-[48px] grid-cols-3 gap-0.5 rounded-control bg-inset p-0.5">
@@ -306,17 +309,18 @@ function AxisScrub({
 }) {
   const { revertStyle } = useStyleEdit();
   const isChanged = useIsChanged(properties);
+  const isDirty = useIsDirty(properties);
   const parsed = parseCssValue(raw);
   const reset = () => revertStyle(properties);
   if (!parsed) {
     return (
-      <Row label={label} changed={isChanged} onReset={reset}>
+      <Row label={label} changed={isChanged} dirty={isDirty} onReset={reset}>
         <span className="truncate font-mono text-[10px] text-ghost">{raw || "—"}</span>
       </Row>
     );
   }
   return (
-    <Row label={label} changed={isChanged} onReset={reset}>
+    <Row label={label} changed={isChanged} dirty={isDirty} onReset={reset}>
       <ScrubInput
         value={parsed.value}
         unit={parsed.unit || "px"}

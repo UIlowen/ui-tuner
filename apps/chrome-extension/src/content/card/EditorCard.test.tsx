@@ -137,16 +137,16 @@ describe("EditorCard", () => {
   });
 
   describe("badges", () => {
-    it("shows the tag name and an unsaved badge when number is null", () => {
+    it("shows the tag name and a settings icon when number is null", () => {
       render(<EditorCard {...baseProps()} />);
       expect(screen.getByText("button")).toBeTruthy();
-      expect(screen.getByText("未保存")).toBeTruthy();
+      expect(screen.getByLabelText("拖动卡片")).toBeTruthy();
     });
 
     it("shows the sequence number badge when provided", () => {
       render(<EditorCard {...baseProps({ number: 3 })} />);
       expect(screen.getByText("3")).toBeTruthy();
-      expect(screen.queryByText("未保存")).toBeNull();
+      expect(screen.queryByText("button")).toBeNull();
     });
   });
 

@@ -10,9 +10,9 @@
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
+| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
 | 分支     | **`feat/ui-ux-polish`（38 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（**373 例测试**：protocol 26 / inspector 123 / bridge 74 / extension 150）                                                                                                                                                |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（**377 例测试**：protocol 26 / inspector 123 / bridge 74 / extension 154）                                                                                                                                                |
 | 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡的麦克风是禁用占位**（灰态 + 「语音输入即将上线」，未接语音识别）；**编辑卡指令输入框内按 Esc 会连带退出整个注释模式**（未修，backlog）；`docs/architecture.md` 仍描述注释模式之前的三 Tab 面板（未同步，读它时以本文档 §4/§6 为准） |
 
 ## 2. 三十秒上下文
@@ -283,6 +283,21 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 
 - 验证：`pnpm build/test/typecheck/lint` 全绿，**373 例**（extension 150 → **154**：EditorCard +2 / rows +2；inspector **119**：新增 `StagingEngine.test.ts` 2 例）。
 - 真机浏览器 `.playwright-mcp/verify-codex-card-ui.mjs` **62/62 断言全过**。
+
+**编辑卡 UI 细节打磨（2026-09-04）**
+
+用户针对当前交付提出四点 UI 细节打磨：
+
+1. **去掉「未保存」文字徽章**：紧凑态未保存时改为 `SettingsIcon` 设置图标，同时保留拖拽把手；展开态头部也去掉 tag name pill，改为同一设置图标。紧凑态 padding 增加到 `py-2.5 px-2`。
+2. **展开态用 icon 替 tag**：`EditorCard` 展开 header 不再显示元素标签名，只保留设置图标 + 序号徽章（如有）。
+3. **减少属性模块拥挤**：`StylePanel` 行间距从 `space-y-0.5` 加大到 `space-y-1`；`GroupHeader` 上间距从 `mt-2.5` 加大到 `mt-4`；`Row` 增加 `py-0.5 px-1` 内边距，让左右内边距更舒展。
+4. **属性行点击激活 + 即时 reset**：
+   - 行容器增加 `focus-within:ring-1 focus-within:ring-accent-text/30`，点击输入框时整行出现边框高亮。
+   - `ScrubInput` 拖拽态和 focus 态 ring 从 `ring-1` 增强到 `ring-2`；`TextRow`、`ColorRow`、`SegmentRow` 的 focus/active ring 同步增强。
+   - `StyleEditApi` 新增 `dirty: ReadonlySet<string>` 追踪当前编辑会话中的改动；`Row` 接收 `dirty` prop，对 `changed || dirty` 都显示 reset 按钮，调用 `revertStyle` 回滚。
+
+- 验证：`pnpm build/test/typecheck/lint` 全绿，**375 例**（protocol 26 / inspector 119 / bridge 74 / extension 156），rows 新增 1 例 dirty reset。
+- 真机浏览器 `.playwright-mcp/verify-codex-card-ui.mjs` 断言「紧凑态显示『未保存』徽章」改为「紧凑态用设置图标替代『未保存』徽章」，**62/62 断言全过**。
 
 ## 7. 项目状态：核心闭环完成，`feat/ui-ux-polish` 待推送 + 待合并决策
 

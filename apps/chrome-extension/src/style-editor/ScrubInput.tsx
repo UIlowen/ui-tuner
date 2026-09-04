@@ -159,7 +159,7 @@ export function ScrubInput({
           else if (event.key === "Escape") setEditing(false);
         }}
         onBlur={finishEditing}
-        className="h-6 w-full rounded-control bg-base px-1.5 font-mono text-[11px] text-text-strong ring-1 ring-accent-text/60 outline-none"
+        className="h-6 w-full rounded-control bg-base px-1.5 font-mono text-[11px] text-text-strong ring-2 ring-accent-text/80 outline-none"
       />
     );
   }
@@ -180,8 +180,8 @@ export function ScrubInput({
       title={t("scrub.hint")}
       className={`group flex h-6 min-w-0 flex-1 cursor-ew-resize items-center justify-end gap-1 rounded-control px-1.5 font-mono text-[11px] text-text-strong outline-none select-none transition-colors ${
         dragging
-          ? "bg-accent-text/15 ring-1 ring-accent-text/60"
-          : "bg-inset hover:bg-control focus-visible:bg-control focus-visible:ring-1 focus-visible:ring-accent-text/50"
+          ? "bg-accent-text/15 ring-2 ring-accent-text/80"
+          : "bg-inset hover:bg-control focus-visible:bg-control focus-visible:ring-2 focus-visible:ring-accent-text/70"
       }`}
       style={{ touchAction: "none" }}
     >

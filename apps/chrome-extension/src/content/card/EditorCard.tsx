@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../../i18n/use-t";
 import { StyleEditContext, type StyleEditApi } from "../../style-editor/StyleEditContext";
 import { StylePanel } from "../../style-editor/StylePanel";
-import { CheckIcon, ChevronUpIcon, DragIcon, MicIcon, TrashIcon } from "../../ui/icons";
+import { CheckIcon, ChevronUpIcon, DragIcon, MicIcon, SettingsIcon, TrashIcon } from "../../ui/icons";
 import type { EditorCardProps } from "./types";
 
 /**
@@ -75,6 +75,7 @@ export function EditorCard(props: EditorCardProps) {
   const api: StyleEditApi = {
     values,
     changed,
+    dirty: dirtySet,
     updateStyle: (property, value, committed) => {
       props.onStage(property, value, committed);
       if (committed) {
@@ -90,7 +91,11 @@ export function EditorCard(props: EditorCardProps) {
       let any = false;
       for (const p of properties) {
         if (nextReverted.has(p)) continue;
-        const original = props.onRevert(p);
+        let original: string | null = props.onRevert(p);
+        // No recorded change yet, but the user edited it in this session.
+        if (original === null && nextDirty.has(p)) {
+          original = props.initialValues[p] ?? null;
+        }
         if (original !== null) {
           nextValues[p] = original;
           nextReverted.add(p);
@@ -109,19 +114,29 @@ export function EditorCard(props: EditorCardProps) {
   const instructionDirty = instruction.trim() !== props.initialInstruction.trim();
   const canSave = dirtySet.size > 0 || instructionDirty;
 
-  const badge = props.number === null ? t("card.unsaved") : String(props.number);
   const submit = (): void => props.onSave(instruction);
 
   if (viewState === "compact") {
     return (
-      <div className="flex w-[320px] items-center gap-1 rounded-card border border-edge bg-surface-solid p-1.5 shadow-2xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
-        <span
-          data-drag-handle
-          title={t("card.dragHandle")}
-          className="grid h-7 shrink-0 cursor-grab place-items-center rounded-pill bg-accent-text/15 px-1.5 text-[10px] font-semibold text-accent-text select-none"
-        >
-          {badge}
-        </span>
+      <div className="flex w-[320px] items-center gap-1 rounded-card border border-edge bg-surface-solid py-2.5 px-2 shadow-2xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
+        {props.number === null ? (
+          <span
+            data-drag-handle
+            aria-label={t("card.dragHandle")}
+            title={t("card.dragHandle")}
+            className="grid h-7 w-7 shrink-0 cursor-grab place-items-center rounded-pill bg-inset text-dim transition-colors hover:bg-control hover:text-text select-none"
+          >
+            <SettingsIcon className="size-4" />
+          </span>
+        ) : (
+          <span
+            data-drag-handle
+            title={t("card.dragHandle")}
+            className="grid h-7 shrink-0 cursor-grab place-items-center rounded-pill bg-accent-text/15 px-1.5 text-[10px] font-semibold text-accent-text select-none"
+          >
+            {String(props.number)}
+          </span>
+        )}
         <button
           type="button"
           onClick={() => setViewState("expanded")}
@@ -167,11 +182,13 @@ export function EditorCard(props: EditorCardProps) {
         >
           <DragIcon className="size-3.5" />
         </span>
-        <span className="grid h-5 shrink-0 place-items-center rounded-pill bg-accent-text/15 px-1.5 text-[10px] font-semibold text-accent-text">
-          {badge}
-        </span>
-        <span className="shrink-0 rounded-pill bg-inset px-2 py-0.5 font-mono text-[10px] text-dim">
-          {props.tagName}
+        {props.number !== null && (
+          <span className="grid h-5 shrink-0 place-items-center rounded-pill bg-accent-text/15 px-1.5 text-[10px] font-semibold text-accent-text">
+            {String(props.number)}
+          </span>
+        )}
+        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-pill bg-inset text-dim">
+          <SettingsIcon className="size-3" />
         </span>
         <button
           type="button"
@@ -184,7 +201,7 @@ export function EditorCard(props: EditorCardProps) {
         </button>
       </header>
 
-      <div ref={bodyRef} className="max-h-[320px] min-h-0 overflow-y-auto px-2 py-2">
+      <div ref={bodyRef} className="max-h-[320px] min-h-0 overflow-y-auto px-3 py-3">
         <textarea
           value={instruction}
           onChange={(event) => setInstruction(event.target.value)}

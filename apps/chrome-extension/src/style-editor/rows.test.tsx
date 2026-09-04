@@ -27,12 +27,14 @@ interface UpdateCall {
 function createApi(
   values: Record<string, string>,
   changed: string[] = [],
+  dirty: string[] = [],
 ): { api: StyleEditApi; calls: UpdateCall[]; reverts: string[] } {
   const calls: UpdateCall[] = [];
   const reverts: string[] = [];
   const api: StyleEditApi = {
     values,
     changed: new Set(changed),
+    dirty: new Set(dirty),
     updateStyle: (property, value, committed) => {
       calls.push({ property, value, committed });
     },
@@ -148,5 +150,18 @@ describe("per-property reset", () => {
       </StyleEditContext.Provider>,
     );
     expect(container.querySelector("[aria-label='还原 Height']")).toBeNull();
+  });
+
+  it("shows a reset button for a dirty row (current-session edit) and calls revertStyle", () => {
+    const { api, reverts } = createApi({ height: "38px" }, [], ["height"]);
+    const { container } = render(
+      <StyleEditContext.Provider value={api}>
+        <ScrubField property="height" label="Height" />
+      </StyleEditContext.Provider>,
+    );
+    const reset = container.querySelector("[aria-label='还原 Height']");
+    expect(reset).not.toBeNull();
+    fireEvent.click(reset!);
+    expect(reverts).toEqual(["height"]);
   });
 });

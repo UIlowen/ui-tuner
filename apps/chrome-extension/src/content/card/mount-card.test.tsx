@@ -105,8 +105,8 @@ describe("mountEditorCard", () => {
     act(() => mount.show(baseProps({ number: 2 })));
     expect(mount.isOpen).toBe(true);
     const text = host?.shadowRoot?.textContent ?? "";
-    expect(text).toContain("button"); // tag name in the header
     expect(text).toContain("2"); // sequence badge
+    expect(text).toContain("保存"); // expanded footer
 
     act(() => mount.hide());
     expect(mount.isOpen).toBe(false);
@@ -222,7 +222,6 @@ describe("mountEditorCard", () => {
     act(() =>
       mount.show(baseProps({ elementId: "ut-B", tagName: "div", initialInstruction: "B的指令" })),
     );
-    expect(shadow().textContent ?? "").toContain("div");
     expect(instructionField(shadow()).value).toBe("B的指令");
   });
 

@@ -28,16 +28,26 @@ export function useIsChanged(property: string | readonly string[]): boolean {
     : property.some((name) => changed.has(name));
 }
 
+/** Whether the property has been modified in the current card session. */
+export function useIsDirty(property: string | readonly string[]): boolean {
+  const { dirty } = useStyleEdit();
+  return typeof property === "string"
+    ? dirty.has(property)
+    : property.some((name) => dirty.has(name));
+}
+
 /** Shared shell: label left, control right (Figma-style density, §48). */
 export function Row({
   label,
   children,
   changed = false,
+  dirty = false,
   onReset,
 }: {
   label: string;
   children: ReactNode;
   changed?: boolean;
+  dirty?: boolean;
   onReset?: () => void;
 }) {
   const t = useT();
@@ -45,7 +55,7 @@ export function Row({
   return (
     <div
       {...(changed ? { "data-changed": "true", title: t("style.changed") } : {})}
-      className={`flex min-h-6 items-center gap-1.5 rounded-[3px] ${
+      className={`flex min-h-6 items-center gap-1.5 rounded-[3px] py-0.5 px-1 transition-all focus-within:ring-1 focus-within:ring-accent-text/30 ${
         changed ? "-ml-[2px] border-l-2 border-accent-text bg-accent-text/10" : ""
       }`}
     >
@@ -59,7 +69,7 @@ export function Row({
       </span>
       <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
         {children}
-        {changed && onReset && (
+        {(changed || dirty) && onReset && (
           <button
             type="button"
             onClick={onReset}
@@ -77,7 +87,7 @@ export function Row({
 
 export function GroupHeader({ title, icon }: { title: string; icon?: ReactNode }) {
   return (
-    <p className="mt-2.5 flex items-center gap-1.5 border-t border-edge pt-2 text-[10px] font-medium tracking-wider text-faint uppercase first:mt-0 first:border-t-0 first:pt-0">
+    <p className="mt-4 flex items-center gap-1.5 border-t border-edge pt-2.5 text-[10px] font-medium tracking-wider text-faint uppercase first:mt-0 first:border-t-0 first:pt-0">
       {icon && <span className="text-ghost">{icon}</span>}
       {title}
     </p>
@@ -106,6 +116,7 @@ export function ScrubField({
 }) {
   const { values, updateStyle, revertStyle } = useStyleEdit();
   const isChanged = useIsChanged(property);
+  const isDirty = useIsDirty(property);
   const raw = values[property] ?? "";
   const parsed = parseCssValue(raw);
 
@@ -116,7 +127,7 @@ export function ScrubField({
   const unit = parsed.unit === "" && fallbackUnit !== "" ? "" : parsed.unit || fallbackUnit;
 
   return (
-    <Row label={label} changed={isChanged} onReset={() => revertStyle(property)}>
+    <Row label={label} changed={isChanged} dirty={isDirty} onReset={() => revertStyle(property)}>
       <ScrubInput
         value={parsed.value}
         unit={unit}
@@ -142,10 +153,11 @@ export function TextRow({
 }) {
   const { values, updateStyle, revertStyle } = useStyleEdit();
   const isChanged = useIsChanged(property);
+  const isDirty = useIsDirty(property);
   const value = values[property] ?? "";
 
   return (
-    <Row label={label} changed={isChanged} onReset={() => revertStyle(property)}>
+    <Row label={label} changed={isChanged} dirty={isDirty} onReset={() => revertStyle(property)}>
       <input
         value={value}
         placeholder={placeholder ?? "—"}
@@ -156,7 +168,7 @@ export function TextRow({
         onKeyDown={(event) => {
           if (event.key === "Enter") (event.target as HTMLInputElement).blur();
         }}
-        className="h-6 w-full truncate rounded-control bg-inset px-1.5 font-mono text-[11px] text-text-strong outline-none placeholder:text-ghost transition-colors hover:bg-control focus-visible:bg-control focus-visible:ring-1 focus-visible:ring-accent-text/50"
+        className="h-6 w-full truncate rounded-control bg-inset px-1.5 font-mono text-[11px] text-text-strong outline-none placeholder:text-ghost transition-colors hover:bg-control focus-visible:bg-control focus-visible:ring-2 focus-visible:ring-accent-text/70"
       />
     </Row>
   );
@@ -167,6 +179,7 @@ export function ColorRow({ property, label }: { property: string; label: string 
   const t = useT();
   const { values, updateStyle, revertStyle } = useStyleEdit();
   const isChanged = useIsChanged(property);
+  const isDirty = useIsDirty(property);
   const raw = values[property] ?? "";
   const storeHex = rgbToHex(raw) ?? "#000000";
   // Live value while picking. Preview frames (`committed:false`) don't touch
@@ -178,7 +191,7 @@ export function ColorRow({ property, label }: { property: string; label: string 
   const hex = draft ?? storeHex;
 
   return (
-    <Row label={label} changed={isChanged} onReset={() => revertStyle(property)}>
+    <Row label={label} changed={isChanged} dirty={isDirty} onReset={() => revertStyle(property)}>
       <div className="flex h-6 min-w-0 flex-1 items-center justify-end gap-1.5">
         <span className="truncate font-mono text-[10px] text-text">{raw}</span>
         <input
@@ -193,7 +206,7 @@ export function ColorRow({ property, label }: { property: string; label: string 
             setDraft(null);
           }}
           title={t("color.rowTitle", { label, raw })}
-          className="size-5 shrink-0 cursor-pointer rounded-[5px] border border-edge-strong bg-transparent p-0 transition-shadow hover:ring-1 hover:ring-accent-text/40"
+          className="size-5 shrink-0 cursor-pointer rounded-[5px] border border-edge-strong bg-transparent p-0 transition-shadow hover:ring-1 hover:ring-accent-text/40 focus-visible:ring-2 focus-visible:ring-accent-text/70"
         />
       </div>
     </Row>
@@ -211,10 +224,11 @@ export function SegmentRow({
 }) {
   const { values, updateStyle, revertStyle } = useStyleEdit();
   const isChanged = useIsChanged(property);
+  const isDirty = useIsDirty(property);
   const raw = values[property] ?? "";
 
   return (
-    <Row label={label} changed={isChanged} onReset={() => revertStyle(property)}>
+    <Row label={label} changed={isChanged} dirty={isDirty} onReset={() => revertStyle(property)}>
       <div className="flex min-w-0 gap-0.5 overflow-hidden rounded-control bg-inset p-0.5">
         {options.map((option) => (
           <button
@@ -228,7 +242,7 @@ export function SegmentRow({
             onClick={() => void updateStyle(property, option.value, true)}
             className={`flex min-w-0 flex-1 items-center justify-center rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap transition-colors ${
               raw === option.value
-                ? "bg-elevated font-medium text-text-strong ring-1 ring-edge-strong"
+                ? "bg-elevated font-medium text-text-strong ring-2 ring-accent-text/70"
                 : "text-faint hover:bg-control hover:text-text"
             }`}
           >
