@@ -98,7 +98,11 @@ export function ScrubInput({
     const start = dragStart.current;
     if (!start) return;
     const multiplier = scrubMultiplier({ shift: event.shiftKey, alt: event.altKey });
-    const next = clamp(start.value + (event.clientX - start.x) * step * multiplier, min, max);
+    const raw = start.value + (event.clientX - start.x) * step * multiplier;
+    // Snap to the nearest step so drag produces clean values (integers for
+    // step=1 properties like width/height, one decimal for step=0.1, etc.).
+    const snapped = Math.round(raw / step) * step;
+    const next = clamp(snapped, min, max);
     applyDragValue(next);
     flushPreview(next);
   };
