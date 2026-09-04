@@ -54,9 +54,16 @@ export function EditorCard(props: EditorCardProps) {
   );
   const [values, setValues] = useState<Record<string, string>>(props.initialValues);
   const [instruction, setInstruction] = useState(props.initialInstruction);
-  const [dirtyProps, setDirtyProps] = useState(false);
+  /** Properties edited in this card session. Used to enable the save button. */
+  const [dirtySet, setDirtySet] = useState<Set<string>>(new Set());
+  /** Properties the user has reset inside this session. They stop being highlighted. */
+  const [reverted, setReverted] = useState<Set<string>>(new Set());
 
-  const changed = useMemo(() => new Set(props.changedProperties), [props.changedProperties]);
+  const changed = useMemo(() => {
+    const set = new Set(props.changedProperties);
+    for (const property of reverted) set.delete(property);
+    return set;
+  }, [props.changedProperties, reverted]);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   // Bring the first changed row into view: the body scrolls, and a highlight
@@ -72,20 +79,42 @@ export function EditorCard(props: EditorCardProps) {
       props.onStage(property, value, committed);
       if (committed) {
         setValues((v) => ({ ...v, [property]: value }));
-        setDirtyProps(true);
+        setDirtySet((prev) => new Set(prev).add(property));
+      }
+    },
+    revertStyle: (property) => {
+      const properties = typeof property === "string" ? [property] : property;
+      const nextValues = { ...values };
+      const nextReverted = new Set(reverted);
+      const nextDirty = new Set(dirtySet);
+      let any = false;
+      for (const p of properties) {
+        if (nextReverted.has(p)) continue;
+        const original = props.onRevert(p);
+        if (original !== null) {
+          nextValues[p] = original;
+          nextReverted.add(p);
+          nextDirty.delete(p);
+          any = true;
+        }
+      }
+      if (any) {
+        setValues(nextValues);
+        setReverted(nextReverted);
+        setDirtySet(nextDirty);
       }
     },
   };
 
   const instructionDirty = instruction.trim() !== props.initialInstruction.trim();
-  const canSave = dirtyProps || instructionDirty;
+  const canSave = dirtySet.size > 0 || instructionDirty;
 
   const badge = props.number === null ? t("card.unsaved") : String(props.number);
   const submit = (): void => props.onSave(instruction);
 
   if (viewState === "compact") {
     return (
-      <div className="flex w-[320px] items-center gap-1 rounded-card border border-edge bg-surface-solid p-1.5 shadow-lg">
+      <div className="flex w-[320px] items-center gap-1 rounded-card border border-edge bg-surface-solid p-1.5 shadow-2xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
         <span
           data-drag-handle
           title={t("card.dragHandle")}
@@ -128,7 +157,7 @@ export function EditorCard(props: EditorCardProps) {
   }
 
   return (
-    <div className="flex w-[320px] flex-col overflow-hidden rounded-card border border-edge bg-surface-solid shadow-lg">
+    <div className="flex w-[320px] flex-col overflow-hidden rounded-card border border-edge bg-surface-solid shadow-2xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
       <header className="flex shrink-0 items-center gap-1.5 border-b border-edge px-2 py-1.5">
         <span
           data-drag-handle

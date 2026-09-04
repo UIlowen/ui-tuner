@@ -88,6 +88,16 @@ export class StagingEngine {
     this.rollback();
   }
 
+  /** Drop one staged edit without touching recorded changes. Called when the
+   *  card resets a property that is also in the current session. */
+  unstage(property: string): void {
+    const elementId = this.elementId;
+    if (!elementId) return;
+    this.stagedEdits.delete(property);
+    const recorded = this.changes.find(elementId, property);
+    this.preview.setOverride(elementId, property, recorded ? recorded.nextValue : null);
+  }
+
   staged(): StagedEdit[] {
     return [...this.stagedEdits.entries()].map(([property, value]) => ({ property, value }));
   }

@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { formatCssValue, parseCssValue, rgbToHex } from "@ui-tuner/inspector";
 import { useT } from "../i18n/use-t";
+import { UndoIcon } from "../ui/icons";
 import { ScrubInput } from "./ScrubInput";
 import { useStyleEdit } from "./StyleEditContext";
 
@@ -32,12 +33,15 @@ export function Row({
   label,
   children,
   changed = false,
+  onReset,
 }: {
   label: string;
   children: ReactNode;
   changed?: boolean;
+  onReset?: () => void;
 }) {
   const t = useT();
+  const resetLabel = t("changes.revertProperty", { property: label });
   return (
     <div
       {...(changed ? { "data-changed": "true", title: t("style.changed") } : {})}
@@ -53,7 +57,20 @@ export function Row({
       >
         {label}
       </span>
-      <div className="flex min-w-0 flex-1 justify-end">{children}</div>
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+        {children}
+        {changed && onReset && (
+          <button
+            type="button"
+            onClick={onReset}
+            aria-label={resetLabel}
+            title={resetLabel}
+            className="grid size-5 shrink-0 place-items-center rounded-pill text-faint transition-colors hover:bg-control hover:text-danger-text"
+          >
+            <UndoIcon className="size-3" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -87,7 +104,7 @@ export function ScrubField({
   min?: number;
   max?: number;
 }) {
-  const { values, updateStyle } = useStyleEdit();
+  const { values, updateStyle, revertStyle } = useStyleEdit();
   const isChanged = useIsChanged(property);
   const raw = values[property] ?? "";
   const parsed = parseCssValue(raw);
@@ -99,7 +116,7 @@ export function ScrubField({
   const unit = parsed.unit === "" && fallbackUnit !== "" ? "" : parsed.unit || fallbackUnit;
 
   return (
-    <Row label={label} changed={isChanged}>
+    <Row label={label} changed={isChanged} onReset={() => revertStyle(property)}>
       <ScrubInput
         value={parsed.value}
         unit={unit}
@@ -123,12 +140,12 @@ export function TextRow({
   label: string;
   placeholder?: string;
 }) {
-  const { values, updateStyle } = useStyleEdit();
+  const { values, updateStyle, revertStyle } = useStyleEdit();
   const isChanged = useIsChanged(property);
   const value = values[property] ?? "";
 
   return (
-    <Row label={label} changed={isChanged}>
+    <Row label={label} changed={isChanged} onReset={() => revertStyle(property)}>
       <input
         value={value}
         placeholder={placeholder ?? "—"}
@@ -148,7 +165,7 @@ export function TextRow({
 /** Color value: swatch (native color input) + hex text. */
 export function ColorRow({ property, label }: { property: string; label: string }) {
   const t = useT();
-  const { values, updateStyle } = useStyleEdit();
+  const { values, updateStyle, revertStyle } = useStyleEdit();
   const isChanged = useIsChanged(property);
   const raw = values[property] ?? "";
   const storeHex = rgbToHex(raw) ?? "#000000";
@@ -161,7 +178,7 @@ export function ColorRow({ property, label }: { property: string; label: string 
   const hex = draft ?? storeHex;
 
   return (
-    <Row label={label} changed={isChanged}>
+    <Row label={label} changed={isChanged} onReset={() => revertStyle(property)}>
       <div className="flex h-6 min-w-0 flex-1 items-center justify-end gap-1.5">
         <span className="truncate font-mono text-[10px] text-text">{raw}</span>
         <input
@@ -192,12 +209,12 @@ export function SegmentRow({
   label: string;
   options: { value: string; label: string; title?: string; icon?: ReactNode }[];
 }) {
-  const { values, updateStyle } = useStyleEdit();
+  const { values, updateStyle, revertStyle } = useStyleEdit();
   const isChanged = useIsChanged(property);
   const raw = values[property] ?? "";
 
   return (
-    <Row label={label} changed={isChanged}>
+    <Row label={label} changed={isChanged} onReset={() => revertStyle(property)}>
       <div className="flex min-w-0 gap-0.5 overflow-hidden rounded-control bg-inset p-0.5">
         {options.map((option) => (
           <button

@@ -29,6 +29,7 @@ function baseProps(overrides: Partial<EditorCardProps> = {}): EditorCardProps {
     onSave: vi.fn(),
     onCancel: vi.fn(),
     onDelete: vi.fn(),
+    onRevert: vi.fn(() => null),
     ...overrides,
   };
 }
@@ -233,6 +234,45 @@ describe("EditorCard", () => {
       expect(screen.getByText("布局")).toBeTruthy();
       expect(container.querySelectorAll("[data-changed]")).toHaveLength(0);
       expect(scrollIntoView).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("per-property reset", () => {
+    it("reverts a changed row when its reset button is clicked", () => {
+      const onRevert = vi.fn(() => "20px");
+      const onStage = vi.fn();
+      const { container } = render(
+        <EditorCard
+          {...baseProps({
+            number: 1,
+            initialValues: { height: "38px" },
+            changedProperties: ["height"],
+            onStage,
+            onRevert,
+          })}
+        />,
+      );
+      expect(container.querySelector("[data-changed=\"true\"]")).not.toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
+      expect(onRevert).toHaveBeenCalledWith("height");
+      expect(container.querySelector("[data-changed]")).toBeNull();
+    });
+
+    it("updates the value back to the original after reset", () => {
+      const onRevert = vi.fn(() => "20px");
+      render(
+        <EditorCard
+          {...baseProps({
+            number: 1,
+            initialValues: { height: "38px" },
+            changedProperties: ["height"],
+            onRevert,
+          })}
+        />,
+      );
+      // The numeric display should switch to the original value returned by onRevert.
+      fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
+      expect(screen.getByText("20")).toBeTruthy();
     });
   });
 });

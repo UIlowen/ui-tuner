@@ -23,20 +23,25 @@ interface UpdateCall {
   committed: boolean;
 }
 
-/** In-memory StyleEditApi: static values snapshot + recorded updateStyle calls. */
+/** In-memory StyleEditApi: static values snapshot + recorded updateStyle/revertStyle calls. */
 function createApi(
   values: Record<string, string>,
   changed: string[] = [],
-): { api: StyleEditApi; calls: UpdateCall[] } {
+): { api: StyleEditApi; calls: UpdateCall[]; reverts: string[] } {
   const calls: UpdateCall[] = [];
+  const reverts: string[] = [];
   const api: StyleEditApi = {
     values,
     changed: new Set(changed),
     updateStyle: (property, value, committed) => {
       calls.push({ property, value, committed });
     },
+    revertStyle: (property) => {
+      const properties = typeof property === "string" ? [property] : property;
+      for (const p of properties) reverts.push(p);
+    },
   };
-  return { api, calls };
+  return { api, calls, reverts };
 }
 
 function colorInput(container: HTMLElement): HTMLInputElement {
@@ -118,5 +123,30 @@ describe("changed-property highlight", () => {
       </StyleEditContext.Provider>,
     );
     expect(container.querySelector("[data-changed]")).toBeNull();
+  });
+});
+
+describe("per-property reset", () => {
+  it("shows a reset button on a changed row and calls revertStyle when clicked", () => {
+    const { api, reverts } = createApi({ height: "38px" }, ["height"]);
+    const { container } = render(
+      <StyleEditContext.Provider value={api}>
+        <ScrubField property="height" label="Height" />
+      </StyleEditContext.Provider>,
+    );
+    const reset = container.querySelector("[aria-label='还原 Height']");
+    expect(reset).not.toBeNull();
+    fireEvent.click(reset!);
+    expect(reverts).toEqual(["height"]);
+  });
+
+  it("hides the reset button for an unchanged row", () => {
+    const { api } = createApi({ height: "38px" }, []);
+    const { container } = render(
+      <StyleEditContext.Provider value={api}>
+        <ScrubField property="height" label="Height" />
+      </StyleEditContext.Provider>,
+    );
+    expect(container.querySelector("[aria-label='还原 Height']")).toBeNull();
   });
 });

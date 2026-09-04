@@ -22,4 +22,6 @@ export interface EditorCardProps {
   onSave(instruction: string): void;
   onCancel(): void;
   onDelete(): void;
+  /** 回滚一个已记录的属性改动；返回改动前的原始值，找不到时返回 null。 */
+  onRevert(property: string): string | null;
 }

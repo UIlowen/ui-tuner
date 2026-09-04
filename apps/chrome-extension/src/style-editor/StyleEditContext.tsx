@@ -11,6 +11,8 @@ export interface StyleEditApi {
    * UI：committed=true 额外刷新本快照并把卡片标脏。
    */
   updateStyle(property: string, value: string, committed: boolean): void;
+  /** 回滚已记录的属性改动。复合控件可一次传入多个属性。 */
+  revertStyle(property: string | readonly string[]): void;
 }
 
 export const StyleEditContext = createContext<StyleEditApi | null>(null);

@@ -222,6 +222,15 @@ function openEditorCard(element: Element): void {
         revertElement(elementId); // clears committed changes + instruction, reports
         cardMount?.hide();
       },
+      onRevert: (property) => {
+        const change = changeTracker
+          .all()
+          .find((c) => c.elementId === elementId && c.property === property);
+        if (!change) return null;
+        stagingEngine?.unstage?.(property);
+        revertChange(change.id);
+        return change.previousValue;
+      },
     },
     // Open beside the element; the mount clamps the card inside the viewport.
     element.getBoundingClientRect(),

@@ -18,6 +18,7 @@ function baseProps(overrides: Partial<EditorCardProps> = {}): EditorCardProps {
     onSave: vi.fn(),
     onCancel: vi.fn(),
     onDelete: vi.fn(),
+    onRevert: vi.fn(() => null),
     ...overrides,
   };
 }

@@ -164,13 +164,17 @@ const ALIGN_CROSS = ["start", "center", "end"] as const;
 
 function AlignmentControl() {
   const t = useT();
-  const { values, updateStyle } = useStyleEdit();
+  const { values, updateStyle, revertStyle } = useStyleEdit();
   const isChanged = useIsChanged(["justify-content", "align-items"]);
   const justify = values["justify-content"] ?? "";
   const align = values["align-items"] ?? "";
 
   return (
-    <Row label={t("style.align")} changed={isChanged}>
+    <Row
+      label={t("style.align")}
+      changed={isChanged}
+      onReset={() => revertStyle(["justify-content", "align-items"])}
+    >
       <div className="grid size-[48px] grid-cols-3 gap-0.5 rounded-control bg-inset p-0.5">
         {ALIGN_CROSS.flatMap((cross) =>
           ALIGN_MAIN.map((main) => {
@@ -300,17 +304,19 @@ function AxisScrub({
   onPreview(cssValue: string): void;
   onCommit(cssValue: string): void;
 }) {
+  const { revertStyle } = useStyleEdit();
   const isChanged = useIsChanged(properties);
   const parsed = parseCssValue(raw);
+  const reset = () => revertStyle(properties);
   if (!parsed) {
     return (
-      <Row label={label} changed={isChanged}>
+      <Row label={label} changed={isChanged} onReset={reset}>
         <span className="truncate font-mono text-[10px] text-ghost">{raw || "—"}</span>
       </Row>
     );
   }
   return (
-    <Row label={label} changed={isChanged}>
+    <Row label={label} changed={isChanged} onReset={reset}>
       <ScrubInput
         value={parsed.value}
         unit={parsed.unit || "px"}
