@@ -354,7 +354,7 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 
 用户带着三张 Codex 截图验收：「codex 就保留了这个常规的属性调整，我们也对齐一样。因为你现在是把该元素所有的 css 属性都搬过来了，有一些属性根本没法调，不太合理」「图 2 和 3 是单文字描述以及展开属性面板的状态，我需要你对齐他的 UI,包括内容、排版布局，交互方式」。
 
-1. **属性列表精简到 17 项**：`StylePanel.tsx` 删掉所有 `GroupHeader` 分组结构（Layout/Size/Spacing/Typography/Fill/Border/Effects），扁平排列 Codex 截图里的 17 项常用属性：文本颜色、背景、Opacity、字体、字号、字重、边框圆角半径、边框颜色、边框宽度、宽度、高度、内边距、外边距、布局方向、分布、居中、间距。删除 `display`/`position`/`min-width`/`min-height`/`max-width`/`max-height`/`line-height`/`letter-spacing`/`text-align`/`background-image`/`border-style`/`box-shadow`/`transform`/`grid-template-columns`/`grid-template-rows`/`flex-wrap`/`row-gap`/`column-gap` 等不常用或不可调的属性。`AlignmentControl` 3×3 网格组件删除，`justify-content` 和 `align-items` 改为独立 `SelectRow`。`font-family` 从 `TextRow` 改为 `SelectRow`（4 个常用字体栈选项）。Flex 相关属性（flex-direction/justify-content/align-items/gap）仅在 `display: flex` 时条件渲染。
+1. **属性列表精简到 17 项**：`StylePanel.tsx` 删掉所有 `GroupHeader` 分组结构（Layout/Size/Spacing/Typography/Fill/Border/Effects），扁平排列 Codex 截图里的 17 项常用属性：文本颜色、背景、Opacity、字体、字号、字重、边框圆角半径、边框颜色、边框宽度、宽度、高度、内边距、外边距、布局方向、分布、居中、间距。删除 `display`/`position`/`min-width`/`min-height`/`max-width`/`max-height`/`line-height`/`letter-spacing`/`text-align`/`background-image`/`border-style`/`box-shadow`/`transform`/`grid-template-columns`/`grid-template-rows`/`flex-wrap`/`row-gap`/`column-gap` 等不常用或不可调的属性。`AlignmentControl` 3×3 网格组件删除，`justify-content` 和 `align-items` 改为独立 `SelectRow`。`font-family` 从 `TextRow` 改为 `SelectRow`（4 个常用字体栈选项）。Flex 相关属性（flex-direction/justify-content/align-items/gap）仅在 `display: flex` 时条件渲染。**5 组之间用 `h-px bg-edge` 分割线隔开**（颜色/字体/边框/尺寸间距/布局），无分组标题但视觉上有节奏。
 2. **指令移到头部**：`EditorCard.tsx` 展开态的指令从 body 的 `<textarea>` 移到 header 的 `<input>`（单行），位于 ⚙ 属性开关右侧、拖拽把手左侧。元素标签名作为副标题**始终**显示在头部下方（不再依赖指令是否存在，对齐 Codex 截图里 form 始终可见）。拖拽把手从纯文字色改成带 `bg-inset` 圆角块（和紧凑态一致），hover 时 `bg-control`。紧凑态保持原样：⚙ + 指令 input + 提交按钮。`EditorCardProps` 新增 `tagName?: string`，`content/index.ts` 的 `openEditorCard` 传入 `tagName: element.tagName.toLowerCase()`。
 3. **测试同步更新**：`EditorCard.test.tsx` 把所有检查「布局」分组标题的断言改成检查「文本颜色」属性标签（属性面板存在的标志）；`mount-card.test.tsx` 把检查 `TEXTAREA` vs `INPUT` 的断言改成检查属性面板内容；`content/index.test.tsx` 把 `font-family` 的 `rowControl` 从 `"input"` 改成 `"select"`，把测试用的 `display` 属性改成 `font-family`（display 已从属性列表删除）；所有「还原 高」改成「还原 高度」（新标签）。
 4. **拖动取整到 step 粒度**：`ScrubInput` 新增 `snapToStep(value, step)`——先 `Math.round(value / step) * step` 对齐到最近步进，再按 `-log10(step)` 算出小数位数用 `toFixed` 截断 IEEE 754 尾差。`step=1` 的属性（宽/高/字号/圆角/边框宽度/间距）拖动产生整数，`step=0.01` 的（opacity）精确保留两位小数（`0.55` 而非 `0.5500000000000001`）。箭头键同路径一并修。
@@ -366,7 +366,7 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并多轮真机验收（M8、注释模式、页面编辑卡）。无后续里程碑，剩余为 backlog 增强项。
 
 **下一步待用户决策（截至 2026-09-04）**：
-1. `feat/ui-ux-polish`（79 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
+1. `feat/ui-ux-polish`（80 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
 2. 合并到 `main` 的决策（PR 还是直接 merge）尚未做。
 3. `docs/architecture.md` 未同步注释模式 + 页面编辑卡（仍写三 Tab 面板与 `sidepanel.stylePreview`）；下次动架构文档时一并补。
 
