@@ -10,9 +10,9 @@
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
-| 分支     | **`feat/ui-ux-polish`（38 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（**377 例测试**：protocol 26 / inspector 123 / bridge 74 / extension 154）                                                                                                                                                |
+| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）+ **编辑卡交互修正 + 影子样式修复**（2026-09-04：属性图标开关替设置图标 / 去收起箭头 / 行激活态真的画出来 / 修「reset 后保存仍出气泡」/ 修 shadow root 里 Tailwind 边框投影整族失效）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
+| 分支     | **`feat/ui-ux-polish`（45 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（**385 例测试**：protocol 26 / inspector 119 / bridge 74 / extension 166）；真机 `.playwright-mcp/verify-codex-card-ui.mjs` **78/78 断言全过**                                              |
 | 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡的麦克风是禁用占位**（灰态 + 「语音输入即将上线」，未接语音识别）；**编辑卡指令输入框内按 Esc 会连带退出整个注释模式**（未修，backlog）；`docs/architecture.md` 仍描述注释模式之前的三 Tab 面板（未同步，读它时以本文档 §4/§6 为准） |
 
 ## 2. 三十秒上下文
@@ -107,12 +107,15 @@ UI Tuner/
 | **气泡只在注释模式激活时绘制**：`Annotations.setVisible()` 由 content 的 `startPicking`/`stopPicking` 驱动（连接时默认 false，Picker 的 Esc 也走 `stopPicking`）；隐藏改宿主节点 `display` 而非卸载重挂，隐藏期停掉 rAF | 单纯浏览页面时不该带标注；走 display 才能让序号与气泡状态跨模式切换存活，重新激活原样恢复 |
 | **退出注释模式只清「页面侧」选中视觉**：`clearPageSelection()`（≠ `clearSelection()`）清 tracker/overlay 但**不发 `selection.cleared`**，也保留 `lastSelector`/`lastFingerprint` | 用户要「退出后页面干净」，但 `ApplySection` 整体门控在 `selection` 上——发了 cleared 就等于顺手删掉 Apply 入口；保留指纹是为了 apply 后 HMR 重定位（`locateAppliedElement`） |
 | **卡片高亮「已改动」属性行**：`changedProperties` 由 content 从 ChangeTracker 去重算出 → `EditorCard` 转成 `StyleEditApi.changed` → `rows.tsx` 的 `useIsChanged()` 给 `Row` 打 `data-changed` + 紫色左边线；卡片挂载时把**第一处**标记 `scrollIntoView({block:"nearest"})` | 几十个属性里看不出上一步改了什么；body 只有 320px 高，不滚动的话标记等于没有。复合控件（间距轴 / 对齐九宫格）一次写多个属性，传全部、命中任一即亮 |
-| **编辑卡就近弹出**：`content/card/placement.ts` 纯函数按「右→左→下→上」四候选取第一个放得下的，都不行才 clamp；`mount-card.show(props, anchor)` 用 **`flushSync`** 先提交渲染再量 `container.getBoundingClientRect()` | 卡片贴在元素旁边才符合「在元素上调」的心智；不先同步渲染就量尺寸，会拿到未渲染的 0×0 而漏判所有溢出 |
+| **编辑卡就近弹出**：`content/card/placement.ts` 纯函数按「右→左→下→上」四候选取第一个放得下的，**只用「选边那一轴」判定放不放得下，另一轴 clamp**（右/左候选 clamp y，下/上候选 clamp x），四候选都不行才 clamp 首选位；`mount-card.show(props, anchor)` 用 **`flushSync`** 先提交渲染再量 `container.getBoundingClientRect()` | 卡片贴在元素旁边才符合「在元素上调」的心智；不先同步渲染就量尺寸，会拿到未渲染的 0×0 而漏判所有溢出。两轴都要求「完全放得下」会让贴视口底边的元素否决掉所有侧边（差 2px 也算否决），最后回落到 clamp 的首选位——**正好压在元素上**（真机实测：卡片 952..1272 与元素 1132..1272 重叠） |
 | **编辑卡只有紧凑/展开两态**（Codex 式），且**默认态由 props 推出、不记忆**：`number !== null ∨ changedProperties 非空 ∨ 已有指令` → 展开，否则紧凑（单行输入 + ✓） | 新选元素的常见诉求是「写一句话」，紧凑态就够；已注释的元素必须展开，否则上一轮的改动行高亮与自动滚动会被藏在一行输入框后面。由 props 推出 → `types.ts`/`placement.ts`/`content/index.ts` 都不用加接线，`key: elementId` 的 remount 天然按元素重算 |
 | **图标一律来自 `src/ui/icons.tsx`**（Remix Icon v4.9.1 派生的内联 SVG，`viewBox="0 0 24 24"` + `fill="currentColor"`，许可全文在 `src/ui/REMIXICON-LICENSE`）；不再用 Unicode 字符当图标 | Remix 是**填充型**几何，必须显式 `fill="currentColor"` 才跟随主题（否则暗色下是死黑）；不用图标字体是因为 `manifest.json` 没有 `web_accessible_resources`，字体会逼出一次 manifest 变更 |
 | **23 个主题令牌在 `styles/sidepanel.css`（`:root`/`.dark`）与 `content/card/card.css`（`:host`/`:host(.dark)`）之间逐字复制**，3 个圆角（`--radius-card/control/pill`）作为字面量写在各自的 `@theme inline`；`styles/tokens.test.ts` 是唯一的防漂移守卫 | shadow root 里 `:root` 拿不到页面根，所以重复是**必要的**（选择器不同，抽不出共享文件）；但没有任何构建步骤会发现两边漂移——一处改名就让那个界面裸奔，故用测试断言三组令牌名集合相等 |
 | **卡片尺寸变化后必须重新 clamp**：mount 层对 `container` 挂 `ResizeObserver` → `clampOffset()` + `applyOffset()`（`unmount()` 里 disconnect） | 放置只在 `show()` 时按当时量到的尺寸做一次，而紧凑态 40px ↔ 展开态 ~396px 差一个数量级，指令 textarea 还能被用户拖高；贴底元素展开后 footer 会掉到视口外，**取消/保存点不到**（真机验收实测 bottom 916 > 720） |
 | **content 侧监听 `chrome.storage.onChanged` 同步 locale/theme**（`applyStoredPrefs()` 与 connect 时的 hydrate 共用一处） | 面板是另一个 JS 上下文且是唯一写入方；只在 connect 时读一次，切主题/语言后**已打开页面上的卡片会停在旧主题直到刷新**（真机验收实测：面板已暗、卡片仍亮） |
+| **头部一个属性图标开关（`SlidersIcon`，Remix equalizer-line）兼任「展开/收起底部属性区」**：`PropertiesToggle` 组件在紧凑态与展开态头部各出现一次（`aria-label` = 展开/收起 + `aria-expanded`），紧凑态没有徽章时它前面是拖拽把手；tag 名（`div`/`span`）、`SettingsIcon`、右侧 `ChevronUpIcon` 全部删除，`tagName` prop 从 `types.ts`/`mount-card`/`content/index.ts` 整条链路去掉 | 用户要「更简洁」：一个图标控制属性区开合就够，设置图标是纯装饰、tag 名对调样式没帮助，收起箭头与属性图标语义重复。展开态头部因此只剩 1 个按钮（真机断言 `headerButtons === 1`） |
+| **`card.css` 里必须有一段 `@layer base { *, ::before, ::after, ::backdrop { --tw-*: … } }` 把 Tailwind 的初值补回来**（内容 = Tailwind 自己那份 `@supports` fallback，42 个变量） | Tailwind v4 把 border/shadow/ring/tabular-nums 全编译成读 `--tw-*` 的声明，初值只来自 `@property` 注册；而 **Chrome 不注册来自 shadow tree 样式表的 `@property`**（card.css 是 `adoptedStyleSheets` 进 shadow root 的），于是 `border-style: var(--tw-border-style)`、`box-shadow: var(--tw-inset-shadow), …` 整条在计算值阶段失效 → 真机实测卡片 `border: 0px none`、`box-shadow: none`，`shadow-2xl`/`ring-1`/改动行 `border-l-2` **一个都没画出来**，而类名全都对。Tailwind 那份 fallback 的 `@supports` 查询把 Chrome 排除在外，所以必须自己无条件写一遍；放 `base` 层是为了让后面的 `utilities` 层仍能按元素覆盖 |
+| **`content/index.ts` 的 `onRevert` 先 `stagingEngine.unstage(property)`，再去找已记录的 change** | 之前的顺序是「没有记录就直接 return」——只改未保存的属性时预览值还留在 staging 会话里，点 reset 只回滚了页面视觉，**保存时那条预览值照样被 commit 成改动并多出一个气泡**（用户报的「最大的 bug」）。回归测试 `records no change for an unsaved edit that was reset before saving`；mutation check：把 `unstage` 挪回 `if (!change)` 之后 → 断言如期失败（`['font-weight','display']` ≠ `['display']`） |
 
 ## 5. 常用命令
 
@@ -299,12 +302,30 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 - 验证：`pnpm build/test/typecheck/lint` 全绿，**375 例**（protocol 26 / inspector 119 / bridge 74 / extension 156），rows 新增 1 例 dirty reset。
 - 真机浏览器 `.playwright-mcp/verify-codex-card-ui.mjs` 断言「紧凑态显示『未保存』徽章」改为「紧凑态用设置图标替代『未保存』徽章」，**62/62 断言全过**。
 
+**编辑卡交互修正 + 影子样式修复（2026-09-04）**
+
+用户验收上一轮后报了「三个重大错误」+「一个最大的 bug」。（上一轮的第 1/2 条——用 `SettingsIcon` 替代「未保存」徽章——被用户明确否决：「我不要设置 icon，是去掉这个功能」。）
+
+1. **「还没做出更改就出现了重置 icon」**：reset 的门槛是 `changed || dirty`，而 `dirty` 之前把**空操作**也算进去了。三处收紧：`ScrubInput.endDrag` 在释放 pointer capture 之后 `if (next === startValue) return`（同点按下抬起不算改动）、方向键撞到 `min/max` 不再 commit、双击输入原值回车不 commit；`SegmentRow` 点已选中项直接 return。补 4 例测试（`ScrubInput.test.tsx` 3 例空操作 + `rows.test.tsx` 1 例 segment 空点击）。
+2. **「把 div、span 这类的改成属性 icon，用它控制底部属性展开/收起；右边的收起箭头也不需要」**：新增 `SlidersIcon`（Remix `equalizer-line`），删掉 `SettingsIcon` 与 `ChevronUpIcon`；`EditorCard` 抽出 `PropertiesToggle`（`aria-label` 展开/收起 + `aria-expanded`，开启时 `bg-accent-text/15` 着色），紧凑态与展开态头部各挂一个，展开态右侧的收起箭头按钮整块删除 → 头部只剩 1 个按钮。`tagName` 从 `EditorCardProps`、`mount-card`、`content/index.ts` 的 `openEditorCard` 一路删干净（4 个测试 fixture 同步）。
+3. **「选中没有激活状态（添加高亮 border）」**：`Row` 改用 React state 记 active——`onFocusCapture` 置真、`onBlurCapture` 里判断 `relatedTarget` 是否还在本行内（行内焦点迁移不算失焦），行容器打 `data-active="true"` + `ring-2 ring-accent-text/60` + 底色 `bg-accent-text/[0.07]`，标签色从 `text-faint` 提到 `text-text`。补 3 例（`rows.test.tsx`：focusIn 出现 / 行内迁移不丢 / focusOut 清除；React 19 下必须用 `fireEvent.focusIn/focusOut`，`focus/blur` 不冒泡）。
+4. **「修改了属性未保存前，我重置回去，然后保存居然会出现注释气泡」**：`content/index.ts` 的 `onRevert` 原本是「先查 ChangeTracker，没记录就 return」——未保存的编辑只存在于 staging 会话里，于是 reset 只回滚了页面视觉，保存时 `commit()` 把那条预览值当成真改动记下来。改成**先 `stagingEngine.unstage(property)` 再查记录**。回归测试 `records no change for an unsaved edit that was reset before saving`（改字重 → 还原字重 → 改 display → 保存，断言 `preview.changed` 只带 `["display"]`）；mutation check 通过：把 `unstage` 挪回原位 → 该用例如期失败，报 `['font-weight','display']` ≠ `['display']`。
+
+**真机验收又挖出两个此前没人看见的问题（第 3 条的断言先红，顺着查下去才发现是全局性的）**：
+
+5. **卡片在真实浏览器里根本没有边框、没有投影、没有任何 ring**。断言 `data-active="true"` 已生效但 `getComputedStyle().boxShadow === "none"`；再量卡片本体：`border: 0px none`（`border-edge` 的颜色是对的，宽度/样式没了）、`box-shadow: none`（`shadow-2xl` + `ring-1` 全废）、改动行的 `border-l-2` 强调条也不可见。根因：Tailwind v4 把这些工具类编译成 `border-style: var(--tw-border-style)` / `box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)`，**工具类只声明自己那一个变量，其余全靠 `@property` 的 initial-value**；而 card.css 是 `adoptedStyleSheets` 进 shadow root 的，Chrome 不注册来自 shadow tree 样式表的 `@property`（实测 shadow 内 `getPropertyValue('--tw-border-style')` 为 `""`，同一份规则放 document 里就能读到 `solid`）→ 变量 guaranteed-invalid → 整条声明在计算值阶段失效。Tailwind 自带的同值 fallback 被 `@supports` 查询挡在 Safari/Firefox，Chrome 拿不到。修复：在 `card.css` 用 `@layer base { *, ::before, ::after, ::backdrop { … } }` 无条件补上那 42 个 `--tw-*` 初值（base 层在 utilities 之前，工具类仍能按元素覆盖）。**此前几轮的「层级/投影增强」「focus ring 增强」「改动行左边条」其实一个都没画出来**——类名全对，视觉全无。
+6. **边框画出来之后卡片高了 2px（紧凑态 48 → 50），把 `placement.ts` 的老毛病顶了出来**：贴视口底边的元素（真机 `#boxCorner`，top=664 / bottom=720）在四个候选位上都被「另一轴超出 8px margin」整体否决（左侧候选 y=664 > maxY=662，差 2px），最后回落到 clamp 后的首选位，**卡片正好压在元素上**（952..1272 vs 元素 1132..1272）。改为只用「选边那一轴」判定放不放得下、另一轴 clamp，卡片沿视口边滑动；补 2 例 `placement.test.ts`（贴底角落元素翻到左侧且 y 被 clamp；卡片接近视口宽时下方候选向左滑）。
+
+- 验证：`pnpm build/test/typecheck/lint` 全绿，**385 例**（protocol 26 / inspector 119 / bridge 74 / extension **166**：EditorCard 21 / mount-card 9 / placement 9 / rows +4 / ScrubInput +3 / content +1）。
+- 真机浏览器 `.playwright-mcp/verify-codex-card-ui.mjs` **78/78 断言全过**，本轮新增：卡片本体「真的画出 1px solid 边框 + 投影」、改动行「左边条 2px solid」、单击属性行「画出 2px 高亮 ring」（并断言 ring 的 spread 是 2px，`!== "none"` 太松）、只选中不改动 →「无 reset / 保存禁用 / 页宽不动」、拖动 → reset 出现 → 点 reset →「页宽回原值 / reset 消失 / 保存回禁用」→ 改一句指令再保存 →「气泡仍是 `["1"]` / 面板 `Preview · 1` / 宽度保持」、展开态「头部只有 1 个按钮」、紧凑态「没有 tag 名文字」。
+- **教训（本轮最贵的一条）：类名对 ≠ 画出来了。** 在 shadow root + Tailwind v4 这个组合下，`border`/`shadow`/`ring`/`tabular-nums` 整族静默失效了好几轮，jsdom 不做布局与层叠所以单测永远绿，只有真机读 computed style 才看得见。验收脚本从此对视觉断言一律量「画出来的东西」（computed border/box-shadow），而不是 class 或 `data-*`。
+
 ## 7. 项目状态：核心闭环完成，`feat/ui-ux-polish` 待推送 + 待合并决策
 
 核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并多轮真机验收（M8、注释模式、页面编辑卡）。无后续里程碑，剩余为 backlog 增强项。
 
 **下一步待用户决策（截至 2026-09-04）**：
-1. `feat/ui-ux-polish`（38 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
+1. `feat/ui-ux-polish`（45 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
 2. 合并到 `main` 的决策（PR 还是直接 merge）尚未做。
 3. `docs/architecture.md` 未同步注释模式 + 页面编辑卡（仍写三 Tab 面板与 `sidepanel.stylePreview`）；下次动架构文档时一并补。
 
