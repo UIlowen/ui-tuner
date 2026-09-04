@@ -11,6 +11,15 @@ import {
 import { usePrefsStore } from "../state/prefs";
 import { useT } from "../i18n/use-t";
 import type { MessageKey } from "../i18n/messages";
+import {
+  ChevronRightIcon,
+  ContrastIcon,
+  CopyIcon,
+  CursorIcon,
+  MoonIcon,
+  SunIcon,
+  WarningIcon,
+} from "../ui/icons";
 import { AgentTab } from "./components/AgentTab";
 import { ApplySection } from "./components/ApplySection";
 import { ChangesTab } from "./components/ChangesTab";
@@ -26,7 +35,7 @@ function isLocalhostUrl(url: string): boolean {
 }
 
 const STATUS_META: Record<ConnectionStatus, { labelKey: MessageKey; dot: string; text: string }> = {
-  idle: { labelKey: "status.idle", dot: "bg-zinc-500", text: "text-faint" },
+  idle: { labelKey: "status.idle", dot: "bg-ghost", text: "text-faint" },
   connecting: { labelKey: "status.connecting", dot: "bg-amber-400", text: "text-warn-text" },
   connected: { labelKey: "status.connected", dot: "bg-emerald-400", text: "text-ok-text" },
   disconnected: { labelKey: "status.disconnected", dot: "bg-red-400", text: "text-danger-text" },
@@ -35,7 +44,7 @@ const STATUS_META: Record<ConnectionStatus, { labelKey: MessageKey; dot: string;
 const BRIDGE_META: Record<BridgeStatus, { labelKey: MessageKey; dot: string; text: string }> = {
   connecting: { labelKey: "bridge.connecting", dot: "bg-amber-400", text: "text-warn-text" },
   connected: { labelKey: "bridge.connected", dot: "bg-emerald-400", text: "text-ok-text" },
-  offline: { labelKey: "bridge.offline", dot: "bg-zinc-600", text: "text-faint" },
+  offline: { labelKey: "bridge.offline", dot: "bg-ghost", text: "text-faint" },
 };
 
 function StatusPill({ status }: { status: ConnectionStatus }) {
@@ -59,7 +68,7 @@ function PrefsToggles() {
 
   const themeLabelKey: MessageKey =
     theme === "light" ? "theme.light" : theme === "dark" ? "theme.dark" : "theme.system";
-  const themeIcon = theme === "light" ? "☀" : theme === "dark" ? "☾" : "◐";
+  const ThemeIcon = theme === "light" ? SunIcon : theme === "dark" ? MoonIcon : ContrastIcon;
 
   return (
     <span className="mr-1 flex items-center gap-0.5">
@@ -67,17 +76,18 @@ function PrefsToggles() {
         type="button"
         title={t("lang.toggleTitle")}
         onClick={() => setLocale(locale === "zh" ? "en" : "zh")}
-        className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-faint transition-colors hover:bg-control hover:text-text"
+        className="rounded-control px-1.5 py-0.5 text-[10px] font-semibold text-faint transition-colors hover:bg-control hover:text-text"
       >
         {locale === "zh" ? "中" : "EN"}
       </button>
       <button
         type="button"
         title={t("theme.toggleTitle", { label: t(themeLabelKey) })}
+        aria-label={t("theme.toggleTitle", { label: t(themeLabelKey) })}
         onClick={cycleTheme}
-        className="rounded px-1.5 py-0.5 text-[11px] text-faint transition-colors hover:bg-control hover:text-text"
+        className="grid size-6 place-items-center rounded-control text-faint transition-colors hover:bg-control hover:text-text"
       >
-        {themeIcon}
+        <ThemeIcon className="size-3.5" />
       </button>
     </span>
   );
@@ -120,14 +130,14 @@ function BridgeStatus() {
       </div>
       <p className="mt-1 text-[10px] leading-relaxed text-faint">{t("bridge.offlineHint")}</p>
       <div className="mt-1.5 flex items-center gap-2">
-        <code className="rounded bg-control px-1.5 py-0.5 font-mono text-[10px] text-dim">
+        <code className="rounded-control bg-control px-1.5 py-0.5 font-mono text-[10px] text-dim">
           npx ui-tuner
         </code>
         <button
           type="button"
           onClick={() => dialBridge()}
           disabled={bridgeStatus === "connecting"}
-          className="rounded border border-edge-strong px-2 py-0.5 text-[10px] font-medium text-text enabled:hover:bg-control disabled:opacity-40"
+          className="rounded-control border border-edge-strong px-2 py-0.5 text-[10px] font-medium text-text enabled:hover:bg-control disabled:opacity-40"
         >
           {t("action.reconnect")}
         </button>
@@ -173,8 +183,9 @@ function FooterActions() {
         type="button"
         onClick={() => void copyChanges()}
         title={t("changes.copyTitle")}
-        className="shrink-0 rounded-md bg-sky-500/15 px-2.5 py-1.5 text-[11px] font-medium text-info-text ring-1 ring-sky-500/40 transition-colors hover:bg-sky-500/25"
+        className="flex shrink-0 items-center gap-1.5 rounded-control bg-sky-500/15 px-2.5 py-1.5 text-[11px] font-medium text-info-text ring-1 ring-sky-500/40 transition-colors hover:bg-sky-500/25"
       >
+        <CopyIcon className="size-3.5" />
         {copied ? t("action.copied") : t("changes.copy")}
       </button>
       <div className="min-w-0 flex-1">
@@ -255,11 +266,14 @@ export function App() {
         {/* Status zone: connection errors and bridge state live here. */}
         {status === "disconnected" && (
           <section className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-danger-text">
-            <p className="text-[12px] leading-relaxed">{statusError ?? t("error.notConnected")}</p>
+            <p className="flex items-start gap-2 text-[12px] leading-relaxed">
+              <WarningIcon className="mt-px size-4 shrink-0" />
+              <span>{statusError ?? t("error.notConnected")}</span>
+            </p>
             <button
               type="button"
               onClick={() => void openChannel()}
-              className="mt-2 rounded border border-red-500/40 px-2.5 py-1 text-[11px] font-medium hover:bg-red-500/20"
+              className="mt-2 rounded-control border border-red-500/40 px-2.5 py-1 text-[11px] font-medium hover:bg-red-500/20"
             >
               {t("action.reconnect")}
             </button>
@@ -272,12 +286,13 @@ export function App() {
             type="button"
             onClick={() => setPicking(!picking)}
             disabled={status !== "connected"}
-            className={`w-full rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+            className={`flex w-full items-center justify-center gap-1.5 rounded-control px-3 py-1.5 text-[12px] font-semibold transition-colors ${
               picking
                 ? "bg-sky-500/20 text-info-text ring-1 ring-sky-500/60"
                 : "bg-inverse text-inverse-text enabled:hover:bg-inverse-hover disabled:opacity-40"
             }`}
           >
+            <CursorIcon className="size-3.5" />
             {pickButtonLabel}
           </button>
           {picking && status === "connected" && !selection && (
@@ -294,9 +309,9 @@ export function App() {
             className="flex w-full items-center gap-1.5 text-[10px] font-medium tracking-wider text-faint uppercase"
           >
             <span
-              className={`inline-block transition-transform ${agentOpen ? "rotate-90" : ""}`}
+              className={`inline-flex transition-transform ${agentOpen ? "rotate-90" : ""}`}
             >
-              ▸
+              <ChevronRightIcon className="size-3.5" />
             </span>
             {t("agent.advancedSettings")}
           </button>

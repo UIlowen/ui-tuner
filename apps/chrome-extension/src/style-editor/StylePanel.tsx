@@ -1,6 +1,19 @@
 import { useState } from "react";
 import { formatCssValue, parseCssValue } from "@ui-tuner/inspector";
 import { useT } from "../i18n/use-t";
+import {
+  AlignCenterIcon,
+  AlignJustifyIcon,
+  AlignLeftIcon,
+  AlignRightIcon,
+  BorderIcon,
+  EffectsIcon,
+  FillIcon,
+  LayoutIcon,
+  SizeIcon,
+  SpacingIcon,
+  TypographyIcon,
+} from "../ui/icons";
 import { ScrubInput } from "./ScrubInput";
 import {
   ColorRow,
@@ -28,7 +41,7 @@ export function StylePanel() {
 
   return (
     <div className="space-y-0.5">
-      <GroupHeader title={t("group.layout")} />
+      <GroupHeader title={t("group.layout")} icon={<LayoutIcon className="size-3" />} />
       <SegmentRow
         property="display"
         label={t("style.display")}
@@ -69,7 +82,7 @@ export function StylePanel() {
         </>
       )}
 
-      <GroupHeader title={t("group.size")} />
+      <GroupHeader title={t("group.size")} icon={<SizeIcon className="size-3" />} />
       <ScrubField property="width" label={t("style.width")} />
       <ScrubField property="height" label={t("style.height")} />
       <ScrubField property="min-width" label={t("style.minW")} />
@@ -77,11 +90,11 @@ export function StylePanel() {
       <ScrubField property="max-width" label={t("style.maxW")} />
       <ScrubField property="max-height" label={t("style.maxH")} />
 
-      <GroupHeader title={t("group.spacing")} />
+      <GroupHeader title={t("group.spacing")} icon={<SpacingIcon className="size-3" />} />
       <SpacingGroup kind="padding" title={t("style.padding")} />
       <SpacingGroup kind="margin" title={t("style.margin")} />
 
-      <GroupHeader title={t("group.typography")} />
+      <GroupHeader title={t("group.typography")} icon={<TypographyIcon className="size-3" />} />
       <TextRow property="font-family" label={t("style.family")} placeholder={t("style.fontStackPlaceholder")} />
       <ScrubField property="font-size" label={t("style.size")} step={1} />
       <SegmentRow
@@ -100,25 +113,45 @@ export function StylePanel() {
         property="text-align"
         label={t("style.align")}
         options={[
-          { value: "left", label: "L" },
-          { value: "center", label: "C" },
-          { value: "right", label: "R" },
-          { value: "justify", label: "J" },
+          {
+            value: "left",
+            label: "L",
+            title: "text-align: left",
+            icon: <AlignLeftIcon className="size-3.5" />,
+          },
+          {
+            value: "center",
+            label: "C",
+            title: "text-align: center",
+            icon: <AlignCenterIcon className="size-3.5" />,
+          },
+          {
+            value: "right",
+            label: "R",
+            title: "text-align: right",
+            icon: <AlignRightIcon className="size-3.5" />,
+          },
+          {
+            value: "justify",
+            label: "J",
+            title: "text-align: justify",
+            icon: <AlignJustifyIcon className="size-3.5" />,
+          },
         ]}
       />
       <ColorRow property="color" label={t("style.color")} />
 
-      <GroupHeader title={t("group.fill")} />
+      <GroupHeader title={t("group.fill")} icon={<FillIcon className="size-3" />} />
       <ColorRow property="background-color" label={t("style.fill")} />
       <ScrubField property="opacity" label={t("style.opacity")} step={0.01} fallbackUnit="" min={0} max={1} />
       <ReadOnlyRow property="background-image" label={t("style.image")} />
 
-      <GroupHeader title={t("group.border")} />
+      <GroupHeader title={t("group.border")} icon={<BorderIcon className="size-3" />} />
       <ScrubField property="border-width" label={t("style.width")} />
       <ColorRow property="border-color" label={t("style.color")} />
       <ScrubField property="border-radius" label={t("style.radius")} />
 
-      <GroupHeader title={t("group.effects")} />
+      <GroupHeader title={t("group.effects")} icon={<EffectsIcon className="size-3" />} />
       <TextRow property="box-shadow" label={t("style.shadow")} placeholder={t("style.shadowPlaceholder")} />
       <ReadOnlyRow property="transform" label={t("style.transform")} />
     </div>
@@ -138,7 +171,7 @@ function AlignmentControl() {
 
   return (
     <Row label={t("style.align")} changed={isChanged}>
-      <div className="grid size-[48px] grid-cols-3 overflow-hidden rounded border border-edge-strong">
+      <div className="grid size-[48px] grid-cols-3 gap-0.5 rounded-control bg-inset p-0.5">
         {ALIGN_CROSS.flatMap((cross) =>
           ALIGN_MAIN.map((main) => {
             const active = justify === main && align === cross;
@@ -147,19 +180,20 @@ function AlignmentControl() {
                 key={`${main}-${cross}`}
                 type="button"
                 title={`justify-content: ${main} · align-items: ${cross}`}
+                aria-pressed={active}
                 onClick={() => {
                   void updateStyle("justify-content", main, true);
                   void updateStyle("align-items", cross, true);
                 }}
-                className={`grid place-items-center text-[9px] leading-none transition-colors ${
+                className={`grid place-items-center rounded-[3px] transition-colors ${
                   active
-                    ? "bg-inverse text-inverse-text"
-                    : "bg-control text-faint hover:bg-control-hover hover:text-dim"
+                    ? "bg-elevated text-text-strong ring-1 ring-edge-strong"
+                    : "text-ghost hover:bg-control hover:text-faint"
                 }`}
               >
                 <span
                   aria-hidden
-                  className={`block size-[7px] rounded-[1px] ${
+                  className={`block size-[7px] rounded-[1px] bg-current ${
                     main === "start"
                       ? "justify-self-start"
                       : main === "end"
@@ -200,11 +234,11 @@ function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: stri
   return (
     <>
       <div className="flex min-h-6 items-center gap-1.5">
-        <span className="w-[64px] shrink-0 text-[11px] font-medium text-text">{title}</span>
+        <span className="w-[64px] shrink-0 text-[11px] text-faint">{title}</span>
         <button
           type="button"
           onClick={() => setAdvanced(!showAdvanced)}
-          className="ml-auto rounded px-1.5 py-0.5 text-[10px] text-faint hover:bg-control hover:text-dim"
+          className="ml-auto rounded-control px-1.5 py-0.5 text-[10px] text-faint transition-colors hover:bg-control hover:text-text"
         >
           {showAdvanced ? t("style.simple") : t("style.advanced")}
         </button>

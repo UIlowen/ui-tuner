@@ -9,6 +9,7 @@ import {
   UI_TUNER_PORT_NAME,
 } from "@ui-tuner/protocol";
 import { EDITOR_CARD_ROOT_ID } from "./card/mount-card";
+import { usePrefsStore } from "../state/prefs";
 
 /**
  * Integration tests for the content script's page-side edit session, driving
@@ -77,20 +78,57 @@ function messageTypes(sent: unknown[]): string[] {
   return sent.map((m) => (typeof m === "object" && m !== null ? ((m as { type?: string }).type ?? "") : ""));
 }
 
-function shadowButton(shadow: ShadowRoot, text: string): HTMLButtonElement {
-  const button = [...shadow.querySelectorAll("button")].find((b) => b.textContent === text);
-  expect(button, `button "${text}" in editor card`).toBeTruthy();
+/** Finds a card button by its visible text or, for icon-only ones, its aria-label. */
+function shadowButton(shadow: ShadowRoot, name: string): HTMLButtonElement {
+  const button = [...shadow.querySelectorAll("button")].find(
+    (b) => b.textContent === name || b.getAttribute("aria-label") === name,
+  );
+  expect(button, `button "${name}" in editor card`).toBeTruthy();
   return button!;
+}
+
+const INSTRUCTION_PLACEHOLDER = "这个元素要怎么改？";
+
+/** The open card's instruction field, in whichever state the card rendered. */
+function instructionField(shadow: ShadowRoot): HTMLInputElement | HTMLTextAreaElement {
+  const field = shadow.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+    `[placeholder="${INSTRUCTION_PLACEHOLDER}"]`,
+  );
+  expect(field, "instruction field in editor card").toBeTruthy();
+  return field!;
+}
+
+/**
+ * Type an instruction into the open card and save it. Which control saves it
+ * depends on the state the card opened in: a freshly picked element gets the
+ * compact row (one-line input + ✓), an already-annotated one the expanded body
+ * (textarea + 保存).
+ */
+function saveInstruction(shadow: ShadowRoot, text: string): void {
+  const field = instructionField(shadow);
+  act(() => {
+    fireEvent.change(field, { target: { value: text } });
+  });
+  act(() => {
+    fireEvent.click(shadowButton(shadow, field.tagName === "INPUT" ? "提交" : "保存"));
+  });
 }
 
 describe("content page-side edit session", () => {
   // The module registers its onConnect listener exactly once (on first import),
   // so this array is shared across tests and never reassigned.
   const connectListeners: Array<(port: unknown) => void> = [];
+  /** Same for the storage listener: registered once, fired by hand in tests. */
+  const storageListeners: Array<
+    (changes: Record<string, { newValue?: unknown }>, areaName: string) => void
+  > = [];
   let target: HTMLButtonElement;
 
   beforeEach(async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    // The prefs store is module-level and outlives a test; the theme one drives
+    // the card host's `dark` class.
+    usePrefsStore.setState({ locale: "zh", theme: "light" });
 
     vi.stubGlobal("chrome", {
       runtime: {
@@ -101,6 +139,11 @@ describe("content page-side edit session", () => {
       storage: {
         local: {
           get: vi.fn(() => Promise.resolve({})),
+        },
+        onChanged: {
+          addListener: (
+            cb: (changes: Record<string, { newValue?: unknown }>, areaName: string) => void,
+          ) => storageListeners.push(cb),
         },
       },
     });
@@ -116,6 +159,17 @@ describe("content page-side edit session", () => {
       onchange: null,
       dispatchEvent: vi.fn(),
     })) as unknown as typeof window.matchMedia;
+
+    // jsdom lacks ResizeObserver too (the card mount uses it to stay on screen).
+    // Geometry is mount-card.test.tsx's job; these tests only drive messages.
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe(): void {}
+        unobserve(): void {}
+        disconnect(): void {}
+      },
+    );
 
     document.body.innerHTML = "";
     target = document.createElement("button");
@@ -153,17 +207,8 @@ describe("content page-side edit session", () => {
 
     const host = document.getElementById(EDITOR_CARD_ROOT_ID)!;
     const shadow = host.shadowRoot!;
-    // Switch to the natural-language tab, type an instruction, save.
-    act(() => {
-      fireEvent.click(shadowButton(shadow, "自然语言"));
-    });
-    const textarea = shadow.querySelector("textarea")!;
-    act(() => {
-      fireEvent.change(textarea, { target: { value: "圆角更大" } });
-    });
-    act(() => {
-      fireEvent.click(shadowButton(shadow, "保存"));
-    });
+    // A freshly picked element opens on the compact row; ✓ saves the instruction.
+    saveInstruction(shadow, "圆角更大");
 
     // Sanity: the save reported an instruction with zero style changes.
     const firstReports = previewChangedMessages(first.sent);
@@ -209,15 +254,7 @@ describe("content page-side edit session", () => {
     expect(elementId).toBeTruthy();
 
     const card = () => document.getElementById(EDITOR_CARD_ROOT_ID)!.shadowRoot!;
-    act(() => {
-      fireEvent.click(shadowButton(card(), "自然语言"));
-    });
-    act(() => {
-      fireEvent.change(card().querySelector("textarea")!, { target: { value: "圆角更大" } });
-    });
-    act(() => {
-      fireEvent.click(shadowButton(card(), "保存"));
-    });
+    saveInstruction(card(), "圆角更大");
 
     // Zero property changes, yet the saved instruction makes it an annotation.
     const bubbles = () => [
@@ -243,10 +280,9 @@ describe("content page-side edit session", () => {
       fireEvent.click(bubbles()[0]!);
     });
     expect(card().textContent).not.toContain("未保存"); // it carries sequence number 1
-    act(() => {
-      fireEvent.click(shadowButton(card(), "自然语言"));
-    });
-    expect((card().querySelector("textarea") as HTMLTextAreaElement).value).toBe("圆角更大");
+    // Annotated, so it opens expanded — the instruction is already on screen.
+    expect(instructionField(card()).tagName).toBe("TEXTAREA");
+    expect(instructionField(card()).value).toBe("圆角更大");
 
     act(() => port.disconnect());
   });
@@ -267,15 +303,7 @@ describe("content page-side edit session", () => {
       fireEvent.click(document.body, { clientX: 5, clientY: 5 });
     });
     const card = () => document.getElementById(EDITOR_CARD_ROOT_ID)!.shadowRoot!;
-    act(() => {
-      fireEvent.click(shadowButton(card(), "自然语言"));
-    });
-    act(() => {
-      fireEvent.change(card().querySelector("textarea")!, { target: { value: "圆角更大" } });
-    });
-    act(() => {
-      fireEvent.click(shadowButton(card(), "保存"));
-    });
+    saveInstruction(card(), "圆角更大");
     expect(hidden()).toBe(false);
     expect(host().shadowRoot!.querySelectorAll(".bubble")).toHaveLength(1);
 
@@ -338,15 +366,7 @@ describe("content page-side edit session", () => {
     // Save an instruction so the element carries a record: keepId must retain
     // its id after the selection is released, or Apply can no longer find it.
     const card = () => document.getElementById(EDITOR_CARD_ROOT_ID)!.shadowRoot!;
-    act(() => {
-      fireEvent.click(shadowButton(card(), "自然语言"));
-    });
-    act(() => {
-      fireEvent.change(card().querySelector("textarea")!, { target: { value: "圆角更大" } });
-    });
-    act(() => {
-      fireEvent.click(shadowButton(card(), "保存"));
-    });
+    saveInstruction(card(), "圆角更大");
     const elementId = target.getAttribute("data-ui-tuner-id");
     expect(elementId).toBeTruthy();
 
@@ -360,6 +380,39 @@ describe("content page-side edit session", () => {
     // the element still carries its id.
     expect(messageTypes(port.sent)).not.toContain("selection.cleared");
     expect(target.getAttribute("data-ui-tuner-id")).toBe(elementId);
+
+    act(() => port.disconnect());
+  });
+
+  it("re-themes an open card when the panel switches theme", () => {
+    const connect = connectListeners[0]!;
+    const port = createFakePort();
+    act(() => connect(port.port));
+    act(() => port.emitToContent(createSidepanelPicking(true)));
+    act(() => {
+      fireEvent.click(document.body, { clientX: 5, clientY: 5 });
+    });
+
+    const host = document.getElementById(EDITOR_CARD_ROOT_ID)!;
+    expect(host.classList.contains("dark")).toBe(false);
+
+    // The panel is a separate JS context and the only writer, so its theme
+    // switch arrives as a storage event. Hydrating only on connect would leave
+    // this card light next to a dark panel until the page reloaded.
+    const emitPrefs = (newValue: unknown, areaName = "local"): void => {
+      act(() => {
+        for (const listener of storageListeners) {
+          listener({ "ui-tuner:prefs": { newValue } }, areaName);
+        }
+      });
+    };
+
+    emitPrefs({ locale: "zh", theme: "dark" }, "sync");
+    expect(host.classList.contains("dark"), "other storage areas are ignored").toBe(false);
+
+    emitPrefs({ locale: "zh", theme: "dark" });
+    expect(host.classList.contains("dark")).toBe(true);
+    expect(usePrefsStore.getState().theme).toBe("dark");
 
     act(() => port.disconnect());
   });

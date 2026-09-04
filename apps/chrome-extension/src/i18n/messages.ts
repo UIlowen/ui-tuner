@@ -35,7 +35,7 @@ export const zh = {
   "action.reconnect": "重新连接",
   "action.close": "关闭",
   "action.cancel": "取消",
-  "action.copied": "已复制 ✓",
+  "action.copied": "已复制",
   "pick.start": "选取元素",
   "pick.repick": "重新选取",
   "pick.cancel": "取消选取 (Esc)",
@@ -82,7 +82,7 @@ export const zh = {
   "include.parentTree": "父级树",
 
   // --- Apply to Code ---
-  "apply.applied": "✓ 已应用",
+  "apply.applied": "已应用",
   "apply.appliedCount": "{count} 处改动",
   "apply.needsReload": "改动已写入源码。静态页面无热更新，需刷新后才会生效。",
   "apply.reload": "刷新页面查看",
@@ -160,15 +160,15 @@ export const zh = {
   "color.rowTitle": "{label}（{raw}）",
 
   // --- Page editor card ---
-  "card.properties": "属性精调",
-  "card.naturalLanguage": "自然语言",
   "card.save": "保存",
   "card.delete": "删除",
-  "card.collapse": "折叠",
+  "card.collapse": "收起",
   "card.expand": "展开",
   "card.dragHandle": "拖动卡片",
   "card.unsaved": "未保存",
-  "card.instructionPlaceholder": "对这个元素的修改要求…",
+  "card.instructionPlaceholder": "这个元素要怎么改？",
+  "card.submit": "提交",
+  "card.micSoon": "语音输入即将上线",
 
   // --- header toggles ---
   "lang.toggleTitle": "Switch to English",
@@ -209,7 +209,7 @@ export const en: Record<MessageKey, string> = {
   "action.reconnect": "Reconnect",
   "action.close": "Close",
   "action.cancel": "Cancel",
-  "action.copied": "Copied ✓",
+  "action.copied": "Copied",
   "pick.start": "Select element",
   "pick.repick": "Reselect",
   "pick.cancel": "Cancel picking (Esc)",
@@ -256,7 +256,7 @@ export const en: Record<MessageKey, string> = {
   "include.parentTree": "Parent Tree",
 
   // --- Apply to Code ---
-  "apply.applied": "✓ Applied",
+  "apply.applied": "Applied",
   "apply.appliedCount": "{count} changes",
   "apply.needsReload": "Changes written to source. Static pages have no HMR — reload to see them.",
   "apply.reload": "Reload page to view",
@@ -334,15 +334,15 @@ export const en: Record<MessageKey, string> = {
   "color.rowTitle": "{label} ({raw})",
 
   // --- Page editor card ---
-  "card.properties": "Properties",
-  "card.naturalLanguage": "Natural Language",
   "card.save": "Save",
   "card.delete": "Delete",
   "card.collapse": "Collapse",
   "card.expand": "Expand",
   "card.dragHandle": "Drag card",
   "card.unsaved": "Unsaved",
-  "card.instructionPlaceholder": "Describe the changes you want for this element…",
+  "card.instructionPlaceholder": "How should this element change?",
+  "card.submit": "Submit",
+  "card.micSoon": "Voice input coming soon",
 
   // --- header toggles ---
   "lang.toggleTitle": "切换到中文",

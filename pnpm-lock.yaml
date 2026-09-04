@@ -69,6 +69,9 @@ importers:
       jsdom:
         specifier: ^30.0.1
         version: 30.0.1
+      remixicon:
+        specifier: 4.9.1
+        version: 4.9.1
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
@@ -1447,6 +1450,9 @@ packages:
   react@19.2.8:
     resolution: {integrity: sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw==}
     engines: {node: '>=0.10.0'}
+
+  remixicon@4.9.1:
+    resolution: {integrity: sha512-36gLSoujkabnCFZFDyP17VNh9piuBA/rsXUb4auSJWLGsHVXtmxLj/EM5FjaEAGnk8oIAj1Azob/DZ2N+90lAQ==}
 
   require-from-string@2.0.2:
     resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
@@ -2972,6 +2978,8 @@ snapshots:
   react-is@17.0.2: {}
 
   react@19.2.8: {}
+
+  remixicon@4.9.1: {}
 
   require-from-string@2.0.2: {}
 

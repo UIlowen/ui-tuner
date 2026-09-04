@@ -7,6 +7,7 @@ import {
 import { useSidepanelStore } from "../../state/sidepanel-store";
 import { useT } from "../../i18n/use-t";
 import type { MessageKey } from "../../i18n/messages";
+import { CloseIcon, CopyIcon } from "../../ui/icons";
 
 /**
  * Agent tab (plan §23–§27). Assembles the prompt context the coding agent
@@ -94,9 +95,10 @@ export function AgentTab() {
               type="button"
               onClick={dismissApplied}
               aria-label={t("action.close")}
-              className="shrink-0 text-ok-text/70 hover:text-ok-text"
+              title={t("action.close")}
+              className="grid size-5 shrink-0 place-items-center rounded-control text-ok-text/70 hover:text-ok-text"
             >
-              ✕
+              <CloseIcon className="size-3.5" />
             </button>
           </div>
           <p className="mt-1 text-[10px] text-ok-text/70">{t("agent.appliedHint")}</p>
@@ -114,7 +116,7 @@ export function AgentTab() {
               {"<"}
               {selection.element.tagName}
               {">"}
-              <span className="ml-1.5 rounded bg-control px-1 py-px text-[9px] font-normal text-dim">
+              <span className="ml-1.5 rounded-control bg-control px-1 py-px text-[9px] font-normal text-dim">
                 {selection.element.id}
               </span>
             </p>
@@ -129,7 +131,7 @@ export function AgentTab() {
         ) : (
           <p className="mt-1 text-[11px] text-ghost">{t("selection.empty")}</p>
         )}
-        <div className="mt-2 flex h-16 items-center justify-center rounded border border-dashed border-edge text-[10px] text-ghost">
+        <div className="mt-2 flex h-16 items-center justify-center rounded-control border border-dashed border-edge text-[10px] text-ghost">
           {t("agent.screenshotHint", { agent: agentName })}
         </div>
       </section>
@@ -144,7 +146,7 @@ export function AgentTab() {
           onChange={(event) => setAgentInstruction(event.target.value)}
           placeholder={t("agent.instructionPlaceholder")}
           rows={3}
-          className="w-full resize-none rounded-md border border-edge bg-surface px-3 py-2 text-[12px] leading-relaxed text-text placeholder:text-ghost focus:border-edge-strong focus:outline-none"
+          className="w-full resize-none rounded-control border border-edge bg-surface px-3 py-2 text-[12px] leading-relaxed text-text placeholder:text-ghost focus:border-accent-text/50 focus:ring-1 focus:ring-accent-text/40 focus:outline-none"
         />
       </section>
 
@@ -184,7 +186,7 @@ export function AgentTab() {
                 type="checkbox"
                 checked={agentInclude[key]}
                 onChange={(event) => setAgentInclude(key, event.target.checked)}
-                className="size-3 accent-violet-500"
+                className="size-3 accent-accent-text"
               />
               {t(labelKey)}
             </label>
@@ -201,9 +203,9 @@ export function AgentTab() {
                 key={level}
                 type="button"
                 onClick={() => setAgentContextLevel(level)}
-                className={`rounded px-2 py-0.5 text-[10px] font-medium tabular-nums ${
+                className={`rounded-control px-2 py-0.5 text-[10px] font-medium tabular-nums ${
                   agentContextLevel === level
-                    ? "bg-violet-500/25 text-accent-text"
+                    ? "bg-accent-text/20 text-accent-text"
                     : "bg-control text-faint hover:text-dim"
                 }`}
               >
@@ -223,12 +225,13 @@ export function AgentTab() {
           <button
             type="button"
             onClick={() => void copyPrompt()}
-            className="rounded border border-edge-strong px-2 py-0.5 text-[10px] font-medium text-text hover:bg-control"
+            className="flex items-center gap-1 rounded-control border border-edge-strong px-2 py-0.5 text-[10px] font-medium text-text hover:bg-control"
           >
+            <CopyIcon className="size-3" />
             {copied ? t("action.copied") : t("agent.copyPrompt")}
           </button>
         </div>
-        <pre className="max-h-56 overflow-auto rounded-md border border-edge bg-inset-deep px-3 py-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-dim">
+        <pre className="max-h-56 overflow-auto rounded-control border border-edge bg-inset-deep px-3 py-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-dim">
           {prompt}
         </pre>
       </section>
@@ -237,7 +240,7 @@ export function AgentTab() {
         type="button"
         onClick={sendAgentRequest}
         disabled={!connected}
-        className="w-full rounded-md bg-inverse px-3 py-1.5 text-[12px] font-semibold text-inverse-text enabled:hover:bg-inverse-hover disabled:opacity-40"
+        className="w-full rounded-control bg-inverse px-3 py-1.5 text-[12px] font-semibold text-inverse-text enabled:hover:bg-inverse-hover disabled:opacity-40"
       >
         {t("agent.send")}
       </button>

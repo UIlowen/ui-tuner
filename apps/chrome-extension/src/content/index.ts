@@ -48,6 +48,22 @@ import { EDITOR_CARD_ROOT_ID, mountEditorCard, type CardMount } from "./card/mou
 const PREFS_STORAGE_KEY = "ui-tuner:prefs";
 
 /**
+ * Push stored locale/theme into this context's prefs store. The panel is the
+ * only writer; the card reads both back through useT() and the mount's theme
+ * subscription, so nothing else here has to know about them.
+ */
+function applyStoredPrefs(raw: unknown): void {
+  const prefs = raw as { locale?: unknown; theme?: unknown } | undefined;
+  if (!prefs) return;
+  if (prefs.locale === "zh" || prefs.locale === "en") {
+    usePrefsStore.getState().setLocale(prefs.locale as Locale);
+  }
+  if (prefs.theme === "light" || prefs.theme === "dark" || prefs.theme === "system") {
+    usePrefsStore.getState().setTheme(prefs.theme as ThemePref);
+  }
+}
+
+/**
  * Content script — Milestone 4 scope.
  *
  * Runs only on http://localhost/* and http://127.0.0.1/* (see manifest).
@@ -380,6 +396,13 @@ document.addEventListener(
   true,
 );
 
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+  // The panel switches theme/locale in its own JS context; without this an
+  // already-open page keeps the old theme on its card until it reloads.
+  applyStoredPrefs(changes[PREFS_STORAGE_KEY]?.newValue);
+});
+
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== UI_TUNER_PORT_NAME) return;
 
@@ -391,16 +414,7 @@ chrome.runtime.onConnect.addListener((port) => {
   // theme as the `dark` class on the card host.
   void chrome.storage.local
     .get(PREFS_STORAGE_KEY)
-    .then((stored: Record<string, unknown>) => {
-      const prefs = stored[PREFS_STORAGE_KEY] as { locale?: unknown; theme?: unknown } | undefined;
-      if (!prefs) return;
-      if (prefs.locale === "zh" || prefs.locale === "en") {
-        usePrefsStore.getState().setLocale(prefs.locale as Locale);
-      }
-      if (prefs.theme === "light" || prefs.theme === "dark" || prefs.theme === "system") {
-        usePrefsStore.getState().setTheme(prefs.theme as ThemePref);
-      }
-    })
+    .then((stored: Record<string, unknown>) => applyStoredPrefs(stored[PREFS_STORAGE_KEY]))
     .catch(() => {
       // Storage unavailable — run on in-memory defaults.
     });

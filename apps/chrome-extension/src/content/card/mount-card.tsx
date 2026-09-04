@@ -34,7 +34,8 @@ const INITIAL_OFFSET = { x: 16, y: 16 };
  * injectCardStyles, mirrors the resolved theme as the `dark` class on the host
  * (card.css scopes its dark tokens to `:host(.dark)`), renders EditorCard with
  * a React root, places the card beside its anchor element on open (see
- * placement.ts), and implements header drag (pointerdown on the drag handle →
+ * placement.ts) and keeps it inside the viewport as it changes size, and
+ * implements header drag (pointerdown on the drag handle →
  * pointermove translates the host, clamped to the viewport).
  *
  * The card is a separate JS context from the side panel: it reads locale/theme
@@ -86,6 +87,18 @@ export function mountEditorCard(): CardMount {
     offset.y = Math.min(Math.max(offset.y, 0), maxY);
   };
   applyOffset();
+
+  // Placement happens once, at open, against the size measured then — but the
+  // card changes size afterwards (compact row ↔ expanded card is ~350px, and the
+  // instruction textarea is user-resizable). Growing near the bottom edge would
+  // push the footer off screen, where 取消/保存 cannot be clicked, so re-clamp
+  // whenever the measured size changes. Moving the host cannot change the
+  // container's size, so this cannot feed back into itself.
+  const resizeObserver = new ResizeObserver(() => {
+    clampOffset();
+    applyOffset();
+  });
+  resizeObserver.observe(container);
 
   interface DragState {
     pointerId: number;
@@ -164,6 +177,7 @@ export function mountEditorCard(): CardMount {
       open = false;
       unsubscribePrefs();
       media.removeEventListener("change", applyTheme);
+      resizeObserver.disconnect();
       root.unmount();
       host.remove();
     },

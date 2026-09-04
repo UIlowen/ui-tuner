@@ -2,21 +2,56 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../../i18n/use-t";
 import { StyleEditContext, type StyleEditApi } from "../../style-editor/StyleEditContext";
 import { StylePanel } from "../../style-editor/StylePanel";
+import { CheckIcon, ChevronUpIcon, DragIcon, MicIcon, TrashIcon } from "../../ui/icons";
 import type { EditorCardProps } from "./types";
 
 /**
- * Page-side editor card: header (drag handle + sequence badge + collapse
- * toggle), a 属性精调 / 自然语言 segmented toggle, the full StylePanel fed by
- * an internal StyleEditContext, a natural-language textarea, and a
- * 删除 / 取消 / 保存 footer.
+ * Page-side annotation card, in the two states the Codex annotation UI uses:
  *
- * Dragging itself is the mount layer's job (Task 8 moves the card via
- * transform); the handle here is a visual affordance only.
+ *   compact  — one row: badge · tag · "how should this element change?" · mic · ✓
+ *   expanded — drag handle + badge + tag, a multi-line instruction above the
+ *              property groups, and a 删除 / 取消 / 保存 footer
+ *
+ * The opening state is derived from the element's existing annotation rather
+ * than remembered: something already annotated (a bubble number, recorded
+ * property changes, or a saved instruction) opens expanded so its changed rows
+ * are visible and scrolled to; a freshly picked element opens compact, because
+ * the common case there is one sentence.
+ *
+ * Dragging is the mount layer's job — it starts on whatever carries
+ * `data-drag-handle` (the badge in compact, the grip in expanded); the handles
+ * here are affordances only.
  */
+
+/**
+ * Speech input is deliberately not wired up yet. The button is rendered so the
+ * affordance is discoverable, and the tooltip lives on a wrapper because a
+ * `disabled` button does not reliably receive hover events for its own title.
+ */
+function MicButton({ hint }: { hint: string }) {
+  return (
+    <span title={hint} className="shrink-0">
+      <button
+        type="button"
+        disabled
+        aria-label={hint}
+        className="grid size-7 cursor-not-allowed place-items-center rounded-pill text-ghost"
+      >
+        <MicIcon className="size-4" />
+      </button>
+    </span>
+  );
+}
+
 export function EditorCard(props: EditorCardProps) {
   const t = useT();
-  const [mode, setMode] = useState<"properties" | "nl">("properties");
-  const [collapsed, setCollapsed] = useState(false);
+  const annotated =
+    props.number !== null ||
+    props.changedProperties.length > 0 ||
+    props.initialInstruction.trim() !== "";
+  const [viewState, setViewState] = useState<"compact" | "expanded">(
+    annotated ? "expanded" : "compact",
+  );
   const [values, setValues] = useState<Record<string, string>>(props.initialValues);
   const [instruction, setInstruction] = useState(props.initialInstruction);
   const [dirtyProps, setDirtyProps] = useState(false);
@@ -46,121 +81,120 @@ export function EditorCard(props: EditorCardProps) {
   const canSave = dirtyProps || instructionDirty;
 
   const badge = props.number === null ? t("card.unsaved") : String(props.number);
+  const submit = (): void => props.onSave(instruction);
 
-  if (collapsed) {
+  if (viewState === "compact") {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-edge bg-surface-solid px-2 py-1 shadow-lg">
-        <span className="text-[10px] font-medium text-faint">{badge}</span>
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-text">
-          {props.tagName}
+      <div className="flex w-[320px] items-center gap-1 rounded-card border border-edge bg-surface-solid p-1.5 shadow-lg">
+        <span
+          data-drag-handle
+          title={t("card.dragHandle")}
+          className="grid h-7 shrink-0 cursor-grab place-items-center rounded-pill bg-accent-text/15 px-1.5 text-[10px] font-semibold text-accent-text select-none"
+        >
+          {badge}
         </span>
         <button
           type="button"
+          onClick={() => setViewState("expanded")}
+          title={t("card.expand")}
           aria-label={t("card.expand")}
-          onClick={() => setCollapsed(false)}
-          className="rounded px-1.5 py-0.5 text-[10px] text-dim hover:bg-control"
+          className="shrink-0 rounded-pill bg-inset px-2 py-1 font-mono text-[10px] text-dim transition-colors hover:bg-control hover:text-text"
         >
-          ▾
+          {props.tagName}
+        </button>
+        <input
+          value={instruction}
+          onChange={(event) => setInstruction(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") submit();
+          }}
+          placeholder={t("card.instructionPlaceholder")}
+          aria-label={t("card.instructionPlaceholder")}
+          className="h-7 min-w-0 flex-1 rounded-control bg-inset px-2 text-[12px] text-text-strong outline-none placeholder:text-ghost transition-colors hover:bg-control focus:bg-control focus:ring-1 focus:ring-accent-text/50"
+        />
+        <MicButton hint={t("card.micSoon")} />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!canSave}
+          aria-label={t("card.submit")}
+          title={t("card.submit")}
+          className="grid size-7 shrink-0 place-items-center rounded-pill bg-inverse text-inverse-text transition-colors enabled:hover:bg-inverse-hover disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <CheckIcon className="size-4" />
         </button>
       </div>
     );
   }
 
   return (
-    <div className="flex w-[280px] flex-col overflow-hidden rounded-lg border border-edge bg-surface-solid shadow-lg">
-      {/* Header: drag handle + tag + badge + collapse toggle */}
+    <div className="flex w-[320px] flex-col overflow-hidden rounded-card border border-edge bg-surface-solid shadow-lg">
       <header className="flex shrink-0 items-center gap-1.5 border-b border-edge px-2 py-1.5">
         <span
           data-drag-handle
           aria-label={t("card.dragHandle")}
           title={t("card.dragHandle")}
-          className="cursor-grab select-none px-0.5 text-[11px] leading-none text-ghost"
+          className="shrink-0 cursor-grab text-ghost select-none transition-colors hover:text-dim"
         >
-          ⠿
+          <DragIcon className="size-3.5" />
         </span>
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] font-medium text-text-strong">
-          {props.tagName}
-        </span>
-        <span className="shrink-0 rounded-full bg-control px-1.5 py-0.5 text-[9px] font-medium leading-none text-dim">
+        <span className="grid h-5 shrink-0 place-items-center rounded-pill bg-accent-text/15 px-1.5 text-[10px] font-semibold text-accent-text">
           {badge}
+        </span>
+        <span className="shrink-0 rounded-pill bg-inset px-2 py-0.5 font-mono text-[10px] text-dim">
+          {props.tagName}
         </span>
         <button
           type="button"
           aria-label={t("card.collapse")}
-          onClick={() => setCollapsed(true)}
-          className="shrink-0 rounded px-1 py-0.5 text-[10px] leading-none text-faint hover:bg-control hover:text-dim"
+          title={t("card.collapse")}
+          onClick={() => setViewState("compact")}
+          className="ml-auto grid size-6 shrink-0 place-items-center rounded-control text-faint transition-colors hover:bg-control hover:text-text"
         >
-          ▴
+          <ChevronUpIcon className="size-4" />
         </button>
       </header>
 
-      {/* Mode toggle */}
-      <div className="flex shrink-0 gap-1 border-b border-edge p-1.5">
-        <button
-          type="button"
-          aria-pressed={mode === "properties"}
-          onClick={() => setMode("properties")}
-          className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${
-            mode === "properties"
-              ? "bg-inverse text-inverse-text"
-              : "bg-control text-dim hover:bg-control-hover"
-          }`}
-        >
-          {t("card.properties")}
-        </button>
-        <button
-          type="button"
-          aria-pressed={mode === "nl"}
-          onClick={() => setMode("nl")}
-          className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${
-            mode === "nl"
-              ? "bg-inverse text-inverse-text"
-              : "bg-control text-dim hover:bg-control-hover"
-          }`}
-        >
-          {t("card.naturalLanguage")}
-        </button>
-      </div>
-
-      {/* Body */}
-      <div ref={bodyRef} className="max-h-[320px] min-h-0 overflow-y-auto px-2 py-1.5">
-        {mode === "properties" ? (
+      <div ref={bodyRef} className="max-h-[320px] min-h-0 overflow-y-auto px-2 py-2">
+        <textarea
+          value={instruction}
+          onChange={(event) => setInstruction(event.target.value)}
+          placeholder={t("card.instructionPlaceholder")}
+          aria-label={t("card.instructionPlaceholder")}
+          rows={3}
+          className="w-full resize-y rounded-control border border-edge bg-inset px-2 py-1.5 text-[12px] leading-relaxed text-text-strong outline-none placeholder:text-ghost transition-colors focus:border-accent-text/50 focus:ring-1 focus:ring-accent-text/40"
+        />
+        <div className="mt-2">
           <StyleEditContext.Provider value={api}>
             <StylePanel />
           </StyleEditContext.Provider>
-        ) : (
-          <textarea
-            value={instruction}
-            onChange={(e) => setInstruction(e.target.value)}
-            placeholder={t("card.instructionPlaceholder")}
-            rows={5}
-            className="w-full resize-y rounded border border-edge bg-inset px-2 py-1.5 text-[12px] leading-relaxed text-text placeholder:text-ghost focus:border-edge-strong focus:outline-none"
-          />
-        )}
+        </div>
       </div>
 
-      {/* Footer */}
-      <footer className="flex shrink-0 items-center gap-1.5 border-t border-edge px-2 py-1.5">
+      <footer className="flex shrink-0 items-center gap-1 border-t border-edge px-2 py-1.5">
         <button
           type="button"
           onClick={() => props.onDelete()}
-          className="rounded border border-red-500/40 px-2 py-1 text-[11px] font-medium text-danger-text hover:bg-red-500/20"
+          aria-label={t("card.delete")}
+          title={t("card.delete")}
+          className="grid size-7 shrink-0 place-items-center rounded-control text-danger-text transition-colors hover:bg-red-500/15"
         >
-          {t("card.delete")}
+          <TrashIcon className="size-4" />
         </button>
+        <MicButton hint={t("card.micSoon")} />
         <div className="ml-auto flex gap-1.5">
           <button
             type="button"
             onClick={() => props.onCancel()}
-            className="rounded bg-control px-2.5 py-1 text-[11px] font-medium text-dim hover:bg-control-hover"
+            className="rounded-control bg-control px-2.5 py-1 text-[11px] font-medium text-dim transition-colors hover:bg-control-hover hover:text-text"
           >
             {t("action.cancel")}
           </button>
           <button
             type="button"
             disabled={!canSave}
-            onClick={() => props.onSave(instruction)}
-            className="rounded bg-inverse px-2.5 py-1 text-[11px] font-semibold text-inverse-text enabled:hover:bg-inverse-hover disabled:opacity-40"
+            onClick={submit}
+            className="rounded-control bg-inverse px-2.5 py-1 text-[11px] font-semibold text-inverse-text transition-colors enabled:hover:bg-inverse-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {t("card.save")}
           </button>

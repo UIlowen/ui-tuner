@@ -1,5 +1,6 @@
 import { useSidepanelStore } from "../../state/sidepanel-store";
 import { useT } from "../../i18n/use-t";
+import { RefreshIcon, UndoIcon } from "../../ui/icons";
 
 /**
  * Changes list: changes grouped per element, each row revertable, per-element
@@ -54,8 +55,9 @@ export function ChangesTab() {
           <button
             type="button"
             onClick={resetChanges}
-            className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-medium text-danger-text hover:bg-red-500/15"
+            className="ml-auto flex items-center gap-1 rounded-control px-1.5 py-0.5 text-[10px] font-medium text-danger-text hover:bg-red-500/15"
           >
+            <RefreshIcon className="size-3" />
             {t("changes.resetAll")}
           </button>
         )}
@@ -66,7 +68,7 @@ export function ChangesTab() {
       ) : (
         <div className="mt-2 space-y-2.5">
           {groups.map((group) => (
-            <div key={group.elementId} className="rounded bg-inset px-2 py-1.5">
+            <div key={group.elementId} className="rounded-control bg-inset px-2 py-1.5">
               <div className="flex items-center gap-1.5">
                 <span className="truncate font-mono text-[11px] font-semibold text-accent-text/90">
                   {group.tagName}
@@ -77,7 +79,7 @@ export function ChangesTab() {
                 <button
                   type="button"
                   onClick={() => revertElement(group.elementId)}
-                  className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] text-dim hover:bg-control hover:text-text"
+                  className="ml-auto shrink-0 rounded-control px-1.5 py-0.5 text-[10px] text-dim hover:bg-control hover:text-text"
                 >
                   {t("changes.revertElement")}
                 </button>
@@ -90,21 +92,22 @@ export function ChangesTab() {
               <ul className="mt-1 space-y-0.5">
                 {group.changes.map((change) => (
                   <li key={change.id} className="flex items-baseline gap-2 text-[11px]">
-                    <span className="shrink-0 text-text">{change.property}</span>
-                    <span className="ml-auto min-w-0 truncate font-mono text-[10px] text-faint">
-                      <span className="line-through decoration-edge-strong">
+                    <span className="shrink-0 text-faint">{change.property}</span>
+                    <span className="ml-auto min-w-0 truncate font-mono text-[10px]">
+                      <span className="text-ghost line-through decoration-edge-strong">
                         {change.previousValue || "—"}
                       </span>
-                      {" → "}
+                      <span className="text-ghost">{" → "}</span>
                       <span className="text-ok-text">{change.nextValue}</span>
                     </span>
                     <button
                       type="button"
                       title={t("changes.revertProperty", { property: change.property })}
+                      aria-label={t("changes.revertProperty", { property: change.property })}
                       onClick={() => revertChange(change.id)}
-                      className="shrink-0 rounded px-1 py-px text-[10px] text-faint hover:bg-control hover:text-text"
+                      className="grid size-4 shrink-0 self-center place-items-center rounded-control text-faint hover:bg-control hover:text-text"
                     >
-                      ↩
+                      <UndoIcon className="size-3" />
                     </button>
                   </li>
                 ))}

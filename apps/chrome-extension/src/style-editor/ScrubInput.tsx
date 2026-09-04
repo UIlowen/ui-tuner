@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { clamp, formatNumber, parseCssValue, scrubMultiplier } from "@ui-tuner/inspector";
 import { useT } from "../i18n/use-t";
+import { DragIcon } from "../ui/icons";
 
 /**
  * ScrubInput (plan §10, P0): drag to scrub a numeric CSS value.
@@ -158,7 +159,7 @@ export function ScrubInput({
           else if (event.key === "Escape") setEditing(false);
         }}
         onBlur={finishEditing}
-        className="h-6 w-full rounded bg-base px-1.5 font-mono text-[11px] text-text-strong outline-none ring-1 ring-violet-500/70"
+        className="h-6 w-full rounded-control bg-base px-1.5 font-mono text-[11px] text-text-strong ring-1 ring-accent-text/60 outline-none"
       />
     );
   }
@@ -177,20 +178,20 @@ export function ScrubInput({
       onKeyDown={handleKeyDown}
       onDoubleClick={startEditing}
       title={t("scrub.hint")}
-      className={`group flex h-6 min-w-0 flex-1 cursor-ew-resize items-center justify-end gap-0.5 rounded px-1.5 font-mono text-[11px] text-text outline-none select-none ${
+      className={`group flex h-6 min-w-0 flex-1 cursor-ew-resize items-center justify-end gap-1 rounded-control px-1.5 font-mono text-[11px] text-text-strong outline-none select-none transition-colors ${
         dragging
-          ? "bg-violet-500/20 ring-1 ring-violet-500/70"
-          : "bg-control hover:bg-control-hover focus-visible:bg-control-hover focus-visible:ring-1 focus-visible:ring-zinc-500"
+          ? "bg-accent-text/15 ring-1 ring-accent-text/60"
+          : "bg-inset hover:bg-control focus-visible:bg-control focus-visible:ring-1 focus-visible:ring-accent-text/50"
       }`}
       style={{ touchAction: "none" }}
     >
       <span
         aria-hidden
-        className={`shrink-0 text-[9px] leading-none text-faint transition-opacity ${
+        className={`shrink-0 text-faint transition-opacity ${
           dragging ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
         }`}
       >
-        ⇔
+        <DragIcon className="size-3" />
       </span>
       <span ref={displayRef} className="truncate tabular-nums">
         {formatNumber(value)}

@@ -83,6 +83,13 @@
   --color-warn-text: var(--warn-text);
   --color-danger-text: var(--danger-text);
   --color-info-text: var(--info-text);
+
+  /* Radii don't vary by theme, so they are literals here rather than
+     :root/.dark variables. Mirrored in content/card/card.css — tokens.test.ts
+     fails when the two files drift. */
+  --radius-card: 14px;
+  --radius-control: 6px;
+  --radius-pill: 999px;
 }
 
 html,

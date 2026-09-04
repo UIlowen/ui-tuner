@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ApplyScope } from "@ui-tuner/protocol";
 import { useSidepanelStore } from "../../state/sidepanel-store";
 import { useT } from "../../i18n/use-t";
+import { CheckIcon, CloseIcon, CodeIcon, RefreshIcon } from "../../ui/icons";
 
 /**
  * Apply to Code flow (M8, plan §29/§30/§31/§34). The Changes tab footer Apply
@@ -51,7 +52,10 @@ export function ApplySection() {
   if (applyState === "applied" && applyResult) {
     return (
       <section className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
-        <p className="text-[12px] font-semibold text-ok-text">{t("apply.applied")}</p>
+        <p className="flex items-center gap-1.5 text-[12px] font-semibold text-ok-text">
+          <CheckIcon className="size-4" />
+          {t("apply.applied")}
+        </p>
         <p className="mt-1 text-[11px] text-ok-text/90">
           {t("apply.appliedCount", {
             count: applyConfirmedCount ?? applyResult.files?.length ?? 0,
@@ -66,7 +70,7 @@ export function ApplySection() {
           <p className="mt-1 text-[10px] leading-relaxed text-ok-text/70">{applyResult.summary}</p>
         )}
         {applyNeedsReload && (
-          <p className="mt-2 rounded bg-amber-500/10 px-2 py-1 text-[10px] leading-relaxed text-warn-text/90">
+          <p className="mt-2 rounded-control bg-amber-500/10 px-2 py-1 text-[10px] leading-relaxed text-warn-text/90">
             {t("apply.needsReload")}
           </p>
         )}
@@ -75,7 +79,7 @@ export function ApplySection() {
             <button
               type="button"
               onClick={reloadPage}
-              className="rounded border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-ok-text hover:bg-emerald-500/25"
+              className="rounded-control border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-ok-text hover:bg-emerald-500/25"
             >
               {t("apply.reload")}
             </button>
@@ -83,7 +87,7 @@ export function ApplySection() {
           <button
             type="button"
             onClick={clearApplyState}
-            className="rounded border border-emerald-500/40 px-2.5 py-1 text-[11px] font-medium text-ok-text hover:bg-emerald-500/20"
+            className="rounded-control border border-emerald-500/40 px-2.5 py-1 text-[11px] font-medium text-ok-text hover:bg-emerald-500/20"
           >
             {t("apply.done")}
           </button>
@@ -104,15 +108,17 @@ export function ApplySection() {
           <button
             type="button"
             onClick={() => setDialogOpen(true)}
-            className="rounded border border-red-500/40 px-2.5 py-1 text-[11px] font-medium text-danger-text hover:bg-red-500/20"
+            className="flex items-center gap-1.5 rounded-control border border-red-500/40 px-2.5 py-1 text-[11px] font-medium text-danger-text hover:bg-red-500/20"
           >
+            <RefreshIcon className="size-3.5" />
             {t("apply.retry")}
           </button>
           <button
             type="button"
             onClick={clearApplyState}
-            className="rounded px-2.5 py-1 text-[11px] text-dim hover:text-text"
+            className="flex items-center gap-1.5 rounded-control px-2.5 py-1 text-[11px] text-dim hover:text-text"
           >
+            <CloseIcon className="size-3.5" />
             {t("apply.dismiss")}
           </button>
         </div>
@@ -156,7 +162,7 @@ export function ApplySection() {
               name="apply-scope"
               checked={scope === "instance"}
               onChange={() => setScope("instance")}
-              className="accent-violet-500"
+              className="accent-accent-text"
             />
             {t("apply.scopeInstance")}
           </label>
@@ -166,7 +172,7 @@ export function ApplySection() {
               name="apply-scope"
               checked={scope === "component"}
               onChange={() => setScope("component")}
-              className="accent-violet-500"
+              className="accent-accent-text"
             />
             {t("apply.scopeComponent")}
           </label>
@@ -185,7 +191,7 @@ export function ApplySection() {
         </div>
 
         {sourceUnknown && (
-          <p className="mt-2 rounded bg-amber-500/10 px-2 py-1 text-[10px] leading-relaxed text-warn-text/90">
+          <p className="mt-2 rounded-control bg-amber-500/10 px-2 py-1 text-[10px] leading-relaxed text-warn-text/90">
             {t("apply.sourceUnknown")}
           </p>
         )}
@@ -194,7 +200,7 @@ export function ApplySection() {
           <button
             type="button"
             onClick={() => setDialogOpen(false)}
-            className="flex-1 rounded-md border border-edge-strong px-3 py-1.5 text-[12px] font-medium text-text hover:bg-control"
+            className="flex-1 rounded-control border border-edge-strong px-3 py-1.5 text-[12px] font-medium text-text hover:bg-control"
           >
             {t("action.cancel")}
           </button>
@@ -214,8 +220,9 @@ export function ApplySection() {
               setDialogOpen(false);
               applyChanges(scope);
             }}
-            className="flex-1 rounded-md bg-inverse px-3 py-1.5 text-[12px] font-semibold text-inverse-text enabled:hover:bg-inverse-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-control bg-inverse px-3 py-1.5 text-[12px] font-semibold text-inverse-text enabled:hover:bg-inverse-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
+            <CodeIcon className="size-3.5" />
             {t("apply.confirm")}
           </button>
         </div>
@@ -239,8 +246,9 @@ export function ApplySection() {
               ? t("apply.titleManualCopy")
               : t("apply.titleApply")
       }
-      className="w-full rounded-md bg-violet-500/20 px-3 py-1.5 text-[12px] font-semibold text-accent-text ring-1 ring-violet-500/50 transition-colors enabled:hover:bg-violet-500/30 disabled:cursor-not-allowed disabled:opacity-40"
+      className="flex w-full items-center justify-center gap-1.5 rounded-control bg-accent-text/15 px-3 py-1.5 text-[12px] font-semibold text-accent-text ring-1 ring-accent-text/50 transition-colors enabled:hover:bg-accent-text/25 disabled:cursor-not-allowed disabled:opacity-40"
     >
+      <CodeIcon className="size-3.5" />
       {t("apply.button")}
     </button>
   );

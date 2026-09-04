@@ -47,7 +47,7 @@ export function Row({
     >
       <span
         className={`w-[64px] shrink-0 truncate text-[11px] ${
-          changed ? "font-medium text-accent-text" : "text-dim"
+          changed ? "font-medium text-accent-text" : "text-faint"
         }`}
         title={label}
       >
@@ -58,9 +58,10 @@ export function Row({
   );
 }
 
-export function GroupHeader({ title }: { title: string }) {
+export function GroupHeader({ title, icon }: { title: string; icon?: ReactNode }) {
   return (
-    <p className="mt-2 border-t border-edge pt-1.5 text-[10px] font-medium tracking-wider text-faint uppercase first:mt-0 first:border-t-0 first:pt-0">
+    <p className="mt-2.5 flex items-center gap-1.5 border-t border-edge pt-2 text-[10px] font-medium tracking-wider text-faint uppercase first:mt-0 first:border-t-0 first:pt-0">
+      {icon && <span className="text-ghost">{icon}</span>}
       {title}
     </p>
   );
@@ -138,7 +139,7 @@ export function TextRow({
         onKeyDown={(event) => {
           if (event.key === "Enter") (event.target as HTMLInputElement).blur();
         }}
-        className="h-6 w-full truncate rounded bg-control px-1 font-mono text-[11px] text-text outline-none placeholder:text-ghost hover:bg-control-hover focus-visible:bg-control-hover focus-visible:ring-1 focus-visible:ring-zinc-500"
+        className="h-6 w-full truncate rounded-control bg-inset px-1.5 font-mono text-[11px] text-text-strong outline-none placeholder:text-ghost transition-colors hover:bg-control focus-visible:bg-control focus-visible:ring-1 focus-visible:ring-accent-text/50"
       />
     </Row>
   );
@@ -161,8 +162,8 @@ export function ColorRow({ property, label }: { property: string; label: string 
 
   return (
     <Row label={label} changed={isChanged}>
-      <div className="flex h-6 min-w-0 flex-1 items-center justify-end gap-1">
-        <span className="truncate font-mono text-[10px] text-faint">{raw}</span>
+      <div className="flex h-6 min-w-0 flex-1 items-center justify-end gap-1.5">
+        <span className="truncate font-mono text-[10px] text-text">{raw}</span>
         <input
           type="color"
           value={hex}
@@ -175,7 +176,7 @@ export function ColorRow({ property, label }: { property: string; label: string 
             setDraft(null);
           }}
           title={t("color.rowTitle", { label, raw })}
-          className="size-5 shrink-0 cursor-pointer rounded border border-edge-strong bg-transparent p-0"
+          className="size-5 shrink-0 cursor-pointer rounded-[5px] border border-edge-strong bg-transparent p-0 transition-shadow hover:ring-1 hover:ring-accent-text/40"
         />
       </div>
     </Row>
@@ -189,7 +190,7 @@ export function SegmentRow({
 }: {
   property: string;
   label: string;
-  options: { value: string; label: string; title?: string }[];
+  options: { value: string; label: string; title?: string; icon?: ReactNode }[];
 }) {
   const { values, updateStyle } = useStyleEdit();
   const isChanged = useIsChanged(property);
@@ -197,20 +198,24 @@ export function SegmentRow({
 
   return (
     <Row label={label} changed={isChanged}>
-      <div className="flex min-w-0 overflow-hidden rounded bg-control">
+      <div className="flex min-w-0 gap-0.5 overflow-hidden rounded-control bg-inset p-0.5">
         {options.map((option) => (
           <button
             key={option.value}
             type="button"
             title={option.title ?? option.label}
+            // An icon-only segment has no visible text, so its name and state
+            // must be carried explicitly or it is invisible to a screen reader.
+            aria-label={option.icon ? (option.title ?? option.label) : undefined}
+            aria-pressed={raw === option.value}
             onClick={() => void updateStyle(property, option.value, true)}
-            className={`min-w-0 flex-1 px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap transition-colors ${
+            className={`flex min-w-0 flex-1 items-center justify-center rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap transition-colors ${
               raw === option.value
-                ? "bg-inverse font-semibold text-inverse-text"
-                : "text-dim hover:bg-control-hover hover:text-text"
+                ? "bg-elevated font-medium text-text-strong ring-1 ring-edge-strong"
+                : "text-faint hover:bg-control hover:text-text"
             }`}
           >
-            {option.label}
+            {option.icon ?? option.label}
           </button>
         ))}
       </div>
@@ -224,7 +229,7 @@ export function ReadOnlyRow({ property, label }: { property: string; label: stri
   const raw = values[property] ?? "";
   return (
     <Row label={label}>
-      <span className="truncate font-mono text-[10px] text-faint" title={raw}>
+      <span className="truncate font-mono text-[10px] text-ghost" title={raw}>
         {raw === "" ? "—" : raw}
       </span>
     </Row>
