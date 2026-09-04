@@ -20,7 +20,6 @@ import type { EditorCardProps } from "./types";
 function baseProps(overrides: Partial<EditorCardProps> = {}): EditorCardProps {
   return {
     elementId: "ut-000001",
-    tagName: "button",
     number: null,
     initialValues: { height: "38px" },
     initialInstruction: "",
@@ -136,17 +135,34 @@ describe("EditorCard", () => {
     });
   });
 
-  describe("badges", () => {
-    it("shows the tag name and a settings icon when number is null", () => {
+  describe("header affordances", () => {
+    it("offers the drag grip and the property toggle when there is no bubble number", () => {
       render(<EditorCard {...baseProps()} />);
-      expect(screen.getByText("button")).toBeTruthy();
+      expect(screen.getByLabelText("拖动卡片")).toBeTruthy();
+      const toggle = screen.getByRole("button", { name: "展开" });
+      expect(toggle.getAttribute("aria-expanded")).toBe("false");
+      // The tag name it replaced is gone — the card sits on the element itself.
+      expect(screen.queryByText("button")).toBeNull();
+    });
+
+    it("shows the sequence number badge next to the grip when there is one", () => {
+      render(<EditorCard {...baseProps({ number: 3 })} />);
+      // Annotated, so it opens expanded: badge and grip share the header.
+      expect(screen.getByText("3")).toBeTruthy();
       expect(screen.getByLabelText("拖动卡片")).toBeTruthy();
     });
 
-    it("shows the sequence number badge when provided", () => {
-      render(<EditorCard {...baseProps({ number: 3 })} />);
-      expect(screen.getByText("3")).toBeTruthy();
-      expect(screen.queryByText("button")).toBeNull();
+    it("opens and closes the property panel with the same icon", () => {
+      render(<EditorCard {...baseProps()} />);
+      fireEvent.click(screen.getByRole("button", { name: "展开" }));
+      expect(screen.getByText("布局")).toBeTruthy();
+
+      // One icon does both directions — there is no separate collapse chevron.
+      const collapse = screen.getByRole("button", { name: "收起" });
+      expect(collapse.getAttribute("aria-expanded")).toBe("true");
+      fireEvent.click(collapse);
+      expect(screen.queryByText("布局")).toBeNull();
+      expect(screen.getByRole("button", { name: "展开" })).toBeTruthy();
     });
   });
 

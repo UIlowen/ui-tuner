@@ -52,16 +52,28 @@ export function Row({
 }) {
   const t = useT();
   const resetLabel = t("changes.revertProperty", { property: label });
+  // Focus tracked in React rather than left to `:focus-within`: the row has to
+  // light up on a mouse click too, where a control's own `:focus-visible` ring
+  // stays hidden, and the state doubles as a hook for tests and the probe.
+  const [active, setActive] = useState(false);
   return (
     <div
       {...(changed ? { "data-changed": "true", title: t("style.changed") } : {})}
-      className={`flex min-h-6 items-center gap-1.5 rounded-[3px] py-0.5 px-1 transition-all focus-within:ring-1 focus-within:ring-accent-text/30 ${
+      {...(active ? { "data-active": "true" } : {})}
+      onFocusCapture={() => setActive(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setActive(false);
+      }}
+      className={`flex min-h-6 items-center gap-1.5 rounded-[3px] py-0.5 px-1 transition-all ${
+        active ? "ring-2 ring-accent-text/60" : ""
+      } ${
+        // One tint only — two bg-* utilities on the same element would fight.
         changed ? "-ml-[2px] border-l-2 border-accent-text bg-accent-text/10" : ""
-      }`}
+      } ${!changed && active ? "bg-accent-text/[0.07]" : ""}`}
     >
       <span
         className={`w-[64px] shrink-0 truncate text-[11px] ${
-          changed ? "font-medium text-accent-text" : "text-faint"
+          changed ? "font-medium text-accent-text" : active ? "text-text" : "text-faint"
         }`}
         title={label}
       >
@@ -239,7 +251,9 @@ export function SegmentRow({
             // must be carried explicitly or it is invisible to a screen reader.
             aria-label={option.icon ? (option.title ?? option.label) : undefined}
             aria-pressed={raw === option.value}
-            onClick={() => void updateStyle(property, option.value, true)}
+            onClick={() => {
+              if (option.value !== raw) void updateStyle(property, option.value, true);
+            }}
             className={`flex min-w-0 flex-1 items-center justify-center rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap transition-colors ${
               raw === option.value
                 ? "bg-elevated font-medium text-text-strong ring-2 ring-accent-text/70"

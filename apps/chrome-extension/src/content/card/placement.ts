@@ -35,6 +35,11 @@ function clamp(value: number, min: number, max: number): number {
  * does, the preferred right-hand spot is clamped back into view so the card is
  * never partly off-screen.
  *
+ * Only the axis that picks the side has to fit. The other axis is clamped, so
+ * the card slides along the edge it was placed on: an element flush against the
+ * bottom of the viewport still gets the card beside it instead of losing every
+ * side to a few pixels of vertical overflow and ending up on top of it.
+ *
  * Both the anchor and the result are viewport coordinates — the card host is
  * `position: fixed` and moved with a translate, so no scroll offset is involved.
  */
@@ -48,12 +53,12 @@ export function placeNearAnchor(input: PlaceNearAnchorInput): { x: number; y: nu
   const maxX = viewport.width - margin - card.width;
   const maxY = viewport.height - margin - card.height;
 
-  const preferred = { x: anchor.right + gap, y: anchor.top };
+  const preferred = { x: anchor.right + gap, y: clamp(anchor.top, minY, maxY) };
   const candidates = [
     preferred,
-    { x: anchor.left - gap - card.width, y: anchor.top },
-    { x: anchor.left, y: anchor.bottom + gap },
-    { x: anchor.left, y: anchor.top - gap - card.height },
+    { x: anchor.left - gap - card.width, y: clamp(anchor.top, minY, maxY) },
+    { x: clamp(anchor.left, minX, maxX), y: anchor.bottom + gap },
+    { x: clamp(anchor.left, minX, maxX), y: anchor.top - gap - card.height },
   ];
 
   const fits = (p: { x: number; y: number }): boolean =>

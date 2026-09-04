@@ -2,15 +2,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../../i18n/use-t";
 import { StyleEditContext, type StyleEditApi } from "../../style-editor/StyleEditContext";
 import { StylePanel } from "../../style-editor/StylePanel";
-import { CheckIcon, ChevronUpIcon, DragIcon, MicIcon, SettingsIcon, TrashIcon } from "../../ui/icons";
+import { CheckIcon, DragIcon, MicIcon, SlidersIcon, TrashIcon } from "../../ui/icons";
 import type { EditorCardProps } from "./types";
 
 /**
  * Page-side annotation card, in the two states the Codex annotation UI uses:
  *
- *   compact  — one row: badge · tag · "how should this element change?" · mic · ✓
- *   expanded — drag handle + badge + tag, a multi-line instruction above the
- *              property groups, and a 删除 / 取消 / 保存 footer
+ *   compact  — one row: handle · properties · "how should this element
+ *              change?" · mic · ✓
+ *   expanded — handle · properties, a multi-line instruction above the property
+ *              groups, and a 删除 / 取消 / 保存 footer
+ *
+ * One control moves between them: the property icon (SlidersIcon) expands the
+ * property panel from the compact row and collapses it again from the header.
+ * The element's tag name is not shown — the card sits on top of the element it
+ * describes, so repeating `div` there is noise where an affordance should be.
  *
  * The opening state is derived from the element's existing annotation rather
  * than remembered: something already annotated (a bubble number, recorded
@@ -19,8 +25,8 @@ import type { EditorCardProps } from "./types";
  * the common case there is one sentence.
  *
  * Dragging is the mount layer's job — it starts on whatever carries
- * `data-drag-handle` (the badge in compact, the grip in expanded); the handles
- * here are affordances only.
+ * `data-drag-handle` (the grip, or the bubble number when there is one); the
+ * handles here are affordances only.
  */
 
 /**
@@ -40,6 +46,38 @@ function MicButton({ hint }: { hint: string }) {
         <MicIcon className="size-4" />
       </button>
     </span>
+  );
+}
+
+/**
+ * The one control that opens and closes the property panel — the compact row's
+ * second item and the expanded header's second item, so it never moves far when
+ * the card changes shape. Lit while the panel is open.
+ */
+function PropertiesToggle({
+  open,
+  label,
+  onToggle,
+}: {
+  open: boolean;
+  label: string;
+  onToggle(): void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={label}
+      aria-expanded={open}
+      title={label}
+      className={`grid size-7 shrink-0 place-items-center rounded-pill transition-colors ${
+        open
+          ? "bg-accent-text/15 text-accent-text hover:bg-accent-text/25"
+          : "bg-inset text-dim hover:bg-control hover:text-text"
+      }`}
+    >
+      <SlidersIcon className="size-4" />
+    </button>
   );
 }
 
@@ -80,7 +118,15 @@ export function EditorCard(props: EditorCardProps) {
       props.onStage(property, value, committed);
       if (committed) {
         setValues((v) => ({ ...v, [property]: value }));
-        setDirtySet((prev) => new Set(prev).add(property));
+        setDirtySet((prev) => {
+          const next = new Set(prev);
+          if (value !== props.initialValues[property]) {
+            next.add(property);
+          } else {
+            next.delete(property);
+          }
+          return next;
+        });
       }
     },
     revertStyle: (property) => {
@@ -126,7 +172,7 @@ export function EditorCard(props: EditorCardProps) {
             title={t("card.dragHandle")}
             className="grid h-7 w-7 shrink-0 cursor-grab place-items-center rounded-pill bg-inset text-dim transition-colors hover:bg-control hover:text-text select-none"
           >
-            <SettingsIcon className="size-4" />
+            <DragIcon className="size-3.5" />
           </span>
         ) : (
           <span
@@ -137,15 +183,11 @@ export function EditorCard(props: EditorCardProps) {
             {String(props.number)}
           </span>
         )}
-        <button
-          type="button"
-          onClick={() => setViewState("expanded")}
-          title={t("card.expand")}
-          aria-label={t("card.expand")}
-          className="shrink-0 rounded-pill bg-inset px-2 py-1 font-mono text-[10px] text-dim transition-colors hover:bg-control hover:text-text"
-        >
-          {props.tagName}
-        </button>
+        <PropertiesToggle
+          open={false}
+          label={t("card.expand")}
+          onToggle={() => setViewState("expanded")}
+        />
         <input
           value={instruction}
           onChange={(event) => setInstruction(event.target.value)}
@@ -187,18 +229,11 @@ export function EditorCard(props: EditorCardProps) {
             {String(props.number)}
           </span>
         )}
-        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-pill bg-inset text-dim">
-          <SettingsIcon className="size-3" />
-        </span>
-        <button
-          type="button"
-          aria-label={t("card.collapse")}
-          title={t("card.collapse")}
-          onClick={() => setViewState("compact")}
-          className="ml-auto grid size-6 shrink-0 place-items-center rounded-control text-faint transition-colors hover:bg-control hover:text-text"
-        >
-          <ChevronUpIcon className="size-4" />
-        </button>
+        <PropertiesToggle
+          open
+          label={t("card.collapse")}
+          onToggle={() => setViewState("compact")}
+        />
       </header>
 
       <div ref={bodyRef} className="max-h-[320px] min-h-0 overflow-y-auto px-3 py-3">

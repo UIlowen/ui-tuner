@@ -384,6 +384,37 @@ describe("content page-side edit session", () => {
     act(() => port.disconnect());
   });
 
+  it("records no change for an unsaved edit that was reset before saving", () => {
+    const connect = connectListeners[0]!;
+    const port = createFakePort();
+    act(() => connect(port.port));
+    act(() => port.emitToContent(createSidepanelResetChanges()));
+    act(() => port.emitToContent(createSidepanelPicking(true)));
+    act(() => {
+      fireEvent.click(document.body, { clientX: 5, clientY: 5 });
+    });
+
+    const card = () => document.getElementById(EDITOR_CARD_ROOT_ID)!.shadowRoot!;
+    // A fresh pick opens on the compact row; the properties live behind the icon.
+    act(() => shadowButton(card(), "展开").click());
+
+    // Edit 字重, then take it back with the row's own reset button.
+    act(() => shadowButton(card(), "500").click());
+    act(() => shadowButton(card(), "还原 字重").click());
+
+    // A second edit keeps 保存 enabled — this is the save that used to carry the
+    // reverted property along with it.
+    act(() => shadowButton(card(), "grid").click());
+    act(() => shadowButton(card(), "保存").click());
+
+    const properties = previewChangedMessages(port.sent)
+      .at(-1)!
+      .payload.changes.map((change) => (change as { property: string }).property);
+    expect(properties).toEqual(["display"]);
+
+    act(() => port.disconnect());
+  });
+
   it("re-themes an open card when the panel switches theme", () => {
     const connect = connectListeners[0]!;
     const port = createFakePort();

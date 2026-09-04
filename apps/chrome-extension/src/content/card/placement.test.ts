@@ -48,6 +48,31 @@ describe("placeNearAnchor", () => {
     });
   });
 
+  it("slides the card along the bottom edge instead of dropping it on the element", () => {
+    // A corner element: no room on the right, and top-aligning beside it
+    // overshoots the bottom margin by 2px. Rejecting the side for that puts the
+    // card exactly on top of the element — clamp y and keep it beside instead.
+    const at = anchor({ left: 1132, top: 664, width: 140, height: 56 });
+    const placed = placeNearAnchor({
+      card: { width: 320, height: 50 },
+      anchor: at,
+      viewport: { width: 1280, height: 720 },
+    });
+    expect(placed).toEqual({ x: 1132 - 12 - 320, y: 720 - 8 - 50 });
+  });
+
+  it("slides a below-placement left into view when the card nearly fills the viewport", () => {
+    // Neither side fits a 1000px-wide card in a 1200px viewport, so it goes
+    // below — but the element's own x would leave it hanging off the right edge.
+    const at = anchor({ left: 250, top: 100, width: 100, height: 60 });
+    const placed = placeNearAnchor({
+      card: { width: 1000, height: 360 },
+      anchor: at,
+      viewport: VIEWPORT,
+    });
+    expect(placed).toEqual({ x: 1200 - 8 - 1000, y: 100 + 60 + 12 });
+  });
+
   it("keeps the card inside the viewport when no side fits at all", () => {
     // Card taller and wider than the viewport: clamp to the safe corner
     // instead of returning a coordinate that pushes it off-screen.

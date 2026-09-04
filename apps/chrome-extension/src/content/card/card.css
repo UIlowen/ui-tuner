@@ -91,3 +91,74 @@
   --radius-control: 6px;
   --radius-pill: 999px;
 }
+
+/*
+ * Tailwind v4 builds its compound utilities out of `--tw-*` custom properties:
+ * `.border` is `border-style: var(--tw-border-style)`, `.shadow-2xl` and every
+ * `ring-*` are one `box-shadow` reading five vars, `tabular-nums` is a
+ * `font-variant-numeric` reading five more. Only the var the utility itself sets
+ * is declared; the rest come from the `@property` initial-values Tailwind emits.
+ *
+ * Chrome does not register `@property` rules delivered through a shadow-tree
+ * stylesheet (this sheet is adopted into the card's shadow root by
+ * inject-styles.ts), so those vars stay guaranteed-invalid, the whole
+ * declaration is invalid at computed-value time, and the card renders with no
+ * border, no drop shadow and no focus/active ring whatsoever. Verified in a real
+ * browser: computed `border: 0px none`, `box-shadow: none`.
+ *
+ * Tailwind ships these same values as a fallback for browsers without
+ * `@property`, but gates it behind an `@supports` query that excludes Chrome.
+ * Repeat it unconditionally here, in the base layer so utilities — which live in
+ * a later layer — still override per element. Keep in sync with the fallback
+ * block in the compiled output; verify-codex-card-ui.mjs asserts the painted
+ * result.
+ */
+@layer base {
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    --tw-rotate-x: initial;
+    --tw-rotate-y: initial;
+    --tw-rotate-z: initial;
+    --tw-skew-x: initial;
+    --tw-skew-y: initial;
+    --tw-space-y-reverse: 0;
+    --tw-border-style: solid;
+    --tw-leading: initial;
+    --tw-font-weight: initial;
+    --tw-tracking: initial;
+    --tw-ordinal: initial;
+    --tw-slashed-zero: initial;
+    --tw-numeric-figure: initial;
+    --tw-numeric-spacing: initial;
+    --tw-numeric-fraction: initial;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-color: initial;
+    --tw-shadow-alpha: 100%;
+    --tw-inset-shadow: 0 0 #0000;
+    --tw-inset-shadow-color: initial;
+    --tw-inset-shadow-alpha: 100%;
+    --tw-ring-color: initial;
+    --tw-ring-shadow: 0 0 #0000;
+    --tw-inset-ring-color: initial;
+    --tw-inset-ring-shadow: 0 0 #0000;
+    --tw-ring-inset: initial;
+    --tw-ring-offset-width: 0px;
+    --tw-ring-offset-color: #fff;
+    --tw-ring-offset-shadow: 0 0 #0000;
+    --tw-blur: initial;
+    --tw-brightness: initial;
+    --tw-contrast: initial;
+    --tw-grayscale: initial;
+    --tw-hue-rotate: initial;
+    --tw-invert: initial;
+    --tw-opacity: initial;
+    --tw-saturate: initial;
+    --tw-sepia: initial;
+    --tw-drop-shadow: initial;
+    --tw-drop-shadow-color: initial;
+    --tw-drop-shadow-alpha: 100%;
+    --tw-drop-shadow-size: initial;
+  }
+}

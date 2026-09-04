@@ -67,3 +67,54 @@ describe("ScrubInput drag", () => {
     expect(sliderOf(container).querySelector("span.tabular-nums")?.textContent).toBe("40");
   });
 });
+
+/**
+ * Selecting a control is not editing it. Every path that can end without moving
+ * the value has to commit nothing, because a commit is what marks the row dirty
+ * and reveals its reset button — the designer would see "changed" on a property
+ * they only clicked.
+ */
+describe("ScrubInput no-op interactions", () => {
+  it("commits nothing when the pointer is released without movement", () => {
+    const onPreview = vi.fn();
+    const onCommit = vi.fn();
+    const { container } = render(
+      <ScrubInput value={38} unit="px" onPreview={onPreview} onCommit={onCommit} />,
+    );
+    const slider = sliderOf(container);
+
+    fireEvent.pointerDown(slider, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerUp(slider, { clientX: 100, pointerId: 1 });
+
+    expect(onPreview).not.toHaveBeenCalled();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("commits nothing when an arrow key is already at its clamp limit", () => {
+    const onCommit = vi.fn();
+    const { container } = render(
+      <ScrubInput value={1} min={1} max={10} onPreview={vi.fn()} onCommit={onCommit} />,
+    );
+
+    fireEvent.keyDown(sliderOf(container), { key: "ArrowDown" });
+    expect(onCommit).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(sliderOf(container), { key: "ArrowUp" });
+    expect(onCommit).toHaveBeenCalledWith(2);
+  });
+
+  it("commits nothing when the typed value equals the current one", () => {
+    const onCommit = vi.fn();
+    const { container } = render(
+      <ScrubInput value={38} unit="px" onPreview={vi.fn()} onCommit={onCommit} />,
+    );
+    fireEvent.doubleClick(sliderOf(container));
+
+    const input = container.querySelector("input");
+    if (!input) throw new Error("editor input not found");
+    fireEvent.change(input, { target: { value: "38px" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+});

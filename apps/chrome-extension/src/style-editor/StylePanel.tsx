@@ -189,6 +189,7 @@ function AlignmentControl() {
                 title={`justify-content: ${main} · align-items: ${cross}`}
                 aria-pressed={active}
                 onClick={() => {
+                  if (justify === main && align === cross) return;
                   void updateStyle("justify-content", main, true);
                   void updateStyle("align-items", cross, true);
                 }}

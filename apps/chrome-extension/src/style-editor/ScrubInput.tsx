@@ -105,22 +105,23 @@ export function ScrubInput({
 
   const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!dragStart.current) return;
+    const startValue = dragStart.current.value;
     dragStart.current = null;
     setDragging(false);
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
-    // Commit BEFORE releasing capture, and guard the release:
-    // releasePointerCapture throws NotFoundError when the pointer was already
-    // implicitly released — that must never swallow the commit.
-    commit(clamp(currentValue.current, min, max));
+    const next = clamp(currentValue.current, min, max);
     pendingRef.current = null;
     try {
       event.currentTarget.releasePointerCapture(event.pointerId);
     } catch {
       // Pointer already released — safe to ignore.
     }
+    // A click without movement must not count as a change.
+    if (next === startValue) return;
+    commit(next);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -129,7 +130,9 @@ export function ScrubInput({
     event.preventDefault();
     const direction = event.key === "ArrowUp" ? 1 : -1;
     const multiplier = event.shiftKey ? 10 : 1;
-    commit(clamp(currentValue.current + direction * step * multiplier, min, max));
+    const next = clamp(currentValue.current + direction * step * multiplier, min, max);
+    if (next === currentValue.current) return;
+    commit(next);
   };
 
   const startEditing = () => {
@@ -142,7 +145,10 @@ export function ScrubInput({
     const parsed =
       parseCssValue(draft) ??
       (Number.isFinite(Number(draft)) ? { value: Number(draft), unit: "" } : null);
-    if (parsed) commit(clamp(parsed.value, min, max));
+    if (!parsed) return;
+    const next = clamp(parsed.value, min, max);
+    if (next === currentValue.current) return;
+    commit(next);
   };
 
   if (editing) {

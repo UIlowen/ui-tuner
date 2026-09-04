@@ -7,7 +7,6 @@ export interface EditorCardProps {
    * the same element keeps the in-progress session.
    */
   elementId: string;
-  tagName: string;
   /** 气泡序号；null = 未保存。 */
   number: number | null;
   initialValues: Record<string, string>;

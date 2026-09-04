@@ -198,7 +198,6 @@ function openEditorCard(element: Element): void {
   cardMount.show(
     {
       elementId,
-      tagName: element.tagName.toLowerCase(),
       // Bubble sequence number; null when the element has no saved change yet.
       number: annotations?.numberFor(elementId) ?? null,
       initialValues: collectWhitelistedStyles(element),
@@ -223,11 +222,13 @@ function openEditorCard(element: Element): void {
         cardMount?.hide();
       },
       onRevert: (property) => {
+        // Always clear any staged preview for this property first, so resetting
+        // an unsaved edit doesn't leave it in the staging session to be committed.
+        stagingEngine?.unstage?.(property);
         const change = changeTracker
           .all()
           .find((c) => c.elementId === elementId && c.property === property);
         if (!change) return null;
-        stagingEngine?.unstage?.(property);
         revertChange(change.id);
         return change.previousValue;
       },

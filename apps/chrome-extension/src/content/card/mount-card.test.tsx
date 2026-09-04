@@ -9,7 +9,6 @@ import type { EditorCardProps } from "./types";
 function baseProps(overrides: Partial<EditorCardProps> = {}): EditorCardProps {
   return {
     elementId: "ut-000001",
-    tagName: "button",
     number: null,
     initialValues: { height: "38px" },
     initialInstruction: "",
@@ -207,7 +206,7 @@ describe("mountEditorCard", () => {
     // Both elements carry a saved instruction, so both cards open expanded.
     act(() =>
       mount.show(
-        baseProps({ elementId: "ut-A", tagName: "button", initialInstruction: "A的指令" }),
+        baseProps({ elementId: "ut-A", initialInstruction: "A的指令" }),
       ),
     );
     expect(instructionField(shadow()).value).toBe("A的指令");
@@ -220,7 +219,7 @@ describe("mountEditorCard", () => {
     expect(instructionField(shadow()).value).toBe("A的草稿");
 
     act(() =>
-      mount.show(baseProps({ elementId: "ut-B", tagName: "div", initialInstruction: "B的指令" })),
+      mount.show(baseProps({ elementId: "ut-B", initialInstruction: "B的指令" })),
     );
     expect(instructionField(shadow()).value).toBe("B的指令");
   });
@@ -238,7 +237,7 @@ describe("mountEditorCard", () => {
     // B is annotated too. Inheriting A's collapse would hide B's changed rows —
     // the highlight this card exists to show — behind a one-line input.
     act(() =>
-      mount.show(baseProps({ elementId: "ut-B", tagName: "div", changedProperties: ["height"] })),
+      mount.show(baseProps({ elementId: "ut-B", changedProperties: ["height"] })),
     );
     expect(instructionField(shadow()).tagName).toBe("TEXTAREA");
     expect(shadow().querySelectorAll('[data-changed="true"]')).toHaveLength(1);
