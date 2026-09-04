@@ -274,6 +274,16 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 - **踩坑记录（本轮 5 条 ❌ 里有 3 条是探针自己的错、2 条是真 bug）**：① 徽章探针用 `[data-drag-handle]`，但那个属性在紧凑态挂在徽章上、展开态挂在拖拽把手上 → 改为 `[class*="bg-accent-text"]` 并把 `dragHandle` 单独回报；② `input[class*="ring-accent-text"]` 也会命中 `TextRow`（它的 `focus-visible:ring-accent-text/50`），`.first()` 在 DOM 序里是间距行 → 140 被打进间距、多出一条 change；改用**行级定位** `div:has(> span[title="高"]) input`；③ 拖动前不检查目标是否真的可点 → 「高」滑块的 rect 在 320px body 底边下 3px，鼠标落在 footer 上，于是三条拖动断言全红而产品没错；现在每次拖动前都按标签滚进可视区并断言 `inBody && grabbable`；④ 主题探针读卡片宿主的 `dark` class，但切主题时根本没有卡片打开 → 永远 false，「亮色」那组采样其实没被强制成亮色；改为按面板按钮的可访问名（`主题：亮色（点击切换）`）驱动。**教训强化版：断言前先证明探针指向的确实是那个东西、且那个东西真的可被用户点到——否则失败里混着自己的 bug，会把对的实现改坏。**
 - 已知遗留：`mount-card.test.tsx` 的 `act(...)` 警告是既有噪声，本轮未动。
 
+**编辑卡后续优化（2026-09-04）**
+
+用户针对上一轮交付提出两点小优化：
+
+1. **卡片层级/投影增强**：编辑卡之前容易融入页面背景。给紧凑态和展开态同时加上 `shadow-2xl` + `ring-1 ring-black/[0.06] dark:ring-white/[0.08]`，增强与页面的层级分离。未做「根据页面亮/暗自动反转卡片主题」——这会与当前跟随 Side Panel 主题的实现冲突，如需可按页面 luminance 再做。
+2. **已改动属性行增加 reset 按钮**：对 `changedProperties` 里的属性，在属性行右侧显示一个还原图标（UndoIcon），点击后回滚该属性到原始值，并立即移除该行的 `data-changed` 高亮。`StyleEditApi` 新增 `revertStyle(property | property[])`；`StagingEngine` 新增 `unstage(property)` 防止回滚后保存又把旧值 commit 进去。基本行（ScrubField/TextRow/ColorRow/SegmentRow）和复合行（AlignmentControl/AxisScrub）都接上了 reset。
+
+- 验证：`pnpm build/test/typecheck/lint` 全绿，**373 例**（extension 150 → **154**：EditorCard +2 / rows +2；inspector **119**：新增 `StagingEngine.test.ts` 2 例）。
+- 真机浏览器 `.playwright-mcp/verify-codex-card-ui.mjs` **62/62 断言全过**。
+
 ## 7. 项目状态：核心闭环完成，`feat/ui-ux-polish` 待推送 + 待合并决策
 
 核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并多轮真机验收（M8、注释模式、页面编辑卡）。无后续里程碑，剩余为 backlog 增强项。
