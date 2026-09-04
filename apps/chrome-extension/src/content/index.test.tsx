@@ -297,7 +297,7 @@ describe("content page-side edit session", () => {
     });
     expect(card().textContent).not.toContain("未保存"); // it carries sequence number 1
     // Annotated, so it opens expanded — the instruction is already on screen.
-    expect(instructionField(card()).tagName).toBe("TEXTAREA");
+    expect(instructionField(card()).tagName).toBe("INPUT");
     expect(instructionField(card()).value).toBe("圆角更大");
 
     act(() => port.disconnect());
@@ -423,14 +423,14 @@ describe("content page-side edit session", () => {
     // A second edit keeps 保存 enabled — this is the save that used to carry the
     // reverted property along with it.
     act(() => {
-      fireEvent.change(rowControl(card(), "显示", "select"), { target: { value: "grid" } });
+      fireEvent.change(rowControl(card(), "字体", "select"), { target: { value: "Georgia, 'Times New Roman', serif" } });
     });
     act(() => shadowButton(card(), "保存").click());
 
     const properties = previewChangedMessages(port.sent)
       .at(-1)!
       .payload.changes.map((change) => (change as { property: string }).property);
-    expect(properties).toEqual(["display"]);
+    expect(properties).toEqual(["font-family"]);
 
     act(() => port.disconnect());
   });
@@ -468,7 +468,7 @@ describe("content page-side edit session", () => {
     // First visit: change 字体 and save it.
     act(() => shadowButton(card(), "展开").click());
     act(() => {
-      fireEvent.change(rowControl(card(), "字体", "input"), { target: { value: "Inter" } });
+      fireEvent.change(rowControl(card(), "字体", "select"), { target: { value: "Inter" } });
     });
     act(() => shadowButton(card(), "保存").click());
     expect(reportedProperties()).toEqual(["font-family"]);

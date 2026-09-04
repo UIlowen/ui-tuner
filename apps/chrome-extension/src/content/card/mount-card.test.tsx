@@ -231,16 +231,17 @@ describe("mountEditorCard", () => {
 
     // A is annotated, so it opens expanded — and the designer collapses it.
     act(() => mount.show(baseProps({ elementId: "ut-A", number: 1 })));
-    expect(instructionField(shadow()).tagName).toBe("TEXTAREA");
+    expect(shadow().querySelector("[data-changed]")).toBeFalsy(); // expanded has property panel
+    expect(shadow().textContent).toContain("文本颜色");
     clickByLabel(shadow(), "收起");
-    expect(instructionField(shadow()).tagName).toBe("INPUT");
+    expect(shadow().textContent).not.toContain("文本颜色");
 
     // B is annotated too. Inheriting A's collapse would hide B's changed rows —
     // the highlight this card exists to show — behind a one-line input.
     act(() =>
       mount.show(baseProps({ elementId: "ut-B", changedProperties: ["height"] })),
     );
-    expect(instructionField(shadow()).tagName).toBe("TEXTAREA");
+    expect(shadow().textContent).toContain("文本颜色");
     expect(shadow().querySelectorAll('[data-changed="true"]')).toHaveLength(1);
   });
 
@@ -250,7 +251,7 @@ describe("mountEditorCard", () => {
 
     // A fresh pick opens on the compact one-liner; the draft goes there.
     act(() => mount.show(baseProps({ elementId: "ut-A", initialInstruction: "" })));
-    expect(instructionField(shadow()).tagName).toBe("INPUT");
+    expect(shadow().textContent).not.toContain("文本颜色"); // compact state
     act(() => {
       fireEvent.change(instructionField(shadow()), { target: { value: "未完成的草稿" } });
     });

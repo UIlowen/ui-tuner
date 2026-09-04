@@ -6,17 +6,11 @@ import { CheckIcon, DragIcon, MicIcon, SlidersIcon, TrashIcon } from "../../ui/i
 import type { EditorCardProps } from "./types";
 
 /**
- * Page-side annotation card, in the two states the Codex annotation UI uses:
+ * Page-side annotation card, aligned with Codex UI:
  *
- *   compact  — one row: handle · properties · "how should this element
- *              change?" · mic · ✓
- *   expanded — handle · properties, a multi-line instruction above the property
- *              groups, and a 删除 / 取消 / 保存 footer
- *
- * One control moves between them: the property icon (SlidersIcon) expands the
- * property panel from the compact row and collapses it again from the header.
- * The element's tag name is not shown — the card sits on top of the element it
- * describes, so repeating `div` there is noise where an affordance should be.
+ *   compact  — one row: handle · ⚙ · "how should this element change?" · mic · ✓
+ *   expanded — ⚙ · instruction text · drag handle, element tag below,
+ *              flat property list (no group headers), and a 删除 / 取消 / 保存 footer
  *
  * The opening state is derived from the element's existing annotation rather
  * than remembered: something already annotated (a bubble number, recorded
@@ -25,8 +19,7 @@ import type { EditorCardProps } from "./types";
  * the common case there is one sentence.
  *
  * Dragging is the mount layer's job — it starts on whatever carries
- * `data-drag-handle` (the grip, or the bubble number when there is one); the
- * handles here are affordances only.
+ * `data-drag-handle`; the handles here are affordances only.
  */
 
 /**
@@ -51,8 +44,7 @@ function MicButton({ hint }: { hint: string }) {
 
 /**
  * The one control that opens and closes the property panel — the compact row's
- * second item and the expanded header's second item, so it never moves far when
- * the card changes shape. Lit while the panel is open.
+ * second item and the expanded header's first item.
  */
 function PropertiesToggle({
   open,
@@ -102,9 +94,6 @@ export function EditorCard(props: EditorCardProps) {
     for (const property of reverted) set.delete(property);
     return set;
   }, [props.changedProperties, reverted]);
-  // Rows read this to offer their reset button; a property already taken back
-  // has nothing left to reset, so it drops out here — but it stays in dirtySet,
-  // which is what 保存 is gated on below.
   const dirty = useMemo(() => {
     const set = new Set(dirtySet);
     for (const property of reverted) set.delete(property);
@@ -127,7 +116,6 @@ export function EditorCard(props: EditorCardProps) {
       if (committed) {
         setValues((v) => ({ ...v, [property]: value }));
         setReverted((prev) => {
-          // Editing a reset property again makes it a live change once more.
           if (!prev.has(property)) return prev;
           const next = new Set(prev);
           next.delete(property);
@@ -154,12 +142,9 @@ export function EditorCard(props: EditorCardProps) {
         if (nextReverted.has(p)) continue;
         const recorded = props.onRevert(p);
         if (recorded !== null) {
-          // Undoing a saved change is an edit like any other: it only lands when
-          // the user saves, so it has to keep 保存 enabled.
           nextValues[p] = recorded;
           nextDirty.add(p);
         } else if (nextDirty.has(p)) {
-          // Nothing recorded — just this session's unsaved edit, taken back.
           const original = props.initialValues[p];
           if (original === undefined) continue;
           nextValues[p] = original;
@@ -182,6 +167,9 @@ export function EditorCard(props: EditorCardProps) {
   const canSave = dirtySet.size > 0 || instructionDirty;
 
   const submit = (): void => props.onSave(instruction);
+
+  const tagName = props.tagName ?? "";
+  const hasInstruction = instruction.trim() !== "";
 
   if (viewState === "compact") {
     return (
@@ -236,7 +224,25 @@ export function EditorCard(props: EditorCardProps) {
 
   return (
     <div className="flex w-[320px] flex-col overflow-hidden rounded-card border border-edge bg-surface-solid shadow-2xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
+      {/* Header: ⚙ + [badge] + instruction text + drag handle */}
       <header className="flex shrink-0 items-center gap-1.5 border-b border-edge px-2 py-1.5">
+        <PropertiesToggle
+          open
+          label={t("card.collapse")}
+          onToggle={() => setViewState("compact")}
+        />
+        {props.number !== null && (
+          <span className="grid h-5 shrink-0 place-items-center rounded-pill bg-accent-text/15 px-1.5 text-[10px] font-semibold text-accent-text">
+            {String(props.number)}
+          </span>
+        )}
+        <input
+          value={instruction}
+          onChange={(event) => setInstruction(event.target.value)}
+          placeholder={t("card.instructionPlaceholder")}
+          aria-label={t("card.instructionPlaceholder")}
+          className="h-7 min-w-0 flex-1 rounded-control bg-transparent px-1 text-[12px] font-medium text-text-strong outline-none placeholder:text-ghost"
+        />
         <span
           data-drag-handle
           aria-label={t("card.dragHandle")}
@@ -245,34 +251,25 @@ export function EditorCard(props: EditorCardProps) {
         >
           <DragIcon className="size-3.5" />
         </span>
-        {props.number !== null && (
-          <span className="grid h-5 shrink-0 place-items-center rounded-pill bg-accent-text/15 px-1.5 text-[10px] font-semibold text-accent-text">
-            {String(props.number)}
-          </span>
-        )}
-        <PropertiesToggle
-          open
-          label={t("card.collapse")}
-          onToggle={() => setViewState("compact")}
-        />
       </header>
 
-      <div ref={bodyRef} className="max-h-[320px] min-h-0 overflow-y-auto px-3 py-3">
-        <textarea
-          value={instruction}
-          onChange={(event) => setInstruction(event.target.value)}
-          placeholder={t("card.instructionPlaceholder")}
-          aria-label={t("card.instructionPlaceholder")}
-          rows={3}
-          className="w-full resize-y rounded-control border border-edge bg-inset px-2 py-1.5 text-[12px] leading-relaxed text-text-strong outline-none placeholder:text-ghost transition-colors focus:border-accent-text/50 focus:ring-1 focus:ring-accent-text/40"
-        />
-        <div className="mt-2">
-          <StyleEditContext.Provider value={api}>
-            <StylePanel />
-          </StyleEditContext.Provider>
+      {/* Element tag subtitle (shown when instruction occupies the header) */}
+      {hasInstruction && tagName && (
+        <div className="flex shrink-0 items-center gap-1.5 border-b border-edge px-2 py-1">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-faint">
+            {tagName}
+          </span>
         </div>
+      )}
+
+      {/* Body: flat property list */}
+      <div ref={bodyRef} className="max-h-[320px] min-h-0 overflow-y-auto px-3 py-3">
+        <StyleEditContext.Provider value={api}>
+          <StylePanel />
+        </StyleEditContext.Provider>
       </div>
 
+      {/* Footer */}
       <footer className="flex shrink-0 items-center gap-1 border-t border-edge px-2 py-1.5">
         <button
           type="button"

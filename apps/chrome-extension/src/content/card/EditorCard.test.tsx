@@ -71,8 +71,8 @@ describe("EditorCard", () => {
 
       expect(compactInput().tagName).toBe("INPUT");
       expect(screen.getByRole("button", { name: "提交" })).toBeTruthy();
-      // No property groups, no 保存/取消 footer — that is the expanded state.
-      expect(screen.queryByText("布局")).toBeNull();
+      // No property panel, no 保存/取消 footer — that is the expanded state.
+      expect(screen.queryByText("文本颜色")).toBeNull();
       expect(screen.queryByRole("button", { name: "保存" })).toBeNull();
     });
 
@@ -83,8 +83,9 @@ describe("EditorCard", () => {
     ])("opens expanded when %s", (_why, overrides) => {
       render(<EditorCard {...baseProps(overrides)} />);
 
-      expect(screen.getByText("布局")).toBeTruthy();
-      expect(compactInput().tagName).toBe("TEXTAREA");
+      expect(screen.getByText("文本颜色")).toBeTruthy();
+      // Instruction is now an input in the header, not a textarea in the body.
+      expect(compactInput().tagName).toBe("INPUT");
       expect(saveButton()).toBeTruthy();
     });
 
@@ -92,14 +93,14 @@ describe("EditorCard", () => {
       render(<EditorCard {...baseProps({ number: 1 })} />);
 
       fireEvent.click(screen.getByRole("button", { name: "收起" }));
-      expect(screen.queryByText("布局")).toBeNull();
+      expect(screen.queryByText("文本颜色")).toBeNull();
       expect(screen.queryByRole("button", { name: "保存" })).toBeNull();
       expect(compactInput().tagName).toBe("INPUT");
       // The badge survives the collapse — the annotation is still there.
       expect(screen.getByText("1")).toBeTruthy();
 
       fireEvent.click(screen.getByRole("button", { name: "展开" }));
-      expect(screen.getByText("布局")).toBeTruthy();
+      expect(screen.getByText("文本颜色")).toBeTruthy();
       expect(saveButton()).toBeTruthy();
     });
   });
@@ -156,13 +157,13 @@ describe("EditorCard", () => {
     it("opens and closes the property panel with the same icon", () => {
       render(<EditorCard {...baseProps()} />);
       fireEvent.click(screen.getByRole("button", { name: "展开" }));
-      expect(screen.getByText("布局")).toBeTruthy();
+      expect(screen.getByText("文本颜色")).toBeTruthy();
 
       // One icon does both directions — there is no separate collapse chevron.
       const collapse = screen.getByRole("button", { name: "收起" });
       expect(collapse.getAttribute("aria-expanded")).toBe("true");
       fireEvent.click(collapse);
-      expect(screen.queryByText("布局")).toBeNull();
+      expect(screen.queryByText("文本颜色")).toBeNull();
       expect(screen.getByRole("button", { name: "展开" })).toBeTruthy();
     });
   });
@@ -248,7 +249,7 @@ describe("EditorCard", () => {
       const { container } = render(
         <EditorCard {...baseProps({ initialInstruction: "紧凑一点" })} />,
       );
-      expect(screen.getByText("布局")).toBeTruthy();
+      expect(screen.getByText("文本颜色")).toBeTruthy();
       expect(container.querySelectorAll("[data-changed]")).toHaveLength(0);
       expect(scrollIntoView).not.toHaveBeenCalled();
     });
@@ -270,7 +271,7 @@ describe("EditorCard", () => {
         />,
       );
       expect(container.querySelector("[data-changed=\"true\"]")).not.toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
+      fireEvent.click(screen.getByRole("button", { name: "还原 高度" }));
       expect(onRevert).toHaveBeenCalledWith("height");
       expect(container.querySelector("[data-changed]")).toBeNull();
     });
@@ -288,7 +289,7 @@ describe("EditorCard", () => {
         />,
       );
       // The numeric display should switch to the original value returned by onRevert.
-      fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
+      fireEvent.click(screen.getByRole("button", { name: "还原 高度" }));
       expect(screen.getByText("20")).toBeTruthy();
     });
 
@@ -304,7 +305,7 @@ describe("EditorCard", () => {
 
       // Undoing a saved change is an edit like any other — it only lands when
       // the user saves, so a dead 保存 here would strand the reset.
-      fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
+      fireEvent.click(screen.getByRole("button", { name: "还原 高度" }));
       expect(saveButton().disabled).toBe(false);
       fireEvent.click(saveButton());
       expect(props.onSave).toHaveBeenCalledTimes(1);
@@ -325,7 +326,7 @@ describe("EditorCard", () => {
       fireEvent.keyDown(screen.getByRole("slider"), { key: "ArrowUp" });
       expect(saveButton().disabled).toBe(false);
 
-      fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
+      fireEvent.click(screen.getByRole("button", { name: "还原 高度" }));
       expect(saveButton().disabled).toBe(true);
     });
   });

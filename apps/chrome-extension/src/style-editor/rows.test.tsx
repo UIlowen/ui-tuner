@@ -166,12 +166,6 @@ describe("per-property reset", () => {
   });
 });
 
-function sliderOf(container: HTMLElement): Element {
-  const el = container.querySelector('[role="slider"]');
-  if (!el) throw new Error("slider not found");
-  return el;
-}
-
 function selectOf(container: HTMLElement): HTMLSelectElement {
   const el = container.querySelector("select");
   if (!el) throw new Error("select not found");

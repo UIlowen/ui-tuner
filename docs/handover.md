@@ -350,6 +350,16 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 
 - 验证：`pnpm build/test/typecheck/lint` 全绿，**385 例**（protocol 26 / inspector 119 / bridge 74 / extension **166**）。
 
+**编辑卡对齐 Codex UI：属性精简 + 指令移到头部（2026-09-04）**
+
+用户带着三张 Codex 截图验收：「codex 就保留了这个常规的属性调整，我们也对齐一样。因为你现在是把该元素所有的 css 属性都搬过来了，有一些属性根本没法调，不太合理」「图 2 和 3 是单文字描述以及展开属性面板的状态，我需要你对齐他的 UI,包括内容、排版布局，交互方式」。
+
+1. **属性列表精简到 17 项**：`StylePanel.tsx` 删掉所有 `GroupHeader` 分组结构（Layout/Size/Spacing/Typography/Fill/Border/Effects），扁平排列 Codex 截图里的 17 项常用属性：文本颜色、背景、Opacity、字体、字号、字重、边框圆角半径、边框颜色、边框宽度、宽度、高度、内边距、外边距、布局方向、分布、居中、间距。删除 `display`/`position`/`min-width`/`min-height`/`max-width`/`max-height`/`line-height`/`letter-spacing`/`text-align`/`background-image`/`border-style`/`box-shadow`/`transform`/`grid-template-columns`/`grid-template-rows`/`flex-wrap`/`row-gap`/`column-gap` 等不常用或不可调的属性。`AlignmentControl` 3×3 网格组件删除，`justify-content` 和 `align-items` 改为独立 `SelectRow`。`font-family` 从 `TextRow` 改为 `SelectRow`（4 个常用字体栈选项）。Flex 相关属性（flex-direction/justify-content/align-items/gap）仅在 `display: flex` 时条件渲染。
+2. **指令移到头部**：`EditorCard.tsx` 展开态的指令从 body 的 `<textarea>` 移到 header 的 `<input>`（单行），位于 ⚙ 属性开关右侧、拖拽把手左侧。元素标签名作为副标题显示在头部下方（仅当指令存在时）。紧凑态保持原样：⚙ + 指令 input + 提交按钮。`EditorCardProps` 新增 `tagName?: string`，`content/index.ts` 的 `openEditorCard` 传入 `tagName: element.tagName.toLowerCase()`。
+3. **测试同步更新**：`EditorCard.test.tsx` 把所有检查「布局」分组标题的断言改成检查「文本颜色」属性标签（属性面板存在的标志）；`mount-card.test.tsx` 把检查 `TEXTAREA` vs `INPUT` 的断言改成检查属性面板内容；`content/index.test.tsx` 把 `font-family` 的 `rowControl` 从 `"input"` 改成 `"select"`，把测试用的 `display` 属性改成 `font-family`（display 已从属性列表删除）；所有「还原 高」改成「还原 高度」（新标签）。
+
+- 验证：`pnpm build/test/typecheck/lint` 全绿，**385 例**（protocol 26 / inspector 119 / bridge 74 / extension **166**）。
+
 ## 7. 项目状态：核心闭环完成，`feat/ui-ux-polish` 待推送 + 待合并决策
 
 核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并多轮真机验收（M8、注释模式、页面编辑卡）。无后续里程碑，剩余为 backlog 增强项。

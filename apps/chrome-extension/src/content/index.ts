@@ -207,6 +207,7 @@ function openEditorCard(element: Element): void {
   cardMount.show(
     {
       elementId,
+      tagName: element.tagName.toLowerCase(),
       // Bubble sequence number; null when the element has no saved change yet.
       number: annotations?.numberFor(elementId) ?? null,
       initialValues: collectWhitelistedStyles(element),

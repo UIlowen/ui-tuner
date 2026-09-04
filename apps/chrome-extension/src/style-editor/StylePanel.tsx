@@ -1,102 +1,48 @@
 import { useState } from "react";
 import { formatCssValue, parseCssValue } from "@ui-tuner/inspector";
 import { useT } from "../i18n/use-t";
-import {
-  BorderIcon,
-  EffectsIcon,
-  FillIcon,
-  LayoutIcon,
-  SizeIcon,
-  SpacingIcon,
-  TypographyIcon,
-} from "../ui/icons";
 import { ScrubInput } from "./ScrubInput";
 import {
   ColorRow,
-  GroupHeader,
-  ReadOnlyRow,
   Row,
   ScrubField,
   SelectRow,
-  TextRow,
   useIsChanged,
   useIsDirty,
 } from "./rows";
 import { useStyleEdit } from "./StyleEditContext";
 
 /**
- * Style tab (plan §9): Layout / Size / Spacing / Typography / Fill / Border /
- * Effects groups for the selected element.
+ * Curated property list aligned with Codex: only the ~17 commonly-adjustable
+ * CSS properties, flat (no group headers). Flex-specific rows (direction /
+ * justify / align / gap) only render when display is flex.
  */
 export function StylePanel() {
-  const t = useT();
   const { values } = useStyleEdit();
 
   const display = values["display"] ?? "";
   const isFlex = display === "flex" || display === "inline-flex";
-  const isGrid = display === "grid" || display === "inline-grid";
 
   return (
     <div className="space-y-1">
-      <GroupHeader title={t("group.layout")} icon={<LayoutIcon className="size-3" />} />
+      <ColorRow property="color" label="文本颜色" />
+      <ColorRow property="background-color" label="背景" />
+      <ScrubField property="opacity" label="Opacity" step={0.01} fallbackUnit="" min={0} max={1} />
+
       <SelectRow
-        property="display"
-        label={t("style.display")}
+        property="font-family"
+        label="字体"
         options={[
-          { value: "flex", label: "flex" },
-          { value: "grid", label: "grid" },
-          { value: "block", label: "block" },
-          { value: "inline-block", label: "inline-block" },
-          { value: "none", label: "none" },
+          { value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", label: "系统默认" },
+          { value: "'Helvetica Neue', Arial, sans-serif", label: "Helvetica" },
+          { value: "Georgia, 'Times New Roman', serif", label: "Georgia" },
+          { value: "'Courier New', Courier, monospace", label: "Monospace" },
         ]}
       />
-      {(isFlex || isGrid) && <ScrubField property="gap" label={t("style.gap")} step={1} />}
-      {isFlex && (
-        <>
-          <SelectRow
-            property="flex-direction"
-            label={t("style.direction")}
-            options={[
-              { value: "row", label: "row" },
-              { value: "column", label: "column" },
-            ]}
-          />
-          <AlignmentControl />
-          <SelectRow
-            property="flex-wrap"
-            label={t("style.wrap")}
-            options={[
-              { value: "nowrap", label: "nowrap" },
-              { value: "wrap", label: "wrap" },
-            ]}
-          />
-        </>
-      )}
-      {isGrid && (
-        <>
-          <TextRow property="grid-template-columns" label={t("style.columns")} />
-          <TextRow property="grid-template-rows" label={t("style.rows")} />
-        </>
-      )}
-
-      <GroupHeader title={t("group.size")} icon={<SizeIcon className="size-3" />} />
-      <ScrubField property="width" label={t("style.width")} />
-      <ScrubField property="height" label={t("style.height")} />
-      <ScrubField property="min-width" label={t("style.minW")} />
-      <ScrubField property="min-height" label={t("style.minH")} />
-      <ScrubField property="max-width" label={t("style.maxW")} />
-      <ScrubField property="max-height" label={t("style.maxH")} />
-
-      <GroupHeader title={t("group.spacing")} icon={<SpacingIcon className="size-3" />} />
-      <SpacingGroup kind="padding" title={t("style.padding")} />
-      <SpacingGroup kind="margin" title={t("style.margin")} />
-
-      <GroupHeader title={t("group.typography")} icon={<TypographyIcon className="size-3" />} />
-      <TextRow property="font-family" label={t("style.family")} placeholder={t("style.fontStackPlaceholder")} />
-      <ScrubField property="font-size" label={t("style.size")} step={1} />
+      <ScrubField property="font-size" label="字号" step={1} />
       <SelectRow
         property="font-weight"
-        label={t("style.weight")}
+        label="字重"
         options={[
           { value: "400", label: "400" },
           { value: "500", label: "500" },
@@ -104,101 +50,58 @@ export function StylePanel() {
           { value: "700", label: "700" },
         ]}
       />
-      <ScrubField property="line-height" label={t("style.lineH")} step={0.05} fallbackUnit="" />
-      <ScrubField property="letter-spacing" label={t("style.tracking")} step={0.1} />
-      <SelectRow
-        property="text-align"
-        label={t("style.align")}
-        options={[
-          { value: "left", label: "left" },
-          { value: "center", label: "center" },
-          { value: "right", label: "right" },
-          { value: "justify", label: "justify" },
-        ]}
-      />
-      <ColorRow property="color" label={t("style.color")} />
 
-      <GroupHeader title={t("group.fill")} icon={<FillIcon className="size-3" />} />
-      <ColorRow property="background-color" label={t("style.fill")} />
-      <ScrubField property="opacity" label={t("style.opacity")} step={0.01} fallbackUnit="" min={0} max={1} />
-      <ReadOnlyRow property="background-image" label={t("style.image")} />
+      <ScrubField property="border-radius" label="边框圆角半径" />
+      <ColorRow property="border-color" label="边框颜色" />
+      <ScrubField property="border-width" label="边框宽度" />
 
-      <GroupHeader title={t("group.border")} icon={<BorderIcon className="size-3" />} />
-      <ScrubField property="border-width" label={t("style.width")} />
-      <ColorRow property="border-color" label={t("style.color")} />
-      <ScrubField property="border-radius" label={t("style.radius")} />
+      <ScrubField property="width" label="宽度" />
+      <ScrubField property="height" label="高度" />
 
-      <GroupHeader title={t("group.effects")} icon={<EffectsIcon className="size-3" />} />
-      <TextRow property="box-shadow" label={t("style.shadow")} placeholder={t("style.shadowPlaceholder")} />
-      <ReadOnlyRow property="transform" label={t("style.transform")} />
+      <SpacingGroup kind="padding" title="内边距" />
+      <SpacingGroup kind="margin" title="外边距" />
+
+      {isFlex && (
+        <>
+          <SelectRow
+            property="flex-direction"
+            label="布局方向"
+            options={[
+              { value: "row", label: "水平" },
+              { value: "column", label: "垂直" },
+            ]}
+          />
+          <SelectRow
+            property="justify-content"
+            label="分布"
+            options={[
+              { value: "flex-start", label: "开始" },
+              { value: "center", label: "居中" },
+              { value: "flex-end", label: "结束" },
+              { value: "space-between", label: "两端" },
+              { value: "space-around", label: "环绕" },
+            ]}
+          />
+          <SelectRow
+            property="align-items"
+            label="居中"
+            options={[
+              { value: "flex-start", label: "开始" },
+              { value: "center", label: "居中" },
+              { value: "flex-end", label: "结束" },
+              { value: "stretch", label: "拉伸" },
+            ]}
+          />
+          <ScrubField property="gap" label="间距" step={1} />
+        </>
+      )}
     </div>
   );
 }
 
-/** 3×3 alignment control (plan §9.2): justify-content × align-items. */
-const ALIGN_MAIN = ["start", "center", "end"] as const;
-const ALIGN_CROSS = ["start", "center", "end"] as const;
-
-function AlignmentControl() {
-  const t = useT();
-  const { values, updateStyle, revertStyle } = useStyleEdit();
-  const isChanged = useIsChanged(["justify-content", "align-items"]);
-  const isDirty = useIsDirty(["justify-content", "align-items"]);
-  const justify = values["justify-content"] ?? "";
-  const align = values["align-items"] ?? "";
-
-  return (
-    <Row
-      label={t("style.align")}
-      changed={isChanged}
-      dirty={isDirty}
-      onReset={() => revertStyle(["justify-content", "align-items"])}
-    >
-      <div className="grid size-[48px] grid-cols-3 gap-0.5 rounded-control bg-inset p-0.5">
-        {ALIGN_CROSS.flatMap((cross) =>
-          ALIGN_MAIN.map((main) => {
-            const active = justify === main && align === cross;
-            return (
-              <button
-                key={`${main}-${cross}`}
-                type="button"
-                title={`justify-content: ${main} · align-items: ${cross}`}
-                aria-pressed={active}
-                onClick={() => {
-                  if (justify === main && align === cross) return;
-                  void updateStyle("justify-content", main, true);
-                  void updateStyle("align-items", cross, true);
-                }}
-                className={`grid place-items-center rounded-[3px] transition-colors ${
-                  active
-                    ? "bg-elevated text-text-strong ring-1 ring-edge-strong"
-                    : "text-ghost hover:bg-control hover:text-faint"
-                }`}
-              >
-                <span
-                  aria-hidden
-                  className={`block size-[7px] rounded-[1px] bg-current ${
-                    main === "start"
-                      ? "justify-self-start"
-                      : main === "end"
-                        ? "justify-self-end"
-                        : "justify-self-center"
-                  } ${
-                    cross === "start" ? "self-start" : cross === "end" ? "self-end" : "self-center"
-                  }`}
-                />
-              </button>
-            );
-          }),
-        )}
-      </div>
-    </Row>
-  );
-}
-
 /**
- * Padding / Margin (plan §9.4): Simple (Vertical / Horizontal) and Advanced
- * (T/R/B/L) modes. Simple writes both sides of the axis in one go.
+ * Padding / Margin: Simple (Vertical / Horizontal) and Advanced (T/R/B/L)
+ * modes. Simple writes both sides of the axis in one go.
  */
 function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: string }) {
   const t = useT();
@@ -278,7 +181,6 @@ function AxisScrub({
   onCommit,
 }: {
   label: string;
-  /** Both sides this axis writes; the row lights up when either changed. */
   properties: readonly [string, string];
   raw: string;
   onPreview(cssValue: string): void;
