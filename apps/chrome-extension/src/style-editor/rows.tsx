@@ -55,7 +55,7 @@ export function Row({
   return (
     <div
       {...(changed ? { "data-changed": "true", title: t("style.changed") } : {})}
-      className={`flex min-h-8 items-center gap-1 rounded-[3px] py-1 px-1 transition-all ${
+      className={`flex w-full min-h-8 items-center gap-1 rounded-[3px] py-1 px-1 transition-all ${
         changed ? "-ml-[2px] border-l-2 border-accent-text bg-accent-text/10" : ""
       }`}
     >
@@ -67,7 +67,7 @@ export function Row({
       >
         {label}
       </span>
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex ml-auto items-center gap-1">
         {children}
         {(changed || dirty) && onReset && (
           <button
