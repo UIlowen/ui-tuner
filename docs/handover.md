@@ -358,8 +358,10 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 2. **指令移到头部**：`EditorCard.tsx` 展开态的指令从 body 的 `<textarea>` 移到 header 的 `<input>`（单行），位于 ⚙ 属性开关右侧、拖拽把手左侧。元素标签名作为副标题**始终**显示在头部下方（不再依赖指令是否存在，对齐 Codex 截图里 form 始终可见）。拖拽把手从纯文字色改成带 `bg-inset` 圆角块（和紧凑态一致），hover 时 `bg-control`。紧凑态保持原样：⚙ + 指令 input + 提交按钮。`EditorCardProps` 新增 `tagName?: string`，`content/index.ts` 的 `openEditorCard` 传入 `tagName: element.tagName.toLowerCase()`。
 3. **测试同步更新**：`EditorCard.test.tsx` 把所有检查「布局」分组标题的断言改成检查「文本颜色」属性标签（属性面板存在的标志）；`mount-card.test.tsx` 把检查 `TEXTAREA` vs `INPUT` 的断言改成检查属性面板内容；`content/index.test.tsx` 把 `font-family` 的 `rowControl` 从 `"input"` 改成 `"select"`，把测试用的 `display` 属性改成 `font-family`（display 已从属性列表删除）；所有「还原 高」改成「还原 高度」（新标签）。
 4. **拖动取整到 step 粒度**：`ScrubInput` 新增 `snapToStep(value, step)`——先 `Math.round(value / step) * step` 对齐到最近步进，再按 `-log10(step)` 算出小数位数用 `toFixed` 截断 IEEE 754 尾差。`step=1` 的属性（宽/高/字号/圆角/边框宽度/间距）拖动产生整数，`step=0.01` 的（opacity）精确保留两位小数（`0.55` 而非 `0.5500000000000001`）。箭头键同路径一并修。
+5. **属性控件加边框 + 右对齐自适应宽度**：用户反馈「属性默认都有边框，属性栏宽度不用那么长，所有属性框右对齐根据属性不同，距离左边属性描述文字距离不同」。`Row` 控件容器从 `flex-1` 改成 `min-w-0`（不再撑满），各控件加 `border border-edge`：`ScrubInput` 拖动时 `border-accent-text/50`；`TextRow` 的 `<input>` 加 `border border-edge` + `min-w-[120px]`；`SelectRow` 外包 `border border-edge bg-inset` div + `min-w-[120px]`；`ColorRow` 重构为 `min-w-[140px]` 边框容器（色板 + hex 文字）。控件右对齐、宽度随内容自适应，与左侧标签间距因属性而异。
+6. **间距组件对齐 Codex 截图**：`StylePanel.tsx` 的 `SpacingGroup` 重写为 Codex 风格折叠/展开。折叠态：4 个带 `border border-edge bg-inset` 的值药丸（top/right/bottom/left）+ `ChevronRightIcon`。展开态：4 个 `ScrubField` 行，top↔bottom 和 left↔right 之间插 `LinkIcon`（`links-line`，新增到 `icons.tsx`）。`SizeGroup`（width/height）同理：两行之间插 `LinkIcon`。删除旧 `AxisScrub` / Simple+Advanced 双模式。
 
-- 验证：`pnpm build/test/typecheck/lint` 全绿，**385 例**（protocol 26 / inspector 119 / bridge 74 / extension **166**）。
+- 验证：`pnpm build/test/typecheck/lint` 全绿，**386 例**（protocol 26 / inspector 119 / bridge 74 / extension **167**）。
 
 ## 7. 项目状态：核心闭环完成，`feat/ui-ux-polish` 待推送 + 待合并决策
 
