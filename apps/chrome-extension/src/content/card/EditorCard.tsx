@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../../i18n/use-t";
 import { StyleEditContext, type StyleEditApi } from "../../style-editor/StyleEditContext";
 import { StylePanel } from "../../style-editor/StylePanel";
@@ -21,8 +21,18 @@ export function EditorCard(props: EditorCardProps) {
   const [instruction, setInstruction] = useState(props.initialInstruction);
   const [dirtyProps, setDirtyProps] = useState(false);
 
+  const changed = useMemo(() => new Set(props.changedProperties), [props.changedProperties]);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  // Bring the first changed row into view: the body scrolls, and a highlight
+  // below the fold is no highlight at all.
+  useEffect(() => {
+    bodyRef.current?.querySelector('[data-changed="true"]')?.scrollIntoView({ block: "nearest" });
+  }, []);
+
   const api: StyleEditApi = {
     values,
+    changed,
     updateStyle: (property, value, committed) => {
       props.onStage(property, value, committed);
       if (committed) {
@@ -113,7 +123,7 @@ export function EditorCard(props: EditorCardProps) {
       </div>
 
       {/* Body */}
-      <div className="max-h-[320px] min-h-0 overflow-y-auto px-2 py-1.5">
+      <div ref={bodyRef} className="max-h-[320px] min-h-0 overflow-y-auto px-2 py-1.5">
         {mode === "properties" ? (
           <StyleEditContext.Provider value={api}>
             <StylePanel />

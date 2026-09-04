@@ -9,13 +9,48 @@ import { useStyleEdit } from "./StyleEditContext";
  * `values` snapshot from the surrounding StyleEditContext and calls its
  * `updateStyle`; preview (scrub) frames go out with `committed: false` so the
  * context's snapshot is untouched and dragging never re-renders the panel.
+ *
+ * Rows also read the context's `changed` set: a property an earlier step
+ * already modified is tinted and flagged, so reopening a card (e.g. from its
+ * bubble) shows what changed instead of a wall of identical-looking rows.
  */
 
+/**
+ * Whether an earlier step already changed this property. Composite controls
+ * (spacing axes, the alignment grid) write several properties at once, so they
+ * pass all of them and light up when any one of them changed.
+ */
+export function useIsChanged(property: string | readonly string[]): boolean {
+  const { changed } = useStyleEdit();
+  return typeof property === "string"
+    ? changed.has(property)
+    : property.some((name) => changed.has(name));
+}
+
 /** Shared shell: label left, control right (Figma-style density, §48). */
-export function Row({ label, children }: { label: string; children: ReactNode }) {
+export function Row({
+  label,
+  children,
+  changed = false,
+}: {
+  label: string;
+  children: ReactNode;
+  changed?: boolean;
+}) {
+  const t = useT();
   return (
-    <div className="flex min-h-6 items-center gap-1.5">
-      <span className="w-[64px] shrink-0 truncate text-[11px] text-dim" title={label}>
+    <div
+      {...(changed ? { "data-changed": "true", title: t("style.changed") } : {})}
+      className={`flex min-h-6 items-center gap-1.5 rounded-[3px] ${
+        changed ? "-ml-[2px] border-l-2 border-accent-text bg-accent-text/10" : ""
+      }`}
+    >
+      <span
+        className={`w-[64px] shrink-0 truncate text-[11px] ${
+          changed ? "font-medium text-accent-text" : "text-dim"
+        }`}
+        title={label}
+      >
         {label}
       </span>
       <div className="flex min-w-0 flex-1 justify-end">{children}</div>
@@ -52,6 +87,7 @@ export function ScrubField({
   max?: number;
 }) {
   const { values, updateStyle } = useStyleEdit();
+  const isChanged = useIsChanged(property);
   const raw = values[property] ?? "";
   const parsed = parseCssValue(raw);
 
@@ -62,7 +98,7 @@ export function ScrubField({
   const unit = parsed.unit === "" && fallbackUnit !== "" ? "" : parsed.unit || fallbackUnit;
 
   return (
-    <Row label={label}>
+    <Row label={label} changed={isChanged}>
       <ScrubInput
         value={parsed.value}
         unit={unit}
@@ -87,10 +123,11 @@ export function TextRow({
   placeholder?: string;
 }) {
   const { values, updateStyle } = useStyleEdit();
+  const isChanged = useIsChanged(property);
   const value = values[property] ?? "";
 
   return (
-    <Row label={label}>
+    <Row label={label} changed={isChanged}>
       <input
         value={value}
         placeholder={placeholder ?? "—"}
@@ -111,6 +148,7 @@ export function TextRow({
 export function ColorRow({ property, label }: { property: string; label: string }) {
   const t = useT();
   const { values, updateStyle } = useStyleEdit();
+  const isChanged = useIsChanged(property);
   const raw = values[property] ?? "";
   const storeHex = rgbToHex(raw) ?? "#000000";
   // Live value while picking. Preview frames (`committed:false`) don't touch
@@ -122,7 +160,7 @@ export function ColorRow({ property, label }: { property: string; label: string 
   const hex = draft ?? storeHex;
 
   return (
-    <Row label={label}>
+    <Row label={label} changed={isChanged}>
       <div className="flex h-6 min-w-0 flex-1 items-center justify-end gap-1">
         <span className="truncate font-mono text-[10px] text-faint">{raw}</span>
         <input
@@ -154,10 +192,11 @@ export function SegmentRow({
   options: { value: string; label: string; title?: string }[];
 }) {
   const { values, updateStyle } = useStyleEdit();
+  const isChanged = useIsChanged(property);
   const raw = values[property] ?? "";
 
   return (
-    <Row label={label}>
+    <Row label={label} changed={isChanged}>
       <div className="flex min-w-0 overflow-hidden rounded bg-control">
         {options.map((option) => (
           <button

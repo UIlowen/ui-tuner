@@ -1,14 +1,21 @@
 import { createElement } from "react";
+import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { resolveTheme, usePrefsStore } from "../../state/prefs";
 import { EditorCard } from "./EditorCard";
 import { injectCardStyles } from "./inject-styles";
+import { placeNearAnchor, type AnchorRect } from "./placement";
 import type { EditorCardProps } from "./types";
 
 export const EDITOR_CARD_ROOT_ID = "ui-tuner-editor-card-root";
 
 export interface CardMount {
-  show(props: EditorCardProps): void;
+  /**
+   * Render the card. `anchor` is the target element's viewport rect — the card
+   * opens beside it, clamped inside the viewport. Without an anchor the card
+   * keeps its current position and is merely pulled back into view.
+   */
+  show(props: EditorCardProps, anchor?: AnchorRect): void;
   hide(): void;
   /** Tear down the React root and remove the host from the DOM (reconnect). */
   unmount(): void;
@@ -17,7 +24,7 @@ export interface CardMount {
 
 /** Above every page layer, but one below the annotations/overlay (also 2147483646) so a covered bubble stays clickable. */
 const HOST_Z_INDEX = "2147483645";
-/** Where the card first appears (top-left of the viewport). */
+/** Fallback position for a card shown without an anchor. */
 const INITIAL_OFFSET = { x: 16, y: 16 };
 
 /**
@@ -26,7 +33,8 @@ const INITIAL_OFFSET = { x: 16, y: 16 };
  * clicks elsewhere fall through to the page. Applies the compiled card.css via
  * injectCardStyles, mirrors the resolved theme as the `dark` class on the host
  * (card.css scopes its dark tokens to `:host(.dark)`), renders EditorCard with
- * a React root, and implements header drag (pointerdown on the drag handle →
+ * a React root, places the card beside its anchor element on open (see
+ * placement.ts), and implements header drag (pointerdown on the drag handle →
  * pointermove translates the host, clamped to the viewport).
  *
  * The card is a separate JS context from the side panel: it reads locale/theme
@@ -122,14 +130,29 @@ export function mountEditorCard(): CardMount {
   container.addEventListener("pointercancel", endDrag);
 
   return {
-    show(props) {
+    show(props, anchor) {
       open = true;
       // Key by elementId: switching elements remounts the card with fresh
       // state (a reused card would leak A's instruction draft into B's 保存),
       // while re-showing the same element keeps the in-progress session.
-      root.render(createElement(EditorCard, { ...props, key: props.elementId }));
-      // The card may have grown near an edge — pull it back into view.
-      clampOffset();
+      // Committed synchronously so the card's real size is measurable below —
+      // placing against an unrendered (0×0) card would ignore every overflow.
+      flushSync(() => {
+        root.render(createElement(EditorCard, { ...props, key: props.elementId }));
+      });
+      if (anchor) {
+        const rect = container.getBoundingClientRect();
+        const placed = placeNearAnchor({
+          card: { width: rect.width, height: rect.height },
+          anchor,
+          viewport: { width: window.innerWidth, height: window.innerHeight },
+        });
+        offset.x = placed.x;
+        offset.y = placed.y;
+      } else {
+        // No anchor: the card may have grown near an edge — pull it back in.
+        clampOffset();
+      }
       applyOffset();
     },
     hide() {

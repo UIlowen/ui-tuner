@@ -2,7 +2,7 @@
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent } from "@testing-library/react";
-import { Annotations } from "@ui-tuner/inspector";
+import { Annotations, Overlay } from "@ui-tuner/inspector";
 import {
   createSidepanelPicking,
   createSidepanelResetChanges,
@@ -72,6 +72,11 @@ function previewChangedMessages(sent: unknown[]): PreviewChangedLike[] {
   );
 }
 
+/** Type strings of everything the content script sent, in order. */
+function messageTypes(sent: unknown[]): string[] {
+  return sent.map((m) => (typeof m === "object" && m !== null ? ((m as { type?: string }).type ?? "") : ""));
+}
+
 function shadowButton(shadow: ShadowRoot, text: string): HTMLButtonElement {
   const button = [...shadow.querySelectorAll("button")].find((b) => b.textContent === text);
   expect(button, `button "${text}" in editor card`).toBeTruthy();
@@ -126,6 +131,7 @@ describe("content page-side edit session", () => {
     document.getElementById(EDITOR_CARD_ROOT_ID)?.remove();
     // Hosts live on documentElement, so clearing body would leave them behind.
     document.getElementById(Annotations.ROOT_ID)?.remove();
+    document.getElementById(Overlay.ROOT_ID)?.remove();
     document.body.innerHTML = "";
     vi.unstubAllGlobals();
   });
@@ -287,6 +293,73 @@ describe("content page-side edit session", () => {
       fireEvent.keyDown(document, { key: "Escape" });
     });
     expect(hidden()).toBe(true);
+
+    act(() => port.disconnect());
+  });
+
+  it("clears the page selection on exit but keeps the panel's Apply target", async () => {
+    const connect = connectListeners[0]!;
+    const port = createFakePort();
+    act(() => connect(port.port));
+    act(() => port.emitToContent(createSidepanelResetChanges()));
+
+    // Overlay hides any target it measures as zero-sized, and jsdom reports
+    // zero rects for everything — give the target a real box.
+    target.getBoundingClientRect = () =>
+      ({
+        x: 10,
+        y: 10,
+        left: 10,
+        top: 10,
+        right: 110,
+        bottom: 50,
+        width: 100,
+        height: 40,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    const selectedBox = () =>
+      document
+        .getElementById(Overlay.ROOT_ID)!
+        .shadowRoot!.querySelector<HTMLDivElement>(".selected-box")!;
+    const frame = async (): Promise<void> => {
+      await act(async () => {
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+      });
+    };
+
+    act(() => port.emitToContent(createSidepanelPicking(true)));
+    act(() => {
+      fireEvent.click(document.body, { clientX: 5, clientY: 5 });
+    });
+    await frame();
+    expect(selectedBox().style.display).toBe("block");
+
+    // Save an instruction so the element carries a record: keepId must retain
+    // its id after the selection is released, or Apply can no longer find it.
+    const card = () => document.getElementById(EDITOR_CARD_ROOT_ID)!.shadowRoot!;
+    act(() => {
+      fireEvent.click(shadowButton(card(), "自然语言"));
+    });
+    act(() => {
+      fireEvent.change(card().querySelector("textarea")!, { target: { value: "圆角更大" } });
+    });
+    act(() => {
+      fireEvent.click(shadowButton(card(), "保存"));
+    });
+    const elementId = target.getAttribute("data-ui-tuner-id");
+    expect(elementId).toBeTruthy();
+
+    act(() => port.emitToContent(createSidepanelPicking(false)));
+    await frame();
+
+    // The page is a plain preview again: no selection box, no editor card.
+    expect(selectedBox().style.display).toBe("none");
+    expect(card().textContent).toBe("");
+    // …but the panel keeps its Apply target: no selection.cleared went out, and
+    // the element still carries its id.
+    expect(messageTypes(port.sent)).not.toContain("selection.cleared");
+    expect(target.getAttribute("data-ui-tuner-id")).toBe(elementId);
 
     act(() => port.disconnect());
   });

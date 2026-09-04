@@ -12,6 +12,7 @@ function baseProps(overrides: Partial<EditorCardProps> = {}): EditorCardProps {
     number: null,
     initialValues: { height: "38px" },
     initialInstruction: "",
+    changedProperties: [],
     onStage: vi.fn(),
     onSave: vi.fn(),
     onCancel: vi.fn(),
@@ -21,8 +22,11 @@ function baseProps(overrides: Partial<EditorCardProps> = {}): EditorCardProps {
 }
 
 describe("EditorCard", () => {
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+
   afterEach(() => {
     cleanup();
+    Element.prototype.scrollIntoView = originalScrollIntoView;
   });
 
   beforeEach(() => {
@@ -117,5 +121,37 @@ describe("EditorCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "展开" }));
     expect(screen.getByRole("button", { name: "属性精调" })).toBeTruthy();
     expect(screen.getByText("布局")).toBeTruthy();
+  });
+
+  /** jsdom does not implement scrollIntoView; record calls instead. */
+  function stubScrollIntoView(): ReturnType<typeof vi.fn> {
+    const stub = vi.fn();
+    Element.prototype.scrollIntoView = stub;
+    return stub;
+  }
+
+  it("marks the changed property and scrolls it into view on open", () => {
+    const scrollIntoView = stubScrollIntoView();
+    const { container } = render(
+      <EditorCard
+        {...baseProps({
+          initialValues: { height: "38px", color: "rgb(0, 0, 0)" },
+          changedProperties: ["color"],
+        })}
+      />,
+    );
+
+    const marked = container.querySelectorAll('[data-changed="true"]');
+    expect(marked).toHaveLength(1);
+    // The property list scrolls, so a mark far down must be brought to hand.
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(scrollIntoView.mock.instances[0]).toBe(marked[0]);
+  });
+
+  it("marks and scrolls nothing when no property was changed yet", () => {
+    const scrollIntoView = stubScrollIntoView();
+    const { container } = render(<EditorCard {...baseProps()} />);
+    expect(container.querySelectorAll("[data-changed]")).toHaveLength(0);
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 });

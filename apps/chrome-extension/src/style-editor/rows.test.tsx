@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
-import { ColorRow } from "./rows";
+import { ColorRow, ScrubField } from "./rows";
 import { StyleEditContext, type StyleEditApi } from "./StyleEditContext";
 
 /**
@@ -24,10 +24,14 @@ interface UpdateCall {
 }
 
 /** In-memory StyleEditApi: static values snapshot + recorded updateStyle calls. */
-function createApi(values: Record<string, string>): { api: StyleEditApi; calls: UpdateCall[] } {
+function createApi(
+  values: Record<string, string>,
+  changed: string[] = [],
+): { api: StyleEditApi; calls: UpdateCall[] } {
   const calls: UpdateCall[] = [];
   const api: StyleEditApi = {
     values,
+    changed: new Set(changed),
     updateStyle: (property, value, committed) => {
       calls.push({ property, value, committed });
     },
@@ -88,5 +92,31 @@ describe("ColorRow", () => {
     // Commits the original color; the content script's color-aware no-op drop
     // (cssValuesEqual) discards it so no spurious change is recorded.
     expect(committedColorCalls(calls).at(-1)?.value).toBe("#2f6df6");
+  });
+});
+
+/**
+ * A card reopened from a bubble faces the designer with ~40 property rows; the
+ * ones an earlier step actually changed have to stand out on their own.
+ */
+describe("changed-property highlight", () => {
+  it("marks the row whose property was changed", () => {
+    const { api } = createApi({ height: "38px" }, ["height"]);
+    const { container } = render(
+      <StyleEditContext.Provider value={api}>
+        <ScrubField property="height" label="Height" />
+      </StyleEditContext.Provider>,
+    );
+    expect(container.querySelector('[data-changed="true"]')).not.toBeNull();
+  });
+
+  it("leaves a row for an untouched property unmarked", () => {
+    const { api } = createApi({ height: "38px", color: "rgb(0, 0, 0)" }, ["color"]);
+    const { container } = render(
+      <StyleEditContext.Provider value={api}>
+        <ScrubField property="height" label="Height" />
+      </StyleEditContext.Provider>,
+    );
+    expect(container.querySelector("[data-changed]")).toBeNull();
   });
 });

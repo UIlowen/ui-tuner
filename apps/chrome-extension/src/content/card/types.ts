@@ -13,6 +13,11 @@ export interface EditorCardProps {
   initialValues: Record<string, string>;
   /** 之前已保存的自然语言指令（"" 表示无）。 */
   initialInstruction: string;
+  /**
+   * 该元素已被记录的改动属性（来自 ChangeTracker）。卡片高亮这些行并滚到第一
+   * 处，让「上一步改了什么」在几十个属性里一眼可见。
+   */
+  changedProperties: string[];
   onStage(property: string, value: string, committed: boolean): void;
   onSave(instruction: string): void;
   onCancel(): void;

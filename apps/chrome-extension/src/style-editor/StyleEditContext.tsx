@@ -3,6 +3,8 @@ import { createContext, useContext } from "react";
 export interface StyleEditApi {
   /** 当前（暂存或已提交）属性值快照。 */
   values: Record<string, string>;
+  /** 已记录的改动属性：命中的行高亮，便于一眼看出上一步改了什么。 */
+  changed: ReadonlySet<string>;
   /**
    * committed=false 是拖动中的预览帧；committed=true 是松手提交帧。两种帧都会
    * 经 content 的 onStage 进入 StagingEngine（预览引擎实时反映），区别在

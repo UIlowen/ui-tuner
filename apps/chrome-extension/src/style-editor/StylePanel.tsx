@@ -2,7 +2,16 @@ import { useState } from "react";
 import { formatCssValue, parseCssValue } from "@ui-tuner/inspector";
 import { useT } from "../i18n/use-t";
 import { ScrubInput } from "./ScrubInput";
-import { ColorRow, GroupHeader, ReadOnlyRow, ScrubField, SegmentRow, TextRow } from "./rows";
+import {
+  ColorRow,
+  GroupHeader,
+  ReadOnlyRow,
+  Row,
+  ScrubField,
+  SegmentRow,
+  TextRow,
+  useIsChanged,
+} from "./rows";
 import { useStyleEdit } from "./StyleEditContext";
 
 /**
@@ -123,13 +132,13 @@ const ALIGN_CROSS = ["start", "center", "end"] as const;
 function AlignmentControl() {
   const t = useT();
   const { values, updateStyle } = useStyleEdit();
+  const isChanged = useIsChanged(["justify-content", "align-items"]);
   const justify = values["justify-content"] ?? "";
   const align = values["align-items"] ?? "";
 
   return (
-    <div className="flex min-h-6 items-center gap-1.5">
-      <span className="w-[64px] shrink-0 text-[11px] text-dim">{t("style.align")}</span>
-      <div className="ml-auto grid size-[48px] grid-cols-3 overflow-hidden rounded border border-edge-strong">
+    <Row label={t("style.align")} changed={isChanged}>
+      <div className="grid size-[48px] grid-cols-3 overflow-hidden rounded border border-edge-strong">
         {ALIGN_CROSS.flatMap((cross) =>
           ALIGN_MAIN.map((main) => {
             const active = justify === main && align === cross;
@@ -165,7 +174,7 @@ function AlignmentControl() {
           }),
         )}
       </div>
-    </div>
+    </Row>
   );
 }
 
@@ -212,6 +221,7 @@ function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: stri
         <>
           <AxisScrub
             label={t("style.vertical")}
+            properties={[`${kind}-top`, `${kind}-bottom`]}
             raw={verticalRaw}
             onPreview={(value) => {
               void updateStyle(`${kind}-top`, value, false);
@@ -224,6 +234,7 @@ function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: stri
           />
           <AxisScrub
             label={t("style.horizontal")}
+            properties={[`${kind}-left`, `${kind}-right`]}
             raw={horizontalRaw}
             onPreview={(value) => {
               void updateStyle(`${kind}-left`, value, false);
@@ -243,36 +254,36 @@ function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: stri
 /** One axis in Simple spacing mode — scrubs two properties at once. */
 function AxisScrub({
   label,
+  properties,
   raw,
   onPreview,
   onCommit,
 }: {
   label: string;
+  /** Both sides this axis writes; the row lights up when either changed. */
+  properties: readonly [string, string];
   raw: string;
   onPreview(cssValue: string): void;
   onCommit(cssValue: string): void;
 }) {
+  const isChanged = useIsChanged(properties);
   const parsed = parseCssValue(raw);
   if (!parsed) {
     return (
-      <div className="flex min-h-6 items-center gap-1.5">
-        <span className="w-[64px] shrink-0 text-[11px] text-dim">{label}</span>
-        <span className="ml-auto truncate font-mono text-[10px] text-ghost">{raw || "—"}</span>
-      </div>
+      <Row label={label} changed={isChanged}>
+        <span className="truncate font-mono text-[10px] text-ghost">{raw || "—"}</span>
+      </Row>
     );
   }
   return (
-    <div className="flex min-h-6 items-center gap-1.5">
-      <span className="w-[64px] shrink-0 text-[11px] text-dim">{label}</span>
-      <div className="flex min-w-0 flex-1 justify-end">
-        <ScrubInput
-          value={parsed.value}
-          unit={parsed.unit || "px"}
-          step={1}
-          onPreview={(value) => onPreview(formatCssValue(value, parsed.unit || "px"))}
-          onCommit={(value) => onCommit(formatCssValue(value, parsed.unit || "px"))}
-        />
-      </div>
-    </div>
+    <Row label={label} changed={isChanged}>
+      <ScrubInput
+        value={parsed.value}
+        unit={parsed.unit || "px"}
+        step={1}
+        onPreview={(value) => onPreview(formatCssValue(value, parsed.unit || "px"))}
+        onCommit={(value) => onCommit(formatCssValue(value, parsed.unit || "px"))}
+      />
+    </Row>
   );
 }

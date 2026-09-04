@@ -112,6 +112,7 @@ function stopPicking(): void {
   overlay?.setHover(null);
   closeEditorSession();
   annotations?.setVisible(false);
+  clearPageSelection();
   send(createPickerState(false));
 }
 
@@ -136,6 +137,37 @@ function clearSelection(): void {
 }
 
 /**
+ * Drop the page-side selection visuals (box, size label) without telling the
+ * panel to forget the element: exiting annotation mode should leave a plain
+ * preview, yet Apply to Code still targets the last selected element — so no
+ * `selection.cleared` goes out. `lastSelector`/`lastFingerprint` stay too: the
+ * post-apply HMR re-identification (locateAppliedElement) falls back to them.
+ * Elements with change records or an instruction keep their `data-ui-tuner-id`
+ * via SelectionTracker.keepId, so preview overrides and bubbles survive.
+ */
+function clearPageSelection(): void {
+  tracker?.clear();
+  selectionActive = false;
+  overlay?.setSelected(null);
+}
+
+/**
+ * Distinct properties already recorded for an element. The card marks those
+ * rows and scrolls to the first, so reopening a bubble shows what the last step
+ * changed instead of a wall of untouched properties.
+ */
+function changedPropertiesFor(elementId: string): string[] {
+  return [
+    ...new Set(
+      changeTracker
+        .all()
+        .filter((change) => change.elementId === elementId)
+        .map((change) => change.property),
+    ),
+  ];
+}
+
+/**
  * Open the page-side editor card for an element. Assumes the element is
  * already selected (callers run selectElement first so overlay/panel/bridge
  * stay consistent). Starts a "保存才记录" staging session: scrub edits only
@@ -147,32 +179,37 @@ function openEditorCard(element: Element): void {
   if (!elementId) return;
 
   stagingEngine.begin(elementId);
-  cardMount.show({
-    elementId,
-    tagName: element.tagName.toLowerCase(),
-    // Bubble sequence number; null when the element has no saved change yet.
-    number: annotations?.numberFor(elementId) ?? null,
-    initialValues: collectWhitelistedStyles(element),
-    initialInstruction: instructionStore.get(elementId) ?? "",
-    onStage: (property, value) => {
-      stagingEngine?.stage(element, property, value);
+  cardMount.show(
+    {
+      elementId,
+      tagName: element.tagName.toLowerCase(),
+      // Bubble sequence number; null when the element has no saved change yet.
+      number: annotations?.numberFor(elementId) ?? null,
+      initialValues: collectWhitelistedStyles(element),
+      initialInstruction: instructionStore.get(elementId) ?? "",
+      changedProperties: changedPropertiesFor(elementId),
+      onStage: (property, value) => {
+        stagingEngine?.stage(element, property, value);
+      },
+      onSave: (instruction) => {
+        stagingEngine?.commit();
+        instructionStore.set(elementId, instruction);
+        reportChanges();
+        cardMount?.hide();
+      },
+      onCancel: () => {
+        stagingEngine?.rollback();
+        cardMount?.hide();
+      },
+      onDelete: () => {
+        stagingEngine?.end(); // discard any unsaved staged edits first
+        revertElement(elementId); // clears committed changes + instruction, reports
+        cardMount?.hide();
+      },
     },
-    onSave: (instruction) => {
-      stagingEngine?.commit();
-      instructionStore.set(elementId, instruction);
-      reportChanges();
-      cardMount?.hide();
-    },
-    onCancel: () => {
-      stagingEngine?.rollback();
-      cardMount?.hide();
-    },
-    onDelete: () => {
-      stagingEngine?.end(); // discard any unsaved staged edits first
-      revertElement(elementId); // clears committed changes + instruction, reports
-      cardMount?.hide();
-    },
-  });
+    // Open beside the element; the mount clamps the card inside the viewport.
+    element.getBoundingClientRect(),
+  );
 }
 
 /** End the staging session and close the card (Esc / exit annotation / disconnect). */

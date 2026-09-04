@@ -13,6 +13,7 @@ function baseProps(overrides: Partial<EditorCardProps> = {}): EditorCardProps {
     number: null,
     initialValues: { height: "38px" },
     initialInstruction: "",
+    changedProperties: [],
     onStage: vi.fn(),
     onSave: vi.fn(),
     onCancel: vi.fn(),
@@ -65,6 +66,28 @@ describe("mountEditorCard", () => {
     act(() => mount.hide());
     expect(mount.isOpen).toBe(false);
     expect(host?.shadowRoot?.textContent ?? "").not.toContain("保存");
+  });
+
+  it("places the card beside the anchor element instead of the viewport corner", () => {
+    const mount = mountEditorCard();
+    // jsdom measures the card as 0×0, so the placement follows the anchor:
+    // right side, top-aligned, 12px gap.
+    act(() =>
+      mount.show(baseProps(), { left: 100, top: 200, right: 400, bottom: 340, width: 300, height: 140 }),
+    );
+    expect(hostEl()?.style.transform).toBe("translate(412px, 200px)");
+    mount.unmount();
+  });
+
+  it("flips the card to the element's left when the right side is off-screen", () => {
+    const mount = mountEditorCard();
+    // jsdom's viewport is 1024 wide; an element ending at 1100 leaves no room
+    // on the right, so the card goes to its left.
+    act(() =>
+      mount.show(baseProps(), { left: 900, top: 100, right: 1100, bottom: 150, width: 200, height: 50 }),
+    );
+    expect(hostEl()?.style.transform).toBe("translate(888px, 100px)");
+    mount.unmount();
   });
 
   it("applies the dark class to the host when the resolved theme is dark", () => {
