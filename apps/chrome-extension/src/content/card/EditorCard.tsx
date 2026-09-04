@@ -223,42 +223,43 @@ export function EditorCard(props: EditorCardProps) {
 
   return (
     <div className="flex w-[320px] flex-col overflow-hidden rounded-card border border-edge bg-surface-solid shadow-2xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
-      {/* Header: ⚙ + instruction + tag name, with drag handle spanning both rows on the right */}
-      <div className="flex shrink-0 border-b border-edge">
-        <div className="flex min-w-0 flex-1 flex-col px-2 py-1.5">
-          <div className="flex items-center gap-1.5">
-            <PropertiesToggle
-              open
-              label={t("card.collapse")}
-              onToggle={() => setViewState("compact")}
-            />
-            {props.number !== null && (
-              <span className="grid h-5 shrink-0 place-items-center rounded-pill bg-accent-text/15 px-1.5 text-[10px] font-semibold text-accent-text">
-                {String(props.number)}
-              </span>
-            )}
-            <input
-              value={instruction}
-              onChange={(event) => setInstruction(event.target.value)}
-              placeholder={t("card.instructionPlaceholder")}
-              aria-label={t("card.instructionPlaceholder")}
-              className="h-7 min-w-0 flex-1 rounded-control bg-transparent px-1 text-[12px] font-medium text-text-strong outline-none placeholder:text-ghost"
-            />
-          </div>
+      {/* Header: row 1 = ⚙ + instruction, row 2 = tag name + drag handle */}
+      <div className="flex shrink-0 flex-col border-b border-edge">
+        <div className="flex items-center gap-1.5 px-2 pt-1.5 pb-0.5">
+          <PropertiesToggle
+            open
+            label={t("card.collapse")}
+            onToggle={() => setViewState("compact")}
+          />
+          {props.number !== null && (
+            <span className="grid h-5 shrink-0 place-items-center rounded-pill bg-accent-text/15 px-1.5 text-[10px] font-semibold text-accent-text">
+              {String(props.number)}
+            </span>
+          )}
+          <input
+            value={instruction}
+            onChange={(event) => setInstruction(event.target.value)}
+            placeholder={t("card.instructionPlaceholder")}
+            aria-label={t("card.instructionPlaceholder")}
+            className="h-7 min-w-0 flex-1 rounded-control bg-transparent px-1 text-[12px] font-medium text-text-strong outline-none placeholder:text-ghost"
+          />
+        </div>
+        <div className="flex items-center gap-1.5 px-2 pb-1.5">
           {tagName && (
-            <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-faint">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-faint">
               {tagName}
             </span>
           )}
+          <span className="ml-auto" />
+          <span
+            data-drag-handle
+            aria-label={t("card.dragHandle")}
+            title={t("card.dragHandle")}
+            className="grid h-7 w-7 shrink-0 cursor-grab place-items-center rounded-pill bg-inset text-dim select-none transition-colors hover:bg-control hover:text-text"
+          >
+            <DragIcon className="size-3.5" />
+          </span>
         </div>
-        <span
-          data-drag-handle
-          aria-label={t("card.dragHandle")}
-          title={t("card.dragHandle")}
-          className="grid w-7 shrink-0 cursor-grab place-items-center text-dim select-none transition-colors hover:bg-control hover:text-text"
-        >
-          <DragIcon className="size-3.5" />
-        </span>
       </div>
 
       {/* Body: flat property list */}
