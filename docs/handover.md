@@ -278,7 +278,7 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 
 用户针对上一轮交付提出两点小优化：
 
-1. **卡片层级/投影增强**：编辑卡之前容易融入页面背景。给紧凑态和展开态同时加上 `shadow-2xl` + `ring-1 ring-black/[0.06] dark:ring-white/[0.08]`，增强与页面的层级分离。未做「根据页面亮/暗自动反转卡片主题」——这会与当前跟随 Side Panel 主题的实现冲突，如需可按页面 luminance 再做。
+1. **卡片层级/投影 + 页面背景反差**：编辑卡之前容易融入页面背景。现在卡片主题由**页面背景 luminance** 决定（`mount-card.tsx` 读取 `document.body` 背景色），浅色页面 → 暗色卡片，深色页面 → 亮色卡片；Side Panel 主题只控制面板自身，不再决定卡片。同时保留 `shadow-2xl` + `ring-1 ring-black/[0.06] dark:ring-white/[0.08]` 增强层级。
 2. **已改动属性行增加 reset 按钮**：对 `changedProperties` 里的属性，在属性行右侧显示一个还原图标（UndoIcon），点击后回滚该属性到原始值，并立即移除该行的 `data-changed` 高亮。`StyleEditApi` 新增 `revertStyle(property | property[])`；`StagingEngine` 新增 `unstage(property)` 防止回滚后保存又把旧值 commit 进去。基本行（ScrubField/TextRow/ColorRow/SegmentRow）和复合行（AlignmentControl/AxisScrub）都接上了 reset。
 
 - 验证：`pnpm build/test/typecheck/lint` 全绿，**373 例**（extension 150 → **154**：EditorCard +2 / rows +2；inspector **119**：新增 `StagingEngine.test.ts` 2 例）。
