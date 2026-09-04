@@ -88,6 +88,8 @@ export function EditorCard(props: EditorCardProps) {
   const [dirtySet, setDirtySet] = useState<Set<string>>(new Set());
   /** Properties the user has reset inside this session. They stop being highlighted. */
   const [reverted, setReverted] = useState<Set<string>>(new Set());
+  /** Linked property pairs (e.g. "width-height", "top-bottom", "left-right"). */
+  const [linkedSet, setLinkedSet] = useState<Set<string>>(new Set(["width-height", "top-bottom", "left-right"]));
 
   const changed = useMemo(() => {
     const set = new Set(props.changedProperties);
@@ -111,6 +113,7 @@ export function EditorCard(props: EditorCardProps) {
     values,
     changed,
     dirty,
+    linked: linkedSet,
     updateStyle: (property, value, committed) => {
       props.onStage(property, value, committed);
       if (committed) {
@@ -160,6 +163,17 @@ export function EditorCard(props: EditorCardProps) {
         setReverted(nextReverted);
         setDirtySet(nextDirty);
       }
+    },
+    toggleLinked: (pairKey) => {
+      setLinkedSet((prev) => {
+        const next = new Set(prev);
+        if (next.has(pairKey)) {
+          next.delete(pairKey);
+        } else {
+          next.add(pairKey);
+        }
+        return next;
+      });
     },
   };
 

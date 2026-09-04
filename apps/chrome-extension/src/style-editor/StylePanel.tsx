@@ -115,12 +115,22 @@ export function StylePanel() {
 /** Width/Height pair with link icon indicating linked behavior. */
 function SizeGroup() {
   const t = useT();
+  const { linked, toggleLinked } = useStyleEdit();
+  const isLinked = linked.has("width-height");
   return (
     <>
       <ScrubField property="width" label={t("style.width")} />
-      <div className="flex items-center justify-center py-0.5 text-faint">
+      <button
+        type="button"
+        onClick={() => toggleLinked("width-height")}
+        aria-label={isLinked ? t("style.unlock") : t("style.lock")}
+        title={isLinked ? t("style.unlock") : t("style.lock")}
+        className={`flex items-center justify-center py-0.5 transition-colors ${
+          isLinked ? "text-accent-text" : "text-faint hover:text-text"
+        }`}
+      >
         <LinkIcon className="size-3" />
-      </div>
+      </button>
       <ScrubField property="height" label={t("style.height")} />
     </>
   );
@@ -134,13 +144,18 @@ function SizeGroup() {
  */
 function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: string }) {
   const t = useT();
-  const { values } = useStyleEdit();
+  const { values, linked, toggleLinked } = useStyleEdit();
   const [expanded, setExpanded] = useState(false);
 
   const top = values[`${kind}-top`] ?? "";
   const right = values[`${kind}-right`] ?? "";
   const bottom = values[`${kind}-bottom`] ?? "";
   const left = values[`${kind}-left`] ?? "";
+
+  const tbKey = `${kind}-top-bottom`;
+  const lrKey = `${kind}-left-right`;
+  const tbLinked = linked.has(tbKey);
+  const lrLinked = linked.has(lrKey);
 
   const formatShort = (raw: string) => {
     const parsed = parseCssValue(raw);
@@ -175,21 +190,34 @@ function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: stri
         )}
       </button>
 
-      {/* Expanded: 4 rows with link icons between paired axes */}
+      {/* Expanded: rows with link icons between paired axes */}
       {expanded && (
         <>
           <ScrubField property={`${kind}-top`} label={t("style.top")} />
-          <div className="flex items-center justify-center py-0.5 text-faint">
+          <button
+            type="button"
+            onClick={() => toggleLinked(tbKey)}
+            aria-label={tbLinked ? t("style.unlock") : t("style.lock")}
+            title={tbLinked ? t("style.unlock") : t("style.lock")}
+            className={`flex items-center justify-center py-0.5 transition-colors ${
+              tbLinked ? "text-accent-text" : "text-faint hover:text-text"
+            }`}
+          >
             <LinkIcon className="size-3" />
-          </div>
+          </button>
           <ScrubField property={`${kind}-bottom`} label={t("style.bottom")} />
-          <div className="flex items-center justify-center py-0.5 text-faint">
-            <LinkIcon className="size-3" />
-          </div>
           <ScrubField property={`${kind}-left`} label={t("style.left")} />
-          <div className="flex items-center justify-center py-0.5 text-faint">
+          <button
+            type="button"
+            onClick={() => toggleLinked(lrKey)}
+            aria-label={lrLinked ? t("style.unlock") : t("style.lock")}
+            title={lrLinked ? t("style.unlock") : t("style.lock")}
+            className={`flex items-center justify-center py-0.5 transition-colors ${
+              lrLinked ? "text-accent-text" : "text-faint hover:text-text"
+            }`}
+          >
             <LinkIcon className="size-3" />
-          </div>
+          </button>
           <ScrubField property={`${kind}-right`} label={t("style.right")} />
         </>
       )}

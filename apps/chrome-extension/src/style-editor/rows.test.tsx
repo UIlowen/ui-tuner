@@ -35,6 +35,7 @@ function createApi(
     values,
     changed: new Set(changed),
     dirty: new Set(dirty),
+    linked: new Set(),
     updateStyle: (property, value, committed) => {
       calls.push({ property, value, committed });
     },
@@ -42,6 +43,7 @@ function createApi(
       const properties = typeof property === "string" ? [property] : property;
       for (const p of properties) reverts.push(p);
     },
+    toggleLinked: () => {},
   };
   return { api, calls, reverts };
 }

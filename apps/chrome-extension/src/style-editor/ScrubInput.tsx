@@ -173,7 +173,7 @@ export function ScrubInput({
           else if (event.key === "Escape") setEditing(false);
         }}
         onBlur={finishEditing}
-        className="h-6 w-full rounded-control bg-base px-1.5 font-mono text-[11px] text-text-strong ring-2 ring-accent-text/80 outline-none"
+        className="h-7 w-full rounded-control bg-base px-1.5 font-mono text-[11px] text-text-strong ring-2 ring-accent-text/80 outline-none"
       />
     );
   }
@@ -192,7 +192,7 @@ export function ScrubInput({
       onKeyDown={handleKeyDown}
       onDoubleClick={startEditing}
       title={t("scrub.hint")}
-      className={`group flex h-6 min-w-0 cursor-ew-resize items-center justify-end gap-1 rounded-control border border-edge px-1.5 font-mono text-[11px] text-text-strong outline-none select-none transition-colors ${
+      className={`group flex h-7 min-w-0 cursor-ew-resize items-center justify-end gap-1 rounded-control border border-edge px-1.5 font-mono text-[11px] text-text-strong outline-none select-none transition-colors ${
         dragging
           ? "border-accent-text/50 bg-accent-text/15 ring-2 ring-accent-text/80"
           : // `focus:` not `focus-visible:` — a scrub field is a div, and Chrome

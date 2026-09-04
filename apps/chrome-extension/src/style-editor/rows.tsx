@@ -55,7 +55,7 @@ export function Row({
   return (
     <div
       {...(changed ? { "data-changed": "true", title: t("style.changed") } : {})}
-      className={`flex min-h-6 items-center gap-1 rounded-[3px] py-0.5 px-1 transition-all ${
+      className={`flex min-h-8 items-center gap-1 rounded-[3px] py-1 px-1 transition-all ${
         changed ? "-ml-[2px] border-l-2 border-accent-text bg-accent-text/10" : ""
       }`}
     >
@@ -67,7 +67,7 @@ export function Row({
       >
         {label}
       </span>
-      <div className="flex min-w-0 items-center justify-end gap-1">
+      <div className="flex min-w-0 items-center gap-1">
         {children}
         {(changed || dirty) && onReset && (
           <button
@@ -168,7 +168,7 @@ export function TextRow({
         onKeyDown={(event) => {
           if (event.key === "Enter") (event.target as HTMLInputElement).blur();
         }}
-        className="h-6 min-w-[120px] truncate rounded-control border border-edge bg-inset px-1.5 font-mono text-[11px] text-text-strong outline-none placeholder:text-ghost transition-colors hover:bg-control focus:bg-control focus:ring-2 focus:ring-accent-text/70"
+        className="h-7 min-w-[120px] truncate rounded-control border border-edge bg-inset px-1.5 font-mono text-[11px] text-text-strong outline-none placeholder:text-ghost transition-colors hover:bg-control focus:bg-control focus:ring-2 focus:ring-accent-text/70"
       />
     </Row>
   );
@@ -192,7 +192,7 @@ export function ColorRow({ property, label }: { property: string; label: string 
 
   return (
     <Row label={label} changed={isChanged} dirty={isDirty} onReset={() => revertStyle(property)}>
-      <div className="flex h-6 min-w-[140px] items-center gap-1.5 rounded-control border border-edge bg-inset px-1.5">
+      <div className="flex h-7 min-w-[140px] items-center gap-1.5 rounded-control border border-edge bg-inset px-1.5">
         <input
           type="color"
           value={hex}
@@ -244,14 +244,14 @@ export function SelectRow({
 
   return (
     <Row label={label} changed={isChanged} dirty={isDirty} onReset={() => revertStyle(property)}>
-      <div className="relative flex h-6 min-w-[120px] items-center rounded-control border border-edge bg-inset">
+      <div className="relative flex h-7 min-w-[120px] items-center rounded-control border border-edge bg-inset">
         <select
           value={raw}
           aria-label={label}
           onChange={(event) => {
             if (event.target.value !== raw) void updateStyle(property, event.target.value, true);
           }}
-          className="h-6 w-full appearance-none rounded-control bg-transparent pr-5 pl-1.5 font-mono text-[10px] text-text-strong outline-none transition-colors hover:bg-control focus:bg-control focus:ring-2 focus:ring-accent-text/70"
+          className="h-7 w-full appearance-none rounded-control bg-transparent pr-5 pl-1.5 font-mono text-[10px] text-text-strong outline-none transition-colors hover:bg-control focus:bg-control focus:ring-2 focus:ring-accent-text/70"
         >
           {offered.map((option) => (
             <option key={option.value} value={option.value}>

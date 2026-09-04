@@ -156,6 +156,8 @@ export const zh = {
   "style.advanced": "高级",
   "style.fontStackPlaceholder": "字体栈",
   "style.shadowPlaceholder": "无",
+  "style.lock": "锁定比例",
+  "style.unlock": "解除锁定",
   "scrub.hint": "拖动调整 · Shift ×10 · Option ×0.1 · 双击输入",
   "color.rowTitle": "{label}（{raw}）",
 
@@ -330,6 +332,8 @@ export const en: Record<MessageKey, string> = {
   "style.advanced": "Advanced",
   "style.fontStackPlaceholder": "font stack",
   "style.shadowPlaceholder": "none",
+  "style.lock": "Lock aspect ratio",
+  "style.unlock": "Unlock aspect ratio",
   "scrub.hint": "Drag to adjust · Shift ×10 · Option ×0.1 · double-click to type",
   "color.rowTitle": "{label} ({raw})",
 
