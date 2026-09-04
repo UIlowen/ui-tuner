@@ -6,13 +6,13 @@
 
 ---
 
-## 1. 当前状态快照（2026-09-03）
+## 1. 当前状态快照（2026-09-04）
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
-| 分支     | **`feat/ui-ux-polish`（33 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（**314 例测试**：protocol 26 / inspector 123 / bridge 74 / extension 91）                                                                                                                                                |
+| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
+| 分支     | **`feat/ui-ux-polish`（36 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（**328 例测试**：protocol 26 / inspector 123 / bridge 74 / extension 105）                                                                                                                                                |
 | 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡输入框内按 Esc 会连带退出整个注释模式**（未修，backlog）；`docs/architecture.md` 仍描述注释模式之前的三 Tab 面板（未同步，读它时以本文档 §4/§6 为准） |
 
 ## 2. 三十秒上下文
@@ -102,6 +102,9 @@ UI Tuner/
 | Picker 放行注释层点击（`passThroughHostIds`）；气泡点击派发 `onOpenEditor` 而不是只读浮层                                                                            | 点气泡要能重开该元素的编辑卡（含已存指令与序号）                                    |
 | 面板两态注释模式：`picking` 只由 content 的 `picker.state` ack 决定，选中元素**不**退出注释模式；「完成此元素」走 `sidepanel.clearSelection`                           | 连续标注多个元素；避免面板乐观更新造成状态漂移                                      |
 | **气泡只在注释模式激活时绘制**：`Annotations.setVisible()` 由 content 的 `startPicking`/`stopPicking` 驱动（连接时默认 false，Picker 的 Esc 也走 `stopPicking`）；隐藏改宿主节点 `display` 而非卸载重挂，隐藏期停掉 rAF | 单纯浏览页面时不该带标注；走 display 才能让序号与气泡状态跨模式切换存活，重新激活原样恢复 |
+| **退出注释模式只清「页面侧」选中视觉**：`clearPageSelection()`（≠ `clearSelection()`）清 tracker/overlay 但**不发 `selection.cleared`**，也保留 `lastSelector`/`lastFingerprint` | 用户要「退出后页面干净」，但 `ApplySection` 整体门控在 `selection` 上——发了 cleared 就等于顺手删掉 Apply 入口；保留指纹是为了 apply 后 HMR 重定位（`locateAppliedElement`） |
+| **卡片高亮「已改动」属性行**：`changedProperties` 由 content 从 ChangeTracker 去重算出 → `EditorCard` 转成 `StyleEditApi.changed` → `rows.tsx` 的 `useIsChanged()` 给 `Row` 打 `data-changed` + 紫色左边线；卡片挂载时把**第一处**标记 `scrollIntoView({block:"nearest"})` | 几十个属性里看不出上一步改了什么；body 只有 320px 高，不滚动的话标记等于没有。复合控件（间距轴 / 对齐九宫格）一次写多个属性，传全部、命中任一即亮 |
+| **编辑卡就近弹出**：`content/card/placement.ts` 纯函数按「右→左→下→上」四候选取第一个放得下的，都不行才 clamp；`mount-card.show(props, anchor)` 用 **`flushSync`** 先提交渲染再量 `container.getBoundingClientRect()` | 卡片贴在元素旁边才符合「在元素上调」的心智；不先同步渲染就量尺寸，会拿到未渲染的 0×0 而漏判所有溢出 |
 
 ## 5. 常用命令
 
@@ -229,12 +232,25 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 - 验证：inspector 13/13、content 3/3，全量 **314 例**绿；两次 mutation check（去掉 `stopPicking` 里的隐藏 → content 用例如期失败；去掉 `scheduleRender` 的可见性门控 → inspector「隐藏期不绘制」用例如期失败，报 `expected '280px' to be ''`）；真机浏览器 `.playwright-mcp/verify-annotation-visibility.mjs` **9/9 通过**：连接后不可见 → 注释模式内保存后气泡「1」可见且 Preview 生效（height 80→120px）→ 面板「退出注释模式」后不可见、**Preview 改动仍在**、面板 `Preview · 1` 未丢 → 重新激活气泡恢复且**序号仍是 1** → Esc 退出同样隐藏。
 - 踩坑记录：首版验证脚本用气泡的**内联样式**（`display`/`left`）判定「是否显示」，结果退出后误报 ❌ —— 内联位置是**故意保留**的（序号靠它恢复），真正的隐藏发生在宿主层。改为量**渲染几何**（`getBoundingClientRect().width > 0`）+ **命中测试**（`elementFromPoint` 是否落在注释宿主上）后 9/9 通过。教训：验收断言要量用户实际能看到/点到的东西，不要量实现留下的中间状态。
 
+**页面侧交互打磨：退出即净页 / 改动行高亮 / 卡片就近弹出（2026-09-04）**
+
+用户带截图提了三条（截图里的错误示范：注释模式已关，页面上却还留着紫色选中框 + `div 347 × 143` 标签）：
+
+1. **退出编辑后页面回到正常预览，不要有任何元素选中** —— `stopPicking()` 增加 `clearPageSelection()`：`tracker.clear()` + `selectionActive = false` + `overlay.setSelected(null)`（选中框、尺寸标签、悬停框全部消失），编辑卡也已在 `closeEditorSession()` 里关掉。**关键取舍（用户选定「只清页面，面板留 Apply 目标」）**：不发 `selection.cleared`，因为 `ApplySection` 整体门控在 `selection` 上，发了就等于把 Apply 入口一起删掉；`lastSelector`/`lastFingerprint` 也保留，apply 后 HMR 重定位还要用。有改动/有指令的元素靠 `keepId` 保住 `data-ui-tuner-id`，所以 Preview 覆盖与气泡都不受影响。
+2. **点气泡要能看出上一步改了哪些属性（用户选定「行内标记 + 自动滚到第一处」）** —— content 侧新增 `changedPropertiesFor(elementId)`（从 ChangeTracker 过滤 + 去重）→ `EditorCardProps.changedProperties` → `EditorCard` 转成 `StyleEditApi.changed`（`ReadonlySet<string>`）→ `rows.tsx` 新增 `useIsChanged(property | readonly string[])`，`Row` 命中时打 `data-changed="true"` + `title=「上一步已改动」` + 紫色左边线与底色。`ScrubField`/`TextRow`/`SegmentRow`/`ColorRow` 各自接线；`AlignmentControl`（九宫格）与 `AxisScrub`（间距轴）原本手抄了一份 `Row` 的 markup，这轮**改为复用 `Row`**，`AxisScrub` 新增 `properties: readonly [string,string]` 表示「这个轴写哪两个属性」，命中任一即亮。`EditorCard` 挂载时把第一处标记 `scrollIntoView({block:"nearest"})` —— body 只有 320px 高，不滚就等于没标。`ReadOnlyRow` 故意不接（它永远不可能在 changed 集合里）。
+3. **卡片跟随元素就近弹出且不超出页面** —— 新增纯函数 `content/card/placement.ts`：`placeNearAnchor({card, anchor, viewport, gap=12, margin=8})`，按「右 → 左 → 下 → 上」四个候选取第一个完整落在视口内的，四个都放不下才 clamp 回视口。`CardMount.show(props, anchor?)` 接 anchor（`openEditorCard` 传 `element.getBoundingClientRect()`），并用 **`flushSync`** 先同步提交渲染再量卡片尺寸——否则量到的是未渲染的 0×0，所有溢出判断都会失效。宿主是 `position:fixed;top:0;left:0` + `transform: translate(x,y)`，所以 offset 与 rect 都是视口坐标，不需要滚动换算。
+
+- 验证：`pnpm build/test/typecheck/lint` 全绿，**328 例**（extension 91 → **105**：placement 7 / mount-card +2 / EditorCard +2 / rows +2 / content +1）；**5 次 mutation check 全部如期杀死**（去掉 `overlay.setSelected(null)`、`useIsChanged` 恒 false、去掉自动滚动、placement 只留首个候选、`show` 忽略 anchor）。
+- 真机浏览器 `.playwright-mcp/verify-exit-highlight-placement.mjs` **26/26 通过**：#boxA 常规位置 → 卡片在右侧、间隙 12px、顶部对齐；#boxRight 贴右边缘 → **翻到左侧**；#boxBottom 贴底 → **翻到上方**；三处卡片均 280×422 完整落在 1280×720 内。点气泡 2 → 卡片标记「圆角」行、`title` 为「上一步已改动」、**scrollTop 650**（scrollHeight 1057 / clientHeight 320）且标记行在可视区内；点气泡 1 → 标记「高」行；无改动的 #boxBottom 卡片**一行都不标**（负对照）。退出注释模式后：选中框 / 尺寸标签 / 悬停框 `display:none` 且渲染宽度 0、编辑卡清空、气泡隐藏，而 **#boxA height 仍 120px、#boxRight radius 仍 48px、面板 `Preview · 2`、「应用到代码」仍在**；退出前的对照组确认选中框当时确实是 `block`（否则断言空洞）。
+- 踩坑记录：脚本用 `[role="slider"][aria-valuenow="16"]` 定位「圆角」滑块，结果 `.first()` 命中的是**字号**（computed font-size 也是 16），于是「标记圆角」和「radius 变成 24px」两条误报 ❌——产品行为其实是对的（它老老实实高亮了真正被改的字号行）。修法：把 fixture 的 border-radius 设成**卡片内唯一**的 36px，并**紧跟保存加一条「radius 确实生效」的断言**，让定位错误立刻暴露在源头而不是污染后面的判断。教训延续上一轮：断言要量用户看到的东西，而定位器要保证自己指向的确实是那个东西。
+- 未修（已在 backlog）：编辑卡输入框内按 Esc 仍会连带退出整个注释模式。
+
 ## 7. 项目状态：核心闭环完成，`feat/ui-ux-polish` 待推送 + 待合并决策
 
 核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并多轮真机验收（M8、注释模式、页面编辑卡）。无后续里程碑，剩余为 backlog 增强项。
 
-**下一步待用户决策（截至 2026-09-03）**：
-1. `feat/ui-ux-polish`（33 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
+**下一步待用户决策（截至 2026-09-04）**：
+1. `feat/ui-ux-polish`（36 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
 2. 合并到 `main` 的决策（PR 还是直接 merge）尚未做。
 3. `docs/architecture.md` 未同步注释模式 + 页面编辑卡（仍写三 Tab 面板与 `sidepanel.stylePreview`）；下次动架构文档时一并补。
 
