@@ -3,6 +3,12 @@ import { clamp, formatNumber, parseCssValue, scrubMultiplier } from "@ui-tuner/i
 import { useT } from "../i18n/use-t";
 import { DragIcon } from "../ui/icons";
 
+/** Round `value` to the nearest `step`, trimming float artifacts via toFixed. */
+function snapToStep(value: number, step: number): number {
+  const decimals = Math.max(0, Math.round(-Math.log10(step)));
+  return Number((Math.round(value / step) * step).toFixed(decimals));
+}
+
 /**
  * ScrubInput (plan §10, P0): drag to scrub a numeric CSS value.
  *
@@ -99,9 +105,7 @@ export function ScrubInput({
     if (!start) return;
     const multiplier = scrubMultiplier({ shift: event.shiftKey, alt: event.altKey });
     const raw = start.value + (event.clientX - start.x) * step * multiplier;
-    // Snap to the nearest step so drag produces clean values (integers for
-    // step=1 properties like width/height, one decimal for step=0.1, etc.).
-    const snapped = Math.round(raw / step) * step;
+    const snapped = snapToStep(raw, step);
     const next = clamp(snapped, min, max);
     applyDragValue(next);
     flushPreview(next);
@@ -134,7 +138,7 @@ export function ScrubInput({
     event.preventDefault();
     const direction = event.key === "ArrowUp" ? 1 : -1;
     const multiplier = event.shiftKey ? 10 : 1;
-    const next = clamp(currentValue.current + direction * step * multiplier, min, max);
+    const next = clamp(snapToStep(currentValue.current + direction * step * multiplier, step), min, max);
     if (next === currentValue.current) return;
     commit(next);
   };
