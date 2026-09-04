@@ -175,13 +175,21 @@ describe("mountEditorCard", () => {
     mount.unmount();
   });
 
-  it("applies the dark class to the host when the resolved theme is dark", () => {
-    usePrefsStore.setState({ theme: "dark" });
+  it("contrasts the card theme against the page background", () => {
     const mount = mountEditorCard();
+    // Default jsdom body is transparent → falls back to light page → dark card.
     expect(hostEl()?.classList.contains("dark")).toBe(true);
 
-    act(() => usePrefsStore.getState().setTheme("light"));
+    document.body.style.backgroundColor = "#000000";
+    act(() => mount.show(baseProps()));
+    // Dark page → light card.
     expect(hostEl()?.classList.contains("dark")).toBe(false);
+
+    document.body.style.backgroundColor = "#ffffff";
+    act(() => mount.show(baseProps()));
+    // Light page → dark card.
+    expect(hostEl()?.classList.contains("dark")).toBe(true);
+
     mount.unmount();
   });
 

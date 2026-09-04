@@ -1,9 +1,10 @@
 import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { resolveTheme, usePrefsStore } from "../../state/prefs";
+import { usePrefsStore } from "../../state/prefs";
 import { EditorCard } from "./EditorCard";
 import { injectCardStyles } from "./inject-styles";
+import { contrastTheme } from "./page-luminance";
 import { placeNearAnchor, type AnchorRect } from "./placement";
 import type { EditorCardProps } from "./types";
 
@@ -63,14 +64,14 @@ export function mountEditorCard(): CardMount {
   let open = false;
   const offset = { ...INITIAL_OFFSET };
 
-  // --- Theme: mirror the resolved theme as `dark` on the shadow host. ---
-  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  // --- Theme: contrast the page background so the card never blends in. ---
+  // The card lives in its own shadow root and follows its own theme: it should
+  // be dark on a light page and light on a dark page. Side panel theme is only
+  // used as a locale source here; the card's visual theme is page-driven.
   const applyTheme = (): void => {
-    const { theme } = usePrefsStore.getState();
-    host.classList.toggle("dark", resolveTheme(theme, media.matches) === "dark");
+    host.classList.toggle("dark", contrastTheme() === "dark");
   };
   applyTheme();
-  media.addEventListener("change", applyTheme);
   const unsubscribePrefs = usePrefsStore.subscribe((state, prev) => {
     if (state.theme !== prev.theme) applyTheme();
   });
@@ -167,6 +168,7 @@ export function mountEditorCard(): CardMount {
         clampOffset();
       }
       applyOffset();
+      applyTheme();
     },
     hide() {
       if (!open) return;
@@ -176,7 +178,6 @@ export function mountEditorCard(): CardMount {
     unmount() {
       open = false;
       unsubscribePrefs();
-      media.removeEventListener("change", applyTheme);
       resizeObserver.disconnect();
       root.unmount();
       host.remove();

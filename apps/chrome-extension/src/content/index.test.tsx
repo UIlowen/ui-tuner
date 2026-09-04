@@ -389,6 +389,10 @@ describe("content page-side edit session", () => {
     const port = createFakePort();
     act(() => connect(port.port));
     act(() => port.emitToContent(createSidepanelPicking(true)));
+
+    // The card theme is driven by page luminance, not panel theme.
+    // Dark page → light card.
+    document.body.style.backgroundColor = "#000000";
     act(() => {
       fireEvent.click(document.body, { clientX: 5, clientY: 5 });
     });
@@ -407,12 +411,22 @@ describe("content page-side edit session", () => {
       });
     };
 
-    emitPrefs({ locale: "zh", theme: "dark" }, "sync");
-    expect(host.classList.contains("dark"), "other storage areas are ignored").toBe(false);
-
+    // A local dark-theme event should set the store and re-evaluate the card.
     emitPrefs({ locale: "zh", theme: "dark" });
-    expect(host.classList.contains("dark")).toBe(true);
     expect(usePrefsStore.getState().theme).toBe("dark");
+    expect(host.classList.contains("dark")).toBe(false);
+
+    // Other storage areas are ignored.
+    emitPrefs({ locale: "zh", theme: "light" }, "sync");
+    expect(usePrefsStore.getState().theme).toBe("dark");
+    expect(host.classList.contains("dark")).toBe(false);
+
+    // Switch the page to light and emit a theme change; the card should flip
+    // to dark because the page is now light.
+    document.body.style.backgroundColor = "#ffffff";
+    emitPrefs({ locale: "zh", theme: "light" });
+    expect(usePrefsStore.getState().theme).toBe("light");
+    expect(host.classList.contains("dark")).toBe(true);
 
     act(() => port.disconnect());
   });
