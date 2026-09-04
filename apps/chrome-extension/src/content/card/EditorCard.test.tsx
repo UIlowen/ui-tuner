@@ -290,5 +290,42 @@ describe("EditorCard", () => {
       fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
       expect(screen.getByText("20")).toBeTruthy();
     });
+
+    it("keeps 保存 usable after resetting a change that was already saved", () => {
+      const props = baseProps({
+        number: 1,
+        initialValues: { height: "38px" },
+        changedProperties: ["height"],
+        onRevert: vi.fn(() => "20px"),
+      });
+      render(<EditorCard {...props} />);
+      expect(saveButton().disabled).toBe(true);
+
+      // Undoing a saved change is an edit like any other — it only lands when
+      // the user saves, so a dead 保存 here would strand the reset.
+      fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
+      expect(saveButton().disabled).toBe(false);
+      fireEvent.click(saveButton());
+      expect(props.onSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("leaves 保存 disabled when the reset only undid this session's edit", () => {
+      render(
+        <EditorCard
+          {...baseProps({
+            initialValues: { height: "38px" },
+            // Nothing recorded (onRevert → null), but edited in this session.
+            onRevert: vi.fn(() => null),
+          })}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "展开" }));
+      // `height` is the only property with a value, so it is the only slider.
+      fireEvent.keyDown(screen.getByRole("slider"), { key: "ArrowUp" });
+      expect(saveButton().disabled).toBe(false);
+
+      fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
+      expect(saveButton().disabled).toBe(true);
+    });
   });
 });

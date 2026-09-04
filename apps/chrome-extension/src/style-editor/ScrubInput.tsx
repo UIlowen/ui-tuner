@@ -187,14 +187,17 @@ export function ScrubInput({
       className={`group flex h-6 min-w-0 flex-1 cursor-ew-resize items-center justify-end gap-1 rounded-control px-1.5 font-mono text-[11px] text-text-strong outline-none select-none transition-colors ${
         dragging
           ? "bg-accent-text/15 ring-2 ring-accent-text/80"
-          : "bg-inset hover:bg-control focus-visible:bg-control focus-visible:ring-2 focus-visible:ring-accent-text/70"
+          : // `focus:` not `focus-visible:` — a scrub field is a div, and Chrome
+            // never matches :focus-visible for a mouse click on one, so the
+            // control the designer just grabbed would stay unhighlighted.
+            "bg-inset hover:bg-control focus:bg-control focus:ring-2 focus:ring-accent-text/70"
       }`}
       style={{ touchAction: "none" }}
     >
       <span
         aria-hidden
         className={`shrink-0 text-faint transition-opacity ${
-          dragging ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+          dragging ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus:opacity-100"
         }`}
       >
         <DragIcon className="size-3" />

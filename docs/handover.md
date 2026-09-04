@@ -10,9 +10,9 @@
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）+ **编辑卡交互修正 + 影子样式修复**（2026-09-04：属性图标开关替设置图标 / 去收起箭头 / 行激活态真的画出来 / 修「reset 后保存仍出气泡」/ 修 shadow root 里 Tailwind 边框投影整族失效）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
-| 分支     | **`feat/ui-ux-polish`（45 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（**385 例测试**：protocol 26 / inspector 119 / bridge 74 / extension 166）；真机 `.playwright-mcp/verify-codex-card-ui.mjs` **78/78 断言全过**                                              |
+| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）+ **编辑卡交互修正 + 影子样式修复**（2026-09-04：属性图标开关替设置图标 / 去收起箭头 / 行激活态真的画出来 / 修「reset 后保存仍出气泡」/ 修 shadow root 里 Tailwind 边框投影整族失效）+ **属性控件收敛 + 二次保存修复**（2026-09-04：单值属性一律折叠下拉 / 默认态零高亮、强调色只给正在调的控件 / 修「重置已保存属性后无法二次保存」）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
+| 分支     | **`feat/ui-ux-polish`（46 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（**388 例测试**：protocol 26 / inspector 119 / bridge 74 / extension 169）；真机 `.playwright-mcp/verify-codex-card-ui.mjs` **106/106 断言全过**                                              |
 | 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡的麦克风是禁用占位**（灰态 + 「语音输入即将上线」，未接语音识别）；**编辑卡指令输入框内按 Esc 会连带退出整个注释模式**（未修，backlog）；`docs/architecture.md` 仍描述注释模式之前的三 Tab 面板（未同步，读它时以本文档 §4/§6 为准） |
 
 ## 2. 三十秒上下文
@@ -115,7 +115,11 @@ UI Tuner/
 | **content 侧监听 `chrome.storage.onChanged` 同步 locale/theme**（`applyStoredPrefs()` 与 connect 时的 hydrate 共用一处） | 面板是另一个 JS 上下文且是唯一写入方；只在 connect 时读一次，切主题/语言后**已打开页面上的卡片会停在旧主题直到刷新**（真机验收实测：面板已暗、卡片仍亮） |
 | **头部一个属性图标开关（`SlidersIcon`，Remix equalizer-line）兼任「展开/收起底部属性区」**：`PropertiesToggle` 组件在紧凑态与展开态头部各出现一次（`aria-label` = 展开/收起 + `aria-expanded`），紧凑态没有徽章时它前面是拖拽把手；tag 名（`div`/`span`）、`SettingsIcon`、右侧 `ChevronUpIcon` 全部删除，`tagName` prop 从 `types.ts`/`mount-card`/`content/index.ts` 整条链路去掉 | 用户要「更简洁」：一个图标控制属性区开合就够，设置图标是纯装饰、tag 名对调样式没帮助，收起箭头与属性图标语义重复。展开态头部因此只剩 1 个按钮（真机断言 `headerButtons === 1`） |
 | **`card.css` 里必须有一段 `@layer base { *, ::before, ::after, ::backdrop { --tw-*: … } }` 把 Tailwind 的初值补回来**（内容 = Tailwind 自己那份 `@supports` fallback，42 个变量） | Tailwind v4 把 border/shadow/ring/tabular-nums 全编译成读 `--tw-*` 的声明，初值只来自 `@property` 注册；而 **Chrome 不注册来自 shadow tree 样式表的 `@property`**（card.css 是 `adoptedStyleSheets` 进 shadow root 的），于是 `border-style: var(--tw-border-style)`、`box-shadow: var(--tw-inset-shadow), …` 整条在计算值阶段失效 → 真机实测卡片 `border: 0px none`、`box-shadow: none`，`shadow-2xl`/`ring-1`/改动行 `border-l-2` **一个都没画出来**，而类名全都对。Tailwind 那份 fallback 的 `@supports` 查询把 Chrome 排除在外，所以必须自己无条件写一遍；放 `base` 层是为了让后面的 `utilities` 层仍能按元素覆盖 |
-| **`content/index.ts` 的 `onRevert` 先 `stagingEngine.unstage(property)`，再去找已记录的 change** | 之前的顺序是「没有记录就直接 return」——只改未保存的属性时预览值还留在 staging 会话里，点 reset 只回滚了页面视觉，**保存时那条预览值照样被 commit 成改动并多出一个气泡**（用户报的「最大的 bug」）。回归测试 `records no change for an unsaved edit that was reset before saving`；mutation check：把 `unstage` 挪回 `if (!change)` 之后 → 断言如期失败（`['font-weight','display']` ≠ `['display']`） |
+| **`content/index.ts` 的 `onRevert`：查到已记录的 change 就把它的 `previousValue` 重新 stage 回预览；查不到才 `stagingEngine.unstage(property)`** | 两条分支各有各的坑，顺序不能反。**只改未保存**的属性：预览值留在 staging 会话里，不 `unstage` 就只回滚页面视觉，保存时那条值照样被 commit 成改动并多出一个气泡（用户报的「最大的 bug」）。**重置已保存**的属性：记录已经在 ChangeTracker 里，光 `unstage` 只是撤预览、记录还挂着，而 `EditorCard` 的 `canSave` 看的是「有没有 dirty」→ **保存按钮再也不亮，无法二次保存**（用户报的第二个 bug）；把 `previousValue` 再 stage 一次，这个「撤销」本身就成了本次会话的改动，保存时会把记录改掉/删掉。回归测试 `records no change for an unsaved edit that was reset before saving` + `keeps 保存 usable after resetting a change that was already saved`；两次 mutation check 都如期杀红 |
+| **`EditorCard` 的 `canSave = dirtySet.size > 0 \|\| instructionDirty`（读原始集合），而传给 `rows` 的 `dirty` 是「减去 `reverted` 之后」的** | 「保存按钮亮不亮」和「这一行要不要画重置按钮」是两个问题：撤销一个已保存的属性后，重置按钮必须消失（已经回到原值了），但保存必须还能点（这次会话确实动了东西）。共用同一个集合就会出现「按钮消失 = 保存也禁用」的死锁 |
+| **单值属性（display / flex-direction / flex-wrap / font-weight / text-align）一律用 `SelectRow` 折叠下拉**；`<select>` 的值若不在候选列表里，就把页面真值**插到第一项**（`offered`） | 段选（segment）把 5 个候选全摊在 24px 高的行里，挤且**永远有一个被强调色圈着**（当前值），设计师没动手就满眼高亮。下拉收起后一行只占一格。补插真值是必须的：页面 computed 值可能是 `display: inline`、`text-align: start`、`font-weight: 300`，而 `<select>` 匹配不到 option 时**静默显示第一项**，等于当面撒谎说元素是 `left`（mutation check：去掉 prepend → 真机断言如期失败，select 报 `left` 而页面是 `start`） |
+| **行激活态是中性色**（`bg-inset-deep` + `ring-1 ring-edge-strong`），强调色只出现在**正在被调的那个控件**上（它自己的 focus/drag ring）与「已被上一步改动」的行（`border-l-2 border-accent-text`） | 用户明确要「默认状态不要高亮，只需要调节参数控件高亮」。行容器再套一层 `ring-2 ring-accent-text/60` 的话，24px 的行里外两圈紫读成一坨；而且「哪一行被点过」和「哪一个值被我改过」在视觉上必须能分开 |
+| **可交互控件用 `focus:` 而不是 `focus-visible:`；shadow host 上写 `color-scheme`** | `ScrubInput` 的滑块是 `div[role=slider]`，Chrome 对**非文本元素上的鼠标点击不匹配 `:focus-visible`** → 设计师刚抓住的控件反而毫无反馈（真机实测）。原生 `<select>` 的下拉弹层由浏览器绘制，跟随 host 的 `color-scheme`：不声明就是亮色弹层，暗色卡片上极其刺眼 |
 
 ## 5. 常用命令
 
@@ -320,12 +324,25 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 - 真机浏览器 `.playwright-mcp/verify-codex-card-ui.mjs` **78/78 断言全过**，本轮新增：卡片本体「真的画出 1px solid 边框 + 投影」、改动行「左边条 2px solid」、单击属性行「画出 2px 高亮 ring」（并断言 ring 的 spread 是 2px，`!== "none"` 太松）、只选中不改动 →「无 reset / 保存禁用 / 页宽不动」、拖动 → reset 出现 → 点 reset →「页宽回原值 / reset 消失 / 保存回禁用」→ 改一句指令再保存 →「气泡仍是 `["1"]` / 面板 `Preview · 1` / 宽度保持」、展开态「头部只有 1 个按钮」、紧凑态「没有 tag 名文字」。
 - **教训（本轮最贵的一条）：类名对 ≠ 画出来了。** 在 shadow root + Tailwind v4 这个组合下，`border`/`shadow`/`ring`/`tabular-nums` 整族静默失效了好几轮，jsdom 不做布局与层叠所以单测永远绿，只有真机读 computed style 才看得见。验收脚本从此对视觉断言一律量「画出来的东西」（computed border/box-shadow），而不是 class 或 `data-*`。
 
+**属性控件收敛 + 二次保存修复（2026-09-04）**
+
+用户带着两张截图验收上一轮，提了三条：「图一默认状态不要高亮，只需要调节参数控件高亮」「图二这类型的一律换成下拉隐藏选择」「回过头来查看注释面板，重置参数没法进行二次保存了」。
+
+1. **默认态零高亮**：截图里字重段选把当前值 `400` 圈在紫色圆角块里、行高字段带一圈紫边——**设计师什么都没动**，卡片里已经有三四处强调色。三处收敛：`Row` 的激活态从 `ring-2 ring-accent-text/60` + `bg-accent-text/[0.07]` 改成中性的 `bg-inset-deep` + `ring-1 ring-edge-strong`（标签也不再提到 `text-text`）；`ScrubInput` / `TextRow` / `ColorRow` / `SelectRow` 的 `focus-visible:` 全换成 `focus:`（滑块是 `div[role=slider]`，Chrome 对非文本元素上的鼠标点击不匹配 `:focus-visible`，正是「点了没反应」的原因）；`card.css` 的 `:host` 补 `color-scheme`，让原生 `<select>` 弹层跟随卡片明暗。强调色现在只有两个来源：**正在被调的那个控件**、**上一步已改动的行**。
+2. **单值属性一律折叠下拉**：`SegmentRow`（显示 / 方向 / 换行 / 字重 / 对齐）全部换成 `SelectRow` 的原生 `<select>`，收起后一行一格；`SegmentRow` 组件删除。`SelectRow` 在页面真值不在候选列表时把真值插到第一项——`text-align: start`、`display: inline`、`font-weight: 300` 都会出现，而 `<select>` 匹配不到 option 时静默显示第一项，等于当面撒谎。
+3. **「重置已保存属性后无法二次保存」**：`content/index.ts` 的 `onRevert` 上一轮为了修「reset 后保存仍出气泡」改成了「先 `unstage` 再查记录」，把另一条路堵死了——重开注释面板重置一个**已保存**的属性时，记录还在 ChangeTracker 里，`unstage` 只撤掉预览，`EditorCard.canSave` 看的 `dirty` 是空的 → 保存永久禁用。改成**查到记录就 `stage(element, property, change.previousValue)`（撤销本身成为本次会话的改动），查不到才 `unstage`**；`EditorCard` 的 `canSave` 读原始 `dirtySet`，而传给 `rows` 的 `dirty` 仍是「减去 `reverted`」的（重置按钮该消失，保存该能点）。
+
+- 验证：`pnpm build/test/typecheck/lint` 全绿，**388 例**（protocol 26 / inspector 119 / bridge 74 / extension **169**）。
+- 真机浏览器 `.playwright-mcp/verify-codex-card-ui.mjs` **106/106 断言全过**，本轮新增两段：**Section I**（`#boxRight` 展开态）5 个下拉行「行内 0 个按钮 / 行高与数值行一致 / 候选 ≥2 且关闭时 option 不绘制 / `对齐` 报出页面真值 `start` 并插在首位」、空闲态整个属性区**零处强调色**、所有下拉都不含强调色、滑块「点击前无强调色 → 点击后是属性区唯一的强调色命中」、焦点移到字体输入框后「命中只剩那个 input、滑块回到无」、下拉改值 → 出现 `还原 显示` + 保存可用 → 取消丢弃；**Section J**（二次保存）改高度 → 保存（气泡 `["1","2"]`、`Preview · 2`）→ 重开气泡 2 → 点 `还原 高`（立刻 60px、**保存可用**、重置按钮消失、计数仍 `Preview · 2`）→ 取消（100px 回来、气泡 2 还在）→ 再开再重置 → **`保存` 点得到且可用** → 保存（60px、气泡回落 `["1"]`、`Preview · 1`）。
+- **两次 mutation check 都杀红了预期的断言**：把 `canSave` 改回读过滤后的 `dirty` → jsdom 恰好 1 例失败（`keeps 保存 usable after resetting a change that was already saved`）；把**构建产物**拷到 `/tmp/ui-tuner-mutant-dist` 里改掉 SelectRow 的真值 prepend 与行激活态的中性色（不动仓库源码，靠脚本新加的 `EXT_DIST` 环境变量加载）→ 真机恰好 4 条断言失败（102/106），其余全过。
+- **教训（脚本层，两条都花了不少时间）**：① **Chrome 把 Tailwind 的透明度修饰符颜色序列化成 `oklab(0.811153 0.0405392 -0.0928167 / 0.7)`**，不是 `rgba(196, 181, 253, 0.7)`——用子串匹配 `--accent-text` 的 RGB 分量判「有没有画出强调色」会整片漏检（首轮 4 条假失败）。改成用 1×1 canvas 把候选颜色与 host 的 `--accent-text` 都绘出来比字节。② **canvas 在低 alpha 下反预乘会漂移**（10% 强调色 g 181 → 177），首轮 mutation 只杀掉 2/4；改成拿**预乘**字节与「按候选自己的 alpha 重绘的强调色」比（alpha 字节是精确存的）才对。从此脚本里「量颜色」一律走这个 `ACCENT_PROBE`。
+
 ## 7. 项目状态：核心闭环完成，`feat/ui-ux-polish` 待推送 + 待合并决策
 
 核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并多轮真机验收（M8、注释模式、页面编辑卡）。无后续里程碑，剩余为 backlog 增强项。
 
 **下一步待用户决策（截至 2026-09-04）**：
-1. `feat/ui-ux-polish`（45 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
+1. `feat/ui-ux-polish`（46 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
 2. 合并到 `main` 的决策（PR 还是直接 merge）尚未做。
 3. `docs/architecture.md` 未同步注释模式 + 页面编辑卡（仍写三 Tab 面板与 `sidepanel.stylePreview`）；下次动架构文档时一并补。
 

@@ -222,15 +222,21 @@ function openEditorCard(element: Element): void {
         cardMount?.hide();
       },
       onRevert: (property) => {
-        // Always clear any staged preview for this property first, so resetting
-        // an unsaved edit doesn't leave it in the staging session to be committed.
-        stagingEngine?.unstage?.(property);
         const change = changeTracker
           .all()
           .find((c) => c.elementId === elementId && c.property === property);
-        if (!change) return null;
-        revertChange(change.id);
-        return change.previousValue;
+        if (change) {
+          // Stage the undo rather than applying it: commit() drops a record whose
+          // value landed back on its original, and rollback() (取消) puts the saved
+          // change back. Reverting the record here instead would break the card's
+          // 保存才记录 model and leave 保存 with nothing left to do.
+          stagingEngine?.stage(element, property, change.previousValue);
+          return change.previousValue;
+        }
+        // Nothing recorded — just this session's unsaved preview. Clear it so it
+        // cannot ride along into the next commit.
+        stagingEngine?.unstage?.(property);
+        return null;
       },
     },
     // Open beside the element; the mount clamps the card inside the viewport.

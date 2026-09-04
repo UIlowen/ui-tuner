@@ -2,10 +2,6 @@ import { useState } from "react";
 import { formatCssValue, parseCssValue } from "@ui-tuner/inspector";
 import { useT } from "../i18n/use-t";
 import {
-  AlignCenterIcon,
-  AlignJustifyIcon,
-  AlignLeftIcon,
-  AlignRightIcon,
   BorderIcon,
   EffectsIcon,
   FillIcon,
@@ -21,7 +17,7 @@ import {
   ReadOnlyRow,
   Row,
   ScrubField,
-  SegmentRow,
+  SelectRow,
   TextRow,
   useIsChanged,
   useIsDirty,
@@ -43,34 +39,34 @@ export function StylePanel() {
   return (
     <div className="space-y-1">
       <GroupHeader title={t("group.layout")} icon={<LayoutIcon className="size-3" />} />
-      <SegmentRow
+      <SelectRow
         property="display"
         label={t("style.display")}
         options={[
           { value: "flex", label: "flex" },
           { value: "grid", label: "grid" },
           { value: "block", label: "block" },
-          { value: "inline-block", label: "iblk" },
+          { value: "inline-block", label: "inline-block" },
           { value: "none", label: "none" },
         ]}
       />
       {(isFlex || isGrid) && <ScrubField property="gap" label={t("style.gap")} step={1} />}
       {isFlex && (
         <>
-          <SegmentRow
+          <SelectRow
             property="flex-direction"
             label={t("style.direction")}
             options={[
               { value: "row", label: "row" },
-              { value: "column", label: "col" },
+              { value: "column", label: "column" },
             ]}
           />
           <AlignmentControl />
-          <SegmentRow
+          <SelectRow
             property="flex-wrap"
             label={t("style.wrap")}
             options={[
-              { value: "nowrap", label: "no" },
+              { value: "nowrap", label: "nowrap" },
               { value: "wrap", label: "wrap" },
             ]}
           />
@@ -98,7 +94,7 @@ export function StylePanel() {
       <GroupHeader title={t("group.typography")} icon={<TypographyIcon className="size-3" />} />
       <TextRow property="font-family" label={t("style.family")} placeholder={t("style.fontStackPlaceholder")} />
       <ScrubField property="font-size" label={t("style.size")} step={1} />
-      <SegmentRow
+      <SelectRow
         property="font-weight"
         label={t("style.weight")}
         options={[
@@ -110,34 +106,14 @@ export function StylePanel() {
       />
       <ScrubField property="line-height" label={t("style.lineH")} step={0.05} fallbackUnit="" />
       <ScrubField property="letter-spacing" label={t("style.tracking")} step={0.1} />
-      <SegmentRow
+      <SelectRow
         property="text-align"
         label={t("style.align")}
         options={[
-          {
-            value: "left",
-            label: "L",
-            title: "text-align: left",
-            icon: <AlignLeftIcon className="size-3.5" />,
-          },
-          {
-            value: "center",
-            label: "C",
-            title: "text-align: center",
-            icon: <AlignCenterIcon className="size-3.5" />,
-          },
-          {
-            value: "right",
-            label: "R",
-            title: "text-align: right",
-            icon: <AlignRightIcon className="size-3.5" />,
-          },
-          {
-            value: "justify",
-            label: "J",
-            title: "text-align: justify",
-            icon: <AlignJustifyIcon className="size-3.5" />,
-          },
+          { value: "left", label: "left" },
+          { value: "center", label: "center" },
+          { value: "right", label: "right" },
+          { value: "justify", label: "justify" },
         ]}
       />
       <ColorRow property="color" label={t("style.color")} />

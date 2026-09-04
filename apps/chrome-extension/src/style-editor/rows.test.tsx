@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
-import { ColorRow, ScrubField, SegmentRow } from "./rows";
+import { ColorRow, ScrubField, SelectRow } from "./rows";
 import { StyleEditContext, type StyleEditApi } from "./StyleEditContext";
 
 /**
@@ -172,10 +172,10 @@ function sliderOf(container: HTMLElement): Element {
   return el;
 }
 
-function segmentOf(container: HTMLElement, label: string): Element {
-  const el = [...container.querySelectorAll("button")].find((b) => b.textContent === label);
-  if (!el) throw new Error(`segment "${label}" not found`);
-  return el;
+function selectOf(container: HTMLElement): HTMLSelectElement {
+  const el = container.querySelector("select");
+  if (!el) throw new Error("select not found");
+  return el as HTMLSelectElement;
 }
 
 /**
@@ -221,25 +221,59 @@ describe("active-row highlight", () => {
   });
 });
 
-/** Re-picking what is already picked is not an edit — no change may go out. */
-describe("segment no-op click", () => {
+describe("SelectRow", () => {
   const options = [
     { value: "flex", label: "flex" },
     { value: "block", label: "block" },
   ];
+  const displayRow = (api: StyleEditApi) => (
+    <StyleEditContext.Provider value={api}>
+      <SelectRow property="display" label="Display" options={options} />
+    </StyleEditContext.Provider>
+  );
 
-  it("commits nothing when the selected option is clicked again", () => {
+  /** Re-picking what is already picked is not an edit — no change may go out. */
+  it("commits nothing when the current value is picked again", () => {
     const { api, calls } = createApi({ display: "flex" });
-    const { container } = render(
-      <StyleEditContext.Provider value={api}>
-        <SegmentRow property="display" label="Display" options={options} />
-      </StyleEditContext.Provider>,
-    );
+    const { container } = render(displayRow(api));
 
-    fireEvent.click(segmentOf(container, "flex"));
+    fireEvent.change(selectOf(container), { target: { value: "flex" } });
     expect(calls).toEqual([]);
 
-    fireEvent.click(segmentOf(container, "block"));
+    fireEvent.change(selectOf(container), { target: { value: "block" } });
     expect(calls).toEqual([{ property: "display", value: "block", committed: true }]);
+  });
+
+  it("offers the page's own value when the list does not contain it", () => {
+    // A <select> matching no option silently shows its first one — the row would
+    // claim `display: flex` for an element that is `inline`.
+    const { api } = createApi({ display: "inline" });
+    const { container } = render(displayRow(api));
+    const select = selectOf(container);
+
+    expect(select.value).toBe("inline");
+    expect([...select.options].map((option) => option.value)).toEqual([
+      "inline",
+      "flex",
+      "block",
+    ]);
+  });
+
+  it("shows a dash for a property the page reports no value for", () => {
+    const { api } = createApi({ display: "" });
+    const { container } = render(displayRow(api));
+
+    expect(selectOf(container).value).toBe("");
+    expect(selectOf(container).options[0]?.textContent).toBe("—");
+  });
+
+  it("renders one control on the row instead of a button per option", () => {
+    const { api } = createApi({ display: "flex" });
+    const { container } = render(displayRow(api));
+
+    // Whether the alternatives are actually *hidden* until opened is a painting
+    // question — the real-browser harness asserts it (option rects are 0×0).
+    expect(container.querySelectorAll("button")).toHaveLength(0);
+    expect(container.querySelectorAll("select")).toHaveLength(1);
   });
 });

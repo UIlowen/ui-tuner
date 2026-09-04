@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { formatCssValue, parseCssValue, rgbToHex } from "@ui-tuner/inspector";
 import { useT } from "../i18n/use-t";
-import { UndoIcon } from "../ui/icons";
+import { ChevronDownIcon, UndoIcon } from "../ui/icons";
 import { ScrubInput } from "./ScrubInput";
 import { useStyleEdit } from "./StyleEditContext";
 
@@ -52,9 +52,8 @@ export function Row({
 }) {
   const t = useT();
   const resetLabel = t("changes.revertProperty", { property: label });
-  // Focus tracked in React rather than left to `:focus-within`: the row has to
-  // light up on a mouse click too, where a control's own `:focus-visible` ring
-  // stays hidden, and the state doubles as a hook for tests and the probe.
+  // Focus tracked in React rather than left to `:focus-within`: the row tints on
+  // any focus, and the state doubles as a hook for tests and the browser probe.
   const [active, setActive] = useState(false);
   return (
     <div
@@ -65,11 +64,14 @@ export function Row({
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setActive(false);
       }}
       className={`flex min-h-6 items-center gap-1.5 rounded-[3px] py-0.5 px-1 transition-all ${
-        active ? "ring-2 ring-accent-text/60" : ""
-      } ${
         // One tint only — two bg-* utilities on the same element would fight.
         changed ? "-ml-[2px] border-l-2 border-accent-text bg-accent-text/10" : ""
-      } ${!changed && active ? "bg-accent-text/[0.07]" : ""}`}
+      } ${
+        // Neutral on purpose: the accent highlight belongs to the control being
+        // adjusted (its own focus/drag ring), not to the row wrapping it — two
+        // nested accent rings inside a 24px row read as one purple blob.
+        !changed && active ? "bg-inset-deep ring-1 ring-edge-strong" : ""
+      }`}
     >
       <span
         className={`w-[64px] shrink-0 truncate text-[11px] ${
@@ -180,7 +182,7 @@ export function TextRow({
         onKeyDown={(event) => {
           if (event.key === "Enter") (event.target as HTMLInputElement).blur();
         }}
-        className="h-6 w-full truncate rounded-control bg-inset px-1.5 font-mono text-[11px] text-text-strong outline-none placeholder:text-ghost transition-colors hover:bg-control focus-visible:bg-control focus-visible:ring-2 focus-visible:ring-accent-text/70"
+        className="h-6 w-full truncate rounded-control bg-inset px-1.5 font-mono text-[11px] text-text-strong outline-none placeholder:text-ghost transition-colors hover:bg-control focus:bg-control focus:ring-2 focus:ring-accent-text/70"
       />
     </Row>
   );
@@ -218,51 +220,61 @@ export function ColorRow({ property, label }: { property: string; label: string 
             setDraft(null);
           }}
           title={t("color.rowTitle", { label, raw })}
-          className="size-5 shrink-0 cursor-pointer rounded-[5px] border border-edge-strong bg-transparent p-0 transition-shadow hover:ring-1 hover:ring-accent-text/40 focus-visible:ring-2 focus-visible:ring-accent-text/70"
+          className="size-5 shrink-0 cursor-pointer rounded-[5px] border border-edge-strong bg-transparent p-0 transition-shadow hover:ring-1 hover:ring-accent-text/40 focus:ring-2 focus:ring-accent-text/70"
         />
       </div>
     </Row>
   );
 }
 
-export function SegmentRow({
+/**
+ * One-of-N property value as a collapsed dropdown: the alternatives stay hidden
+ * until the control is opened, so the row costs one line however many values the
+ * property takes, and nothing is highlighted until the designer actually
+ * adjusts it (the option buttons this replaced ringed the current value in the
+ * accent color permanently).
+ *
+ * The page's computed value may not be on the offered list (`display: inline`,
+ * `text-align: start`, `font-weight: 300`). A `<select>` whose value matches no
+ * option silently shows its first one, which would state a value the element
+ * does not have — so the current value is prepended when it is missing.
+ */
+export function SelectRow({
   property,
   label,
   options,
 }: {
   property: string;
   label: string;
-  options: { value: string; label: string; title?: string; icon?: ReactNode }[];
+  options: { value: string; label: string }[];
 }) {
   const { values, updateStyle, revertStyle } = useStyleEdit();
   const isChanged = useIsChanged(property);
   const isDirty = useIsDirty(property);
   const raw = values[property] ?? "";
+  const offered = options.some((option) => option.value === raw)
+    ? options
+    : [{ value: raw, label: raw === "" ? "—" : raw }, ...options];
 
   return (
     <Row label={label} changed={isChanged} dirty={isDirty} onReset={() => revertStyle(property)}>
-      <div className="flex min-w-0 gap-0.5 overflow-hidden rounded-control bg-inset p-0.5">
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            title={option.title ?? option.label}
-            // An icon-only segment has no visible text, so its name and state
-            // must be carried explicitly or it is invisible to a screen reader.
-            aria-label={option.icon ? (option.title ?? option.label) : undefined}
-            aria-pressed={raw === option.value}
-            onClick={() => {
-              if (option.value !== raw) void updateStyle(property, option.value, true);
-            }}
-            className={`flex min-w-0 flex-1 items-center justify-center rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap transition-colors ${
-              raw === option.value
-                ? "bg-elevated font-medium text-text-strong ring-2 ring-accent-text/70"
-                : "text-faint hover:bg-control hover:text-text"
-            }`}
-          >
-            {option.icon ?? option.label}
-          </button>
-        ))}
+      <div className="relative flex h-6 min-w-0 flex-1 items-center">
+        <select
+          value={raw}
+          aria-label={label}
+          onChange={(event) => {
+            if (event.target.value !== raw) void updateStyle(property, event.target.value, true);
+          }}
+          className="h-6 w-full appearance-none rounded-control bg-inset pr-5 pl-1.5 font-mono text-[10px] text-text-strong outline-none transition-colors hover:bg-control focus:bg-control focus:ring-2 focus:ring-accent-text/70"
+        >
+          {offered.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {/* The native arrow is gone with appearance-none; this is the affordance. */}
+        <ChevronDownIcon className="pointer-events-none absolute right-1 size-3 text-faint" />
       </div>
     </Row>
   );

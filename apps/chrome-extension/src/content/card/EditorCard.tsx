@@ -102,6 +102,14 @@ export function EditorCard(props: EditorCardProps) {
     for (const property of reverted) set.delete(property);
     return set;
   }, [props.changedProperties, reverted]);
+  // Rows read this to offer their reset button; a property already taken back
+  // has nothing left to reset, so it drops out here — but it stays in dirtySet,
+  // which is what 保存 is gated on below.
+  const dirty = useMemo(() => {
+    const set = new Set(dirtySet);
+    for (const property of reverted) set.delete(property);
+    return set;
+  }, [dirtySet, reverted]);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   // Bring the first changed row into view: the body scrolls, and a highlight
@@ -113,11 +121,18 @@ export function EditorCard(props: EditorCardProps) {
   const api: StyleEditApi = {
     values,
     changed,
-    dirty: dirtySet,
+    dirty,
     updateStyle: (property, value, committed) => {
       props.onStage(property, value, committed);
       if (committed) {
         setValues((v) => ({ ...v, [property]: value }));
+        setReverted((prev) => {
+          // Editing a reset property again makes it a live change once more.
+          if (!prev.has(property)) return prev;
+          const next = new Set(prev);
+          next.delete(property);
+          return next;
+        });
         setDirtySet((prev) => {
           const next = new Set(prev);
           if (value !== props.initialValues[property]) {
@@ -137,17 +152,23 @@ export function EditorCard(props: EditorCardProps) {
       let any = false;
       for (const p of properties) {
         if (nextReverted.has(p)) continue;
-        let original: string | null = props.onRevert(p);
-        // No recorded change yet, but the user edited it in this session.
-        if (original === null && nextDirty.has(p)) {
-          original = props.initialValues[p] ?? null;
-        }
-        if (original !== null) {
+        const recorded = props.onRevert(p);
+        if (recorded !== null) {
+          // Undoing a saved change is an edit like any other: it only lands when
+          // the user saves, so it has to keep 保存 enabled.
+          nextValues[p] = recorded;
+          nextDirty.add(p);
+        } else if (nextDirty.has(p)) {
+          // Nothing recorded — just this session's unsaved edit, taken back.
+          const original = props.initialValues[p];
+          if (original === undefined) continue;
           nextValues[p] = original;
-          nextReverted.add(p);
           nextDirty.delete(p);
-          any = true;
+        } else {
+          continue;
         }
+        nextReverted.add(p);
+        any = true;
       }
       if (any) {
         setValues(nextValues);

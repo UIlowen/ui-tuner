@@ -114,6 +114,18 @@ function saveInstruction(shadow: ShadowRoot, text: string): void {
   });
 }
 
+/** The control of the property row carrying this label (rows are label + control). */
+function rowControl<K extends keyof HTMLElementTagNameMap>(
+  shadow: ShadowRoot,
+  label: string,
+  tag: K,
+): HTMLElementTagNameMap[K] {
+  const span = [...shadow.querySelectorAll("span")].find((node) => node.textContent === label);
+  const control = span?.parentElement?.querySelector(tag);
+  expect(control, `${tag} in row "${label}"`).toBeTruthy();
+  return control as HTMLElementTagNameMap[K];
+}
+
 describe("content page-side edit session", () => {
   // The module registers its onConnect listener exactly once (on first import),
   // so this array is shared across tests and never reassigned.
@@ -170,6 +182,10 @@ describe("content page-side edit session", () => {
         disconnect(): void {}
       },
     );
+
+    // …and scrollIntoView, which the card calls on mount to bring a highlighted
+    // changed row into view — reopening an annotated element needs it present.
+    Element.prototype.scrollIntoView = vi.fn();
 
     document.body.innerHTML = "";
     target = document.createElement("button");
@@ -399,18 +415,99 @@ describe("content page-side edit session", () => {
     act(() => shadowButton(card(), "展开").click());
 
     // Edit 字重, then take it back with the row's own reset button.
-    act(() => shadowButton(card(), "500").click());
+    act(() => {
+      fireEvent.change(rowControl(card(), "字重", "select"), { target: { value: "500" } });
+    });
     act(() => shadowButton(card(), "还原 字重").click());
 
     // A second edit keeps 保存 enabled — this is the save that used to carry the
     // reverted property along with it.
-    act(() => shadowButton(card(), "grid").click());
+    act(() => {
+      fireEvent.change(rowControl(card(), "显示", "select"), { target: { value: "grid" } });
+    });
     act(() => shadowButton(card(), "保存").click());
 
     const properties = previewChangedMessages(port.sent)
       .at(-1)!
       .payload.changes.map((change) => (change as { property: string }).property);
     expect(properties).toEqual(["display"]);
+
+    act(() => port.disconnect());
+  });
+
+  /**
+   * Both tests below walk the same second visit: save a property change, reopen
+   * the card from its bubble, and take the change back with the row's reset
+   * button. What differs is how the visit ends — 保存 has to land the reset,
+   * 取消 has to undo it.
+   */
+  function reopenAndReset(port: FakePort): {
+    card: () => ShadowRoot;
+    bubbles: () => HTMLButtonElement[];
+    reportedProperties: () => string[];
+  } {
+    const connect = connectListeners[0]!;
+    act(() => connect(port.port));
+    act(() => port.emitToContent(createSidepanelResetChanges()));
+    act(() => port.emitToContent(createSidepanelPicking(true)));
+    act(() => {
+      fireEvent.click(document.body, { clientX: 5, clientY: 5 });
+    });
+
+    const card = (): ShadowRoot => document.getElementById(EDITOR_CARD_ROOT_ID)!.shadowRoot!;
+    const bubbles = (): HTMLButtonElement[] => [
+      ...document
+        .getElementById(Annotations.ROOT_ID)!
+        .shadowRoot!.querySelectorAll<HTMLButtonElement>(".bubble"),
+    ];
+    const reportedProperties = (): string[] =>
+      previewChangedMessages(port.sent)
+        .at(-1)!
+        .payload.changes.map((change) => (change as { property: string }).property);
+
+    // First visit: change 字体 and save it.
+    act(() => shadowButton(card(), "展开").click());
+    act(() => {
+      fireEvent.change(rowControl(card(), "字体", "input"), { target: { value: "Inter" } });
+    });
+    act(() => shadowButton(card(), "保存").click());
+    expect(reportedProperties()).toEqual(["font-family"]);
+    expect(bubbles()).toHaveLength(1);
+
+    // Second visit: the bubble reopens the card, the row arrives marked changed,
+    // and its reset button takes the saved value back.
+    act(() => {
+      fireEvent.click(bubbles()[0]!);
+    });
+    act(() => shadowButton(card(), "还原 字体").click());
+
+    return { card, bubbles, reportedProperties };
+  }
+
+  it("saves the reset of a change that was already saved", () => {
+    const port = createFakePort();
+    const { card, bubbles, reportedProperties } = reopenAndReset(port);
+
+    // A reset is an edit like any other — 保存 must stay usable, or the user has
+    // no way to make it stick.
+    expect(shadowButton(card(), "保存").disabled).toBe(false);
+    act(() => shadowButton(card(), "保存").click());
+
+    expect(reportedProperties()).toEqual([]);
+    expect(bubbles()).toHaveLength(0);
+
+    act(() => port.disconnect());
+  });
+
+  it("puts a saved change back when the reset is cancelled", () => {
+    const port = createFakePort();
+    const { card, bubbles, reportedProperties } = reopenAndReset(port);
+
+    // Nothing was saved yet, so 取消 discards the reset along with any edit.
+    act(() => shadowButton(card(), "取消").click());
+
+    expect(reportedProperties()).toEqual(["font-family"]);
+    expect(bubbles()).toHaveLength(1);
 
     act(() => port.disconnect());
   });

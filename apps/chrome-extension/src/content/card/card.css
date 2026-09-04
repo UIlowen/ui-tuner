@@ -8,6 +8,9 @@
  * "dark" class on the host (mirrors the sidepanel's .dark zinc palette).
  */
 :host {
+  /* Chrome draws a native <select>'s popup from color-scheme, and the property
+     rows are dropdowns — without this a dark card opens a white option list. */
+  color-scheme: light;
   --base: #f4f4f5;
   --surface: rgb(255 255 255 / 0.7);
   --surface-solid: #ffffff;
@@ -34,6 +37,7 @@
 }
 
 :host(.dark) {
+  color-scheme: dark;
   --base: #09090b;
   --surface: rgb(24 24 27 / 0.6);
   --surface-solid: #18181b;
