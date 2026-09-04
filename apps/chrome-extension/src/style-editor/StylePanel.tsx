@@ -1,16 +1,13 @@
 import { useState } from "react";
-import { formatCssValue, parseCssValue } from "@ui-tuner/inspector";
+import { parseCssValue } from "@ui-tuner/inspector";
 import { useT } from "../i18n/use-t";
-import { ScrubInput } from "./ScrubInput";
 import {
   ColorRow,
-  Row,
   ScrubField,
   SelectRow,
-  useIsChanged,
-  useIsDirty,
 } from "./rows";
 import { useStyleEdit } from "./StyleEditContext";
+import { ChevronDownIcon, ChevronRightIcon, LinkIcon } from "../ui/icons";
 
 /** Subtle horizontal divider between property groups. */
 function Divider() {
@@ -70,9 +67,7 @@ export function StylePanel() {
       <Divider />
 
       {/* Group 4: Size & Spacing */}
-      <ScrubField property="width" label="宽度" />
-      <ScrubField property="height" label="高度" />
-
+      <SizeGroup />
       <SpacingGroup kind="padding" title="内边距" />
       <SpacingGroup kind="margin" title="外边距" />
 
@@ -117,114 +112,87 @@ export function StylePanel() {
   );
 }
 
+/** Width/Height pair with link icon indicating linked behavior. */
+function SizeGroup() {
+  const t = useT();
+  return (
+    <>
+      <ScrubField property="width" label={t("style.width")} />
+      <div className="flex items-center justify-center py-0.5 text-faint">
+        <LinkIcon className="size-3" />
+      </div>
+      <ScrubField property="height" label={t("style.height")} />
+    </>
+  );
+}
+
 /**
- * Padding / Margin: Simple (Vertical / Horizontal) and Advanced (T/R/B/L)
- * modes. Simple writes both sides of the axis in one go.
+ * Padding / Margin: Codex-style collapsible spacing control.
+ *
+ * Collapsed: header with 4 compact value pills (top/bottom/left/right).
+ * Expanded: 4 individual rows with link icons between paired axes.
  */
 function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: string }) {
   const t = useT();
-  const { values, updateStyle } = useStyleEdit();
-  const [advanced, setAdvanced] = useState(false);
+  const { values } = useStyleEdit();
+  const [expanded, setExpanded] = useState(false);
 
   const top = values[`${kind}-top`] ?? "";
   const right = values[`${kind}-right`] ?? "";
   const bottom = values[`${kind}-bottom`] ?? "";
   const left = values[`${kind}-left`] ?? "";
 
-  const sidesEqual = top === bottom && left === right;
-  const showAdvanced = advanced || !sidesEqual;
-  const verticalRaw = top;
-  const horizontalRaw = left;
+  const formatShort = (raw: string) => {
+    const parsed = parseCssValue(raw);
+    if (!parsed) return raw || "0";
+    return `${parsed.value}${parsed.unit || "px"}`;
+  };
 
   return (
     <>
-      <div className="flex min-h-6 items-center gap-1.5">
+      {/* Header: title + 4 value pills (collapsed) or chevron (expanded) */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-1 rounded-control px-1 py-1 text-left transition-colors hover:bg-control"
+      >
         <span className="w-[64px] shrink-0 text-[11px] text-faint">{title}</span>
-        <button
-          type="button"
-          onClick={() => setAdvanced(!showAdvanced)}
-          className="ml-auto rounded-control px-1.5 py-0.5 text-[10px] text-faint transition-colors hover:bg-control hover:text-text"
-        >
-          {showAdvanced ? t("style.simple") : t("style.advanced")}
-        </button>
-      </div>
+        {!expanded ? (
+          <>
+            <span className="flex flex-1 items-center justify-end gap-1 font-mono text-[10px] text-text">
+              <span className="rounded-sm border border-edge bg-inset px-1 py-0.5">{formatShort(top)}</span>
+              <span className="rounded-sm border border-edge bg-inset px-1 py-0.5">{formatShort(right)}</span>
+              <span className="rounded-sm border border-edge bg-inset px-1 py-0.5">{formatShort(bottom)}</span>
+              <span className="rounded-sm border border-edge bg-inset px-1 py-0.5">{formatShort(left)}</span>
+            </span>
+            <ChevronRightIcon className="size-3 shrink-0 text-faint" />
+          </>
+        ) : (
+          <>
+            <span className="flex-1" />
+            <ChevronDownIcon className="size-3 shrink-0 text-faint" />
+          </>
+        )}
+      </button>
 
-      {showAdvanced ? (
+      {/* Expanded: 4 rows with link icons between paired axes */}
+      {expanded && (
         <>
           <ScrubField property={`${kind}-top`} label={t("style.top")} />
-          <ScrubField property={`${kind}-right`} label={t("style.right")} />
+          <div className="flex items-center justify-center py-0.5 text-faint">
+            <LinkIcon className="size-3" />
+          </div>
           <ScrubField property={`${kind}-bottom`} label={t("style.bottom")} />
+          <div className="flex items-center justify-center py-0.5 text-faint">
+            <LinkIcon className="size-3" />
+          </div>
           <ScrubField property={`${kind}-left`} label={t("style.left")} />
-        </>
-      ) : (
-        <>
-          <AxisScrub
-            label={t("style.vertical")}
-            properties={[`${kind}-top`, `${kind}-bottom`]}
-            raw={verticalRaw}
-            onPreview={(value) => {
-              void updateStyle(`${kind}-top`, value, false);
-              void updateStyle(`${kind}-bottom`, value, false);
-            }}
-            onCommit={(value) => {
-              void updateStyle(`${kind}-top`, value, true);
-              void updateStyle(`${kind}-bottom`, value, true);
-            }}
-          />
-          <AxisScrub
-            label={t("style.horizontal")}
-            properties={[`${kind}-left`, `${kind}-right`]}
-            raw={horizontalRaw}
-            onPreview={(value) => {
-              void updateStyle(`${kind}-left`, value, false);
-              void updateStyle(`${kind}-right`, value, false);
-            }}
-            onCommit={(value) => {
-              void updateStyle(`${kind}-left`, value, true);
-              void updateStyle(`${kind}-right`, value, true);
-            }}
-          />
+          <div className="flex items-center justify-center py-0.5 text-faint">
+            <LinkIcon className="size-3" />
+          </div>
+          <ScrubField property={`${kind}-right`} label={t("style.right")} />
         </>
       )}
     </>
-  );
-}
-
-/** One axis in Simple spacing mode — scrubs two properties at once. */
-function AxisScrub({
-  label,
-  properties,
-  raw,
-  onPreview,
-  onCommit,
-}: {
-  label: string;
-  properties: readonly [string, string];
-  raw: string;
-  onPreview(cssValue: string): void;
-  onCommit(cssValue: string): void;
-}) {
-  const { revertStyle } = useStyleEdit();
-  const isChanged = useIsChanged(properties);
-  const isDirty = useIsDirty(properties);
-  const parsed = parseCssValue(raw);
-  const reset = () => revertStyle(properties);
-  if (!parsed) {
-    return (
-      <Row label={label} changed={isChanged} dirty={isDirty} onReset={reset}>
-        <span className="truncate font-mono text-[10px] text-ghost">{raw || "—"}</span>
-      </Row>
-    );
-  }
-  return (
-    <Row label={label} changed={isChanged} dirty={isDirty} onReset={reset}>
-      <ScrubInput
-        value={parsed.value}
-        unit={parsed.unit || "px"}
-        step={1}
-        onPreview={(value) => onPreview(formatCssValue(value, parsed.unit || "px"))}
-        onCommit={(value) => onCommit(formatCssValue(value, parsed.unit || "px"))}
-      />
-    </Row>
   );
 }

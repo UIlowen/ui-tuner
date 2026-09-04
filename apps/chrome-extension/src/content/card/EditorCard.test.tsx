@@ -271,7 +271,7 @@ describe("EditorCard", () => {
         />,
       );
       expect(container.querySelector("[data-changed=\"true\"]")).not.toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "还原 高度" }));
+      fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
       expect(onRevert).toHaveBeenCalledWith("height");
       expect(container.querySelector("[data-changed]")).toBeNull();
     });
@@ -289,7 +289,7 @@ describe("EditorCard", () => {
         />,
       );
       // The numeric display should switch to the original value returned by onRevert.
-      fireEvent.click(screen.getByRole("button", { name: "还原 高度" }));
+      fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
       expect(screen.getByText("20")).toBeTruthy();
     });
 
@@ -305,7 +305,7 @@ describe("EditorCard", () => {
 
       // Undoing a saved change is an edit like any other — it only lands when
       // the user saves, so a dead 保存 here would strand the reset.
-      fireEvent.click(screen.getByRole("button", { name: "还原 高度" }));
+      fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
       expect(saveButton().disabled).toBe(false);
       fireEvent.click(saveButton());
       expect(props.onSave).toHaveBeenCalledTimes(1);
@@ -326,7 +326,7 @@ describe("EditorCard", () => {
       fireEvent.keyDown(screen.getByRole("slider"), { key: "ArrowUp" });
       expect(saveButton().disabled).toBe(false);
 
-      fireEvent.click(screen.getByRole("button", { name: "还原 高度" }));
+      fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
       expect(saveButton().disabled).toBe(true);
     });
   });
