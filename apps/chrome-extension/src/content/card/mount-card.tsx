@@ -143,6 +143,50 @@ export function mountEditorCard(): CardMount {
   container.addEventListener("pointerup", endDrag);
   container.addEventListener("pointercancel", endDrag);
 
+  // --- Click-outside dismiss (Codex-style). ---
+  // Clicking outside the card rolls back unsaved edits and closes it. The
+  // mousedown handler fires first (window capture, before the Picker's document
+  // capture) and closes the card synchronously. The click from the same
+  // physical click fires next; the click handler stopPropagation()s it so the
+  // Picker never sees it — otherwise the click would select a new element and
+  // reopen the card, defeating the dismiss.
+  let currentOnDismiss: (() => void) | null = null;
+  let justDismissed = false;
+  let detachTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const onWindowMouseDown = (event: MouseEvent): void => {
+    if (!open) return;
+    if (event.composedPath().includes(container)) return;
+    justDismissed = true;
+    currentOnDismiss?.();
+  };
+
+  const onWindowClick = (event: MouseEvent): void => {
+    if (open) return;
+    if (event.composedPath().includes(container)) return;
+    // Either we just dismissed (suppress the Picker's selection) or this is a
+    // stale handler from a previous card session (suppress unconditionally —
+    // the picker is not running or the card is closed, so the click is free).
+    justDismissed = false;
+    event.stopPropagation();
+  };
+
+  const attachClickOutside = (onDismiss: () => void): void => {
+    currentOnDismiss = onDismiss;
+    window.addEventListener("mousedown", onWindowMouseDown, true);
+    window.addEventListener("click", onWindowClick, true);
+  };
+
+  const detachClickOutside = (): void => {
+    currentOnDismiss = null;
+    window.removeEventListener("mousedown", onWindowMouseDown, true);
+    window.removeEventListener("click", onWindowClick, true);
+    if (detachTimer !== null) {
+      clearTimeout(detachTimer);
+      detachTimer = null;
+    }
+  };
+
   return {
     show(props, anchor) {
       open = true;
@@ -169,14 +213,29 @@ export function mountEditorCard(): CardMount {
       }
       applyOffset();
       applyTheme();
+      justDismissed = false;
+      attachClickOutside(props.onDismiss);
     },
     hide() {
       if (!open) return;
       open = false;
       root.render(null);
+      if (justDismissed) {
+        // The mousedown closed the card; the click from the same physical click
+        // has not fired yet. Keep the click handler attached so it can
+        // stopPropagation() on the Picker's behalf, then detach after the
+        // event cycle settles.
+        detachTimer = setTimeout(() => {
+          detachTimer = null;
+          detachClickOutside();
+        }, 200);
+      } else {
+        detachClickOutside();
+      }
     },
     unmount() {
       open = false;
+      detachClickOutside();
       unsubscribePrefs();
       resizeObserver.disconnect();
       root.unmount();

@@ -194,6 +194,15 @@ function openEditorCard(element: Element): void {
   const elementId = readUiTunerId(element);
   if (!elementId) return;
 
+  // Freeze the picker state so every close path (保存/取消/删除/click-outside)
+  // can restore it. The picker stays off while the card is open — hover
+  // highlights on page elements would be noise under the active card.
+  const wasPicking = picker?.isEnabled ?? false;
+  if (wasPicking) {
+    picker?.stop();
+    overlay?.setHover(null);
+  }
+
   stagingEngine.begin(elementId);
   cardMount.show(
     {
@@ -211,15 +220,26 @@ function openEditorCard(element: Element): void {
         instructionStore.set(elementId, instruction);
         reportChanges();
         cardMount?.hide();
+        if (wasPicking) startPicking();
       },
       onCancel: () => {
         stagingEngine?.rollback();
         cardMount?.hide();
+        if (wasPicking) startPicking();
       },
       onDelete: () => {
         stagingEngine?.end(); // discard any unsaved staged edits first
         revertElement(elementId); // clears committed changes + instruction, reports
         cardMount?.hide();
+        if (wasPicking) startPicking();
+      },
+      onDismiss: () => {
+        // Codex-style click-outside dismiss: same rollback as 取消, then
+        // restart the picker so the user can keep annotating.
+        stagingEngine?.rollback();
+        overlay?.setHover(null);
+        cardMount?.hide();
+        if (wasPicking) startPicking();
       },
       onRevert: (property) => {
         const change = changeTracker

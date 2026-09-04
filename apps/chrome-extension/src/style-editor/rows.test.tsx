@@ -178,49 +178,6 @@ function selectOf(container: HTMLElement): HTMLSelectElement {
   return el as HTMLSelectElement;
 }
 
-/**
- * Which property the designer is working on has to be visible at a glance: the
- * row lights up when its control takes focus, and the highlight follows focus
- * instead of lingering on a row nobody is touching. React's onFocus/onBlur are
- * the native focusin/focusout, so the tests fire those.
- */
-describe("active-row highlight", () => {
-  const heightRow = (api: StyleEditApi) => (
-    <StyleEditContext.Provider value={api}>
-      <ScrubField property="height" label="Height" />
-    </StyleEditContext.Provider>
-  );
-
-  it("lights the row up when its control takes focus", () => {
-    const { api } = createApi({ height: "38px" });
-    const { container } = render(heightRow(api));
-    expect(container.querySelector("[data-active]")).toBeNull();
-
-    fireEvent.focusIn(sliderOf(container));
-    expect(container.querySelector('[data-active="true"]')).not.toBeNull();
-  });
-
-  it("keeps the row lit while focus moves to its own reset button", () => {
-    const { api } = createApi({ height: "38px" }, [], ["height"]);
-    const { container } = render(heightRow(api));
-    const reset = container.querySelector("[aria-label='还原 Height']");
-    expect(reset).not.toBeNull();
-
-    fireEvent.focusIn(sliderOf(container));
-    fireEvent.focusOut(sliderOf(container), { relatedTarget: reset });
-    expect(container.querySelector('[data-active="true"]')).not.toBeNull();
-  });
-
-  it("clears the highlight when focus leaves the row", () => {
-    const { api } = createApi({ height: "38px" });
-    const { container } = render(heightRow(api));
-
-    fireEvent.focusIn(sliderOf(container));
-    fireEvent.focusOut(sliderOf(container));
-    expect(container.querySelector("[data-active]")).toBeNull();
-  });
-});
-
 describe("SelectRow", () => {
   const options = [
     { value: "flex", label: "flex" },

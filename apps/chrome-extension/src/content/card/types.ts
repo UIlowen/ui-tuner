@@ -20,6 +20,8 @@ export interface EditorCardProps {
   onStage(property: string, value: string, committed: boolean): void;
   onSave(instruction: string): void;
   onCancel(): void;
+  /** Click outside the card dismisses it (Codex-style). Same rollback as onCancel. */
+  onDismiss(): void;
   onDelete(): void;
   /** 回滚一个已记录的属性改动；返回改动前的原始值，找不到时返回 null。 */
   onRevert(property: string): string | null;

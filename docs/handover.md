@@ -10,9 +10,9 @@
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）+ **编辑卡交互修正 + 影子样式修复**（2026-09-04：属性图标开关替设置图标 / 去收起箭头 / 行激活态真的画出来 / 修「reset 后保存仍出气泡」/ 修 shadow root 里 Tailwind 边框投影整族失效）+ **属性控件收敛 + 二次保存修复**（2026-09-04：单值属性一律折叠下拉 / 默认态零高亮、强调色只给正在调的控件 / 修「重置已保存属性后无法二次保存」）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
-| 分支     | **`feat/ui-ux-polish`（46 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（**388 例测试**：protocol 26 / inspector 119 / bridge 74 / extension 169）；真机 `.playwright-mcp/verify-codex-card-ui.mjs` **106/106 断言全过**                                              |
+| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）+ **编辑卡交互修正 + 影子样式修复**（2026-09-04：属性图标开关替设置图标 / 去收起箭头 / 行激活态真的画出来 / 修「reset 后保存仍出气泡」/ 修 shadow root 里 Tailwind 边框投影整族失效）+ **属性控件收敛 + 二次保存修复**（2026-09-04：单值属性一律折叠下拉 / 默认态零高亮、强调色只给正在调的控件 / 修「重置已保存属性后无法二次保存」）+ **行激活态移除 + 点击外部关闭**（2026-09-04：去掉行容器高亮、只留控件自身 focus ring / Codex 风格点击卡片外部关闭编辑卡 + picker 抑制）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
+| 分支     | **`feat/ui-ux-polish`（47 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（**385 例测试**：protocol 26 / inspector 119 / bridge 74 / extension 166）；真机 `.playwright-mcp/verify-codex-card-ui.mjs` **106/106 断言全过**                                              |
 | 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡的麦克风是禁用占位**（灰态 + 「语音输入即将上线」，未接语音识别）；**编辑卡指令输入框内按 Esc 会连带退出整个注释模式**（未修，backlog）；`docs/architecture.md` 仍描述注释模式之前的三 Tab 面板（未同步，读它时以本文档 §4/§6 为准） |
 
 ## 2. 三十秒上下文
@@ -120,6 +120,9 @@ UI Tuner/
 | **单值属性（display / flex-direction / flex-wrap / font-weight / text-align）一律用 `SelectRow` 折叠下拉**；`<select>` 的值若不在候选列表里，就把页面真值**插到第一项**（`offered`） | 段选（segment）把 5 个候选全摊在 24px 高的行里，挤且**永远有一个被强调色圈着**（当前值），设计师没动手就满眼高亮。下拉收起后一行只占一格。补插真值是必须的：页面 computed 值可能是 `display: inline`、`text-align: start`、`font-weight: 300`，而 `<select>` 匹配不到 option 时**静默显示第一项**，等于当面撒谎说元素是 `left`（mutation check：去掉 prepend → 真机断言如期失败，select 报 `left` 而页面是 `start`） |
 | **行激活态是中性色**（`bg-inset-deep` + `ring-1 ring-edge-strong`），强调色只出现在**正在被调的那个控件**上（它自己的 focus/drag ring）与「已被上一步改动」的行（`border-l-2 border-accent-text`） | 用户明确要「默认状态不要高亮，只需要调节参数控件高亮」。行容器再套一层 `ring-2 ring-accent-text/60` 的话，24px 的行里外两圈紫读成一坨；而且「哪一行被点过」和「哪一个值被我改过」在视觉上必须能分开 |
 | **可交互控件用 `focus:` 而不是 `focus-visible:`；shadow host 上写 `color-scheme`** | `ScrubInput` 的滑块是 `div[role=slider]`，Chrome 对**非文本元素上的鼠标点击不匹配 `:focus-visible`** → 设计师刚抓住的控件反而毫无反馈（真机实测）。原生 `<select>` 的下拉弹层由浏览器绘制，跟随 host 的 `color-scheme`：不声明就是亮色弹层，暗色卡片上极其刺眼 |
+| **属性行容器不画激活态**：`Row` 没有 `data-active` / `bg-inset-deep ring-1` 分支，高亮只来自控件自身的 `focus:` ring 与「已改动」行的 `border-l-2 border-accent-text` | 24px 行里外两圈 ring 读成一坨；「哪一行被点过」和「哪一个值被我改过」在视觉上必须能分开。行容器再套强调色会让默认态满眼高亮，违反「默认态零高亮」原则 |
+| **编辑卡点击外部关闭（Codex 风格）**：`mount-card.tsx` 在 `show()` 时挂 `window` capture `mousedown`/`click`，`mousedown` 检测 `composedPath()` 不含 container 即调 `onDismiss`（rollback + hide），`click` 用 `stopPropagation` 阻止 picker 的 document-capture handler 选中元素；关闭后延迟 200ms 才摘 handler，吃掉同一次物理点击的 click 事件 | 用户要「激活面板后鼠标不能再 hover 页面任何元素」。**window capture 先于 document capture**（window → document → target），所以 mousedown 先关掉卡片，picker 的 document-capture mousedown 再触发时卡片已关；click 事件则靠 stopPropagation 挡住 picker 的 click handler。延迟摘 handler 是因为同一物理点击的 mousedown 关卡后，click 还会来——如果不挡，picker 的 click handler 会选中点击位置的元素 |
+| **卡片打开期间 picker 完全停止**：`content/index.ts` 的 `openEditorCard` 在 `show()` 前 `picker.stop()` + `overlay.setHover(null)`，关闭时（save/cancel/delete/dismiss 四条路径）用 `wasPicking` 标记恢复；从气泡打开的卡（picker 本就未运行）关闭后不重启 picker | 单纯停止 click 事件还不够——mousemove 仍会触发 overlay 高亮，视觉上「鼠标不能再 hover 页面任何元素」不成立。完全停 picker 才能让卡片打开期间页面完全静默 |
 
 ## 5. 常用命令
 
@@ -337,12 +340,22 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 - **两次 mutation check 都杀红了预期的断言**：把 `canSave` 改回读过滤后的 `dirty` → jsdom 恰好 1 例失败（`keeps 保存 usable after resetting a change that was already saved`）；把**构建产物**拷到 `/tmp/ui-tuner-mutant-dist` 里改掉 SelectRow 的真值 prepend 与行激活态的中性色（不动仓库源码，靠脚本新加的 `EXT_DIST` 环境变量加载）→ 真机恰好 4 条断言失败（102/106），其余全过。
 - **教训（脚本层，两条都花了不少时间）**：① **Chrome 把 Tailwind 的透明度修饰符颜色序列化成 `oklab(0.811153 0.0405392 -0.0928167 / 0.7)`**，不是 `rgba(196, 181, 253, 0.7)`——用子串匹配 `--accent-text` 的 RGB 分量判「有没有画出强调色」会整片漏检（首轮 4 条假失败）。改成用 1×1 canvas 把候选颜色与 host 的 `--accent-text` 都绘出来比字节。② **canvas 在低 alpha 下反预乘会漂移**（10% 强调色 g 181 → 177），首轮 mutation 只杀掉 2/4；改成拿**预乘**字节与「按候选自己的 alpha 重绘的强调色」比（alpha 字节是精确存的）才对。从此脚本里「量颜色」一律走这个 `ACCENT_PROBE`。
 
+**行激活态移除 + 点击外部关闭（2026-09-04）**
+
+用户带着两张截图验收：「图1激活属性框为啥背后出现边框，我只需要属性的那个控件激活」「图2当前状态我无法退出这个面板，codex做法是点击面板以外的区域取消面板（也就是说激活面板，鼠标不能再hover页面任何元素）」。
+
+1. **行激活态彻底移除**：上一轮把行激活态从强调色改成中性色（`bg-inset-deep ring-1`），但用户截图显示行容器仍有一圈可见边框。24px 的行里外两圈 ring 读成一坨，而且「哪一行被点过」和「哪一个值被我改过」在视觉上必须分开。`Row` 组件删掉 `useState(active)` / `data-active` / `onFocusCapture` / `onBlurCapture` / 条件 className 分支，对应 3 例 jsdom 测试也删除。高亮现在只有两个来源：**控件自身的 `focus:` ring**（正在调的控件）、**`border-l-2 border-accent-text`**（已改动的行）。
+2. **点击外部关闭编辑卡（Codex 风格）**：`mount-card.tsx` 在 `show()` 时挂 `window` capture 阶段的 `mousedown` + `click` handler。`mousedown` 检测 `composedPath()` 不含 card container 即同步调 `onDismiss`（rollback + hide）；`click` handler 用 `stopPropagation` 阻止 picker 的 document-capture click handler 选中元素。关闭后**延迟 200ms 才摘 handler**——同一物理点击的 mousedown 关掉卡片后，click 还会来，不挡就会触发 picker 选中点击位置的元素。
+3. **卡片打开期间 picker 完全停止**：`content/index.ts` 的 `openEditorCard` 在 `show()` 前检查 `picker.isEnabled`（`wasPicking`），运行中就 `picker.stop()` + `overlay.setHover(null)`。关闭时四条路径（save/cancel/delete/dismiss）都用 `wasPicking` 标记决定是否 `startPicking()`。从气泡打开的卡（picker 本就未运行）关闭后不重启 picker。`EditorCardProps` 新增 `onDismiss(): void`。
+
+- 验证：`pnpm build/test/typecheck/lint` 全绿，**385 例**（protocol 26 / inspector 119 / bridge 74 / extension **166**）。
+
 ## 7. 项目状态：核心闭环完成，`feat/ui-ux-polish` 待推送 + 待合并决策
 
 核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并多轮真机验收（M8、注释模式、页面编辑卡）。无后续里程碑，剩余为 backlog 增强项。
 
 **下一步待用户决策（截至 2026-09-04）**：
-1. `feat/ui-ux-polish`（46 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
+1. `feat/ui-ux-polish`（47 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
 2. 合并到 `main` 的决策（PR 还是直接 merge）尚未做。
 3. `docs/architecture.md` 未同步注释模式 + 页面编辑卡（仍写三 Tab 面板与 `sidepanel.stylePreview`）；下次动架构文档时一并补。
 

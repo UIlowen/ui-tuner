@@ -52,30 +52,16 @@ export function Row({
 }) {
   const t = useT();
   const resetLabel = t("changes.revertProperty", { property: label });
-  // Focus tracked in React rather than left to `:focus-within`: the row tints on
-  // any focus, and the state doubles as a hook for tests and the browser probe.
-  const [active, setActive] = useState(false);
   return (
     <div
       {...(changed ? { "data-changed": "true", title: t("style.changed") } : {})}
-      {...(active ? { "data-active": "true" } : {})}
-      onFocusCapture={() => setActive(true)}
-      onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setActive(false);
-      }}
       className={`flex min-h-6 items-center gap-1.5 rounded-[3px] py-0.5 px-1 transition-all ${
-        // One tint only — two bg-* utilities on the same element would fight.
         changed ? "-ml-[2px] border-l-2 border-accent-text bg-accent-text/10" : ""
-      } ${
-        // Neutral on purpose: the accent highlight belongs to the control being
-        // adjusted (its own focus/drag ring), not to the row wrapping it — two
-        // nested accent rings inside a 24px row read as one purple blob.
-        !changed && active ? "bg-inset-deep ring-1 ring-edge-strong" : ""
       }`}
     >
       <span
         className={`w-[64px] shrink-0 truncate text-[11px] ${
-          changed ? "font-medium text-accent-text" : active ? "text-text" : "text-faint"
+          changed ? "font-medium text-accent-text" : "text-faint"
         }`}
         title={label}
       >
