@@ -67,7 +67,7 @@ export function Row({
       >
         {label}
       </span>
-      <div className="flex min-w-0 items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1">
         {children}
         {(changed || dirty) && onReset && (
           <button
