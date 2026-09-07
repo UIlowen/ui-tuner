@@ -10,7 +10,7 @@
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）+ **编辑卡交互修正 + 影子样式修复**（2026-09-04：属性图标开关替设置图标 / 去收起箭头 / 行激活态真的画出来 / 修「reset 后保存仍出气泡」/ 修 shadow root 里 Tailwind 边框投影整族失效）+ **属性控件收敛 + 二次保存修复**（2026-09-04：单值属性一律折叠下拉 / 默认态零高亮、强调色只给正在调的控件 / 修「重置已保存属性后无法二次保存」）+ **行激活态移除 + 点击外部关闭**（2026-09-04：去掉行容器高亮、只留控件自身 focus ring / Codex 风格点击卡片外部关闭编辑卡 + picker 抑制）+ **Codex UI 对齐 + 锁定按钮 + 行高加大**（2026-09-04：属性精简到 17 项 / 指令移到头部 / 头部布局对齐 / 锁定按钮可点击切换 / 属性行高度加大）+ **编辑卡 Esc 键修复**（2026-09-07：卡片内 Esc 只收起/关闭卡片，不退出注释模式）+ **颜色 RGBA 输入**（2026-09-07：色板 + R/G/B/A 数字输入框替透明度滑块，提交保留半透明 alpha）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
+| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）+ **编辑卡交互修正 + 影子样式修复**（2026-09-04：属性图标开关替设置图标 / 去收起箭头 / 行激活态真的画出来 / 修「reset 后保存仍出气泡」/ 修 shadow root 里 Tailwind 边框投影整族失效）+ **属性控件收敛 + 二次保存修复**（2026-09-04：单值属性一律折叠下拉 / 默认态零高亮、强调色只给正在调的控件 / 修「重置已保存属性后无法二次保存」）+ **行激活态移除 + 点击外部关闭**（2026-09-04：去掉行容器高亮、只留控件自身 focus ring / Codex 风格点击卡片外部关闭编辑卡 + picker 抑制）+ **Codex UI 对齐 + 锁定按钮 + 行高加大**（2026-09-04：属性精简到 17 项 / 指令移到头部 / 头部布局对齐 / 锁定按钮可点击切换 / 属性行高度加大）+ **编辑卡 Esc 键修复**（2026-09-07：卡片内 Esc 只收起/关闭卡片，不退出注释模式）+ **颜色 RGBA 输入**（2026-09-07：色板 + R/G/B/A 数字输入框替透明度滑块，提交保留半透明 alpha）+ **图标迁移到 Lucide**（2026-09-07：全部图标从 Remix Icon 填充式改为 Lucide 线性/描边式，编辑卡头部下移）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
 | 分支     | **`main`（当前分支）**。`feat/ui-ux-polish`（80 commits）已通过 **PR #1 squash merge** 合入 main（2026-09-07）。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
 | 验证     | `pnpm build / test / typecheck / lint` 全绿（**419 例测试**：protocol 26 / inspector 144 / bridge 74 / extension 175）；真机 `.playwright-mcp/verify-codex-card-ui.mjs` **106/106 断言全过**                                              |
 | 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡的麦克风是禁用占位**（灰态 + 「语音输入即将上线」，未接语音识别） |
@@ -65,7 +65,7 @@ UI Tuner/
                                components/ = ChangesTab / AgentTab / ApplySection）
         style-editor/          样式控件（ScrubInput / rows / StylePanel / StyleEditContext）——
                                从 sidepanel 抽出，供**编辑卡**复用（面板不再直接编辑）
-        ui/                    icons.tsx（Remix Icon 派生的内联 SVG 组件）+ REMIXICON-LICENSE
+        ui/                    icons.tsx（Lucide 派生的内联 SVG 组件，MIT 许可）+ REMIXICON-LICENSE（历史许可存档）
         styles/                sidepanel.css（主题令牌）+ tokens.test.ts（与 card.css 的防漂移守卫）
         i18n/                  messages.ts（zh/en，键必须齐平）+ use-t.ts
         messaging/channel.ts   Port 类型化封装（PortLike 结构接口）
@@ -109,7 +109,7 @@ UI Tuner/
 | **卡片高亮「已改动」属性行**：`changedProperties` 由 content 从 ChangeTracker 去重算出 → `EditorCard` 转成 `StyleEditApi.changed` → `rows.tsx` 的 `useIsChanged()` 给 `Row` 打 `data-changed` + 紫色左边线；卡片挂载时把**第一处**标记 `scrollIntoView({block:"nearest"})` | 几十个属性里看不出上一步改了什么；body 只有 320px 高，不滚动的话标记等于没有。复合控件（间距轴 / 对齐九宫格）一次写多个属性，传全部、命中任一即亮 |
 | **编辑卡就近弹出**：`content/card/placement.ts` 纯函数按「右→左→下→上」四候选取第一个放得下的，**只用「选边那一轴」判定放不放得下，另一轴 clamp**（右/左候选 clamp y，下/上候选 clamp x），四候选都不行才 clamp 首选位；`mount-card.show(props, anchor)` 用 **`flushSync`** 先提交渲染再量 `container.getBoundingClientRect()` | 卡片贴在元素旁边才符合「在元素上调」的心智；不先同步渲染就量尺寸，会拿到未渲染的 0×0 而漏判所有溢出。两轴都要求「完全放得下」会让贴视口底边的元素否决掉所有侧边（差 2px 也算否决），最后回落到 clamp 的首选位——**正好压在元素上**（真机实测：卡片 952..1272 与元素 1132..1272 重叠） |
 | **编辑卡只有紧凑/展开两态**（Codex 式），且**默认态由 props 推出、不记忆**：`number !== null ∨ changedProperties 非空 ∨ 已有指令` → 展开，否则紧凑（单行输入 + ✓） | 新选元素的常见诉求是「写一句话」，紧凑态就够；已注释的元素必须展开，否则上一轮的改动行高亮与自动滚动会被藏在一行输入框后面。由 props 推出 → `types.ts`/`placement.ts`/`content/index.ts` 都不用加接线，`key: elementId` 的 remount 天然按元素重算 |
-| **图标一律来自 `src/ui/icons.tsx`**（Remix Icon v4.9.1 派生的内联 SVG，`viewBox="0 0 24 24"` + `fill="currentColor"`，许可全文在 `src/ui/REMIXICON-LICENSE`）；不再用 Unicode 字符当图标 | Remix 是**填充型**几何，必须显式 `fill="currentColor"` 才跟随主题（否则暗色下是死黑）；不用图标字体是因为 `manifest.json` 没有 `web_accessible_resources`，字体会逼出一次 manifest 变更 |
+| **图标一律来自 `src/ui/icons.tsx`**（Lucide 派生的内联 SVG，`viewBox="0 0 24 24"` + `stroke="currentColor"` + `fill="none"`，MIT 许可；原 Remix Icon 许可存档在 `src/ui/REMIXICON-LICENSE`）；不再用 Unicode 字符当图标 | Lucide 是**描边型**几何，用 `stroke="currentColor"` 跟随主题；Remix 是填充型，需显式 `fill="currentColor"`。不用图标字体是因为 `manifest.json` 没有 `web_accessible_resources`，字体会逼出一次 manifest 变更 |
 | **23 个主题令牌在 `styles/sidepanel.css`（`:root`/`.dark`）与 `content/card/card.css`（`:host`/`:host(.dark)`）之间逐字复制**，3 个圆角（`--radius-card/control/pill`）作为字面量写在各自的 `@theme inline`；`styles/tokens.test.ts` 是唯一的防漂移守卫 | shadow root 里 `:root` 拿不到页面根，所以重复是**必要的**（选择器不同，抽不出共享文件）；但没有任何构建步骤会发现两边漂移——一处改名就让那个界面裸奔，故用测试断言三组令牌名集合相等 |
 | **卡片尺寸变化后必须重新 clamp**：mount 层对 `container` 挂 `ResizeObserver` → `clampOffset()` + `applyOffset()`（`unmount()` 里 disconnect） | 放置只在 `show()` 时按当时量到的尺寸做一次，而紧凑态 40px ↔ 展开态 ~396px 差一个数量级，指令 textarea 还能被用户拖高；贴底元素展开后 footer 会掉到视口外，**取消/保存点不到**（真机验收实测 bottom 916 > 720） |
 | **content 侧监听 `chrome.storage.onChanged` 同步 locale/theme**（`applyStoredPrefs()` 与 connect 时的 hydrate 共用一处） | 面板是另一个 JS 上下文且是唯一写入方；只在 connect 时读一次，切主题/语言后**已打开页面上的卡片会停在旧主题直到刷新**（真机验收实测：面板已暗、卡片仍亮） |
@@ -385,6 +385,15 @@ Backlog 项「色板提交写 `#rrggbb` 丢失半透明 alpha」→ 先用透明
 - i18n：`color.alphaLabel` → `color.rLabel` / `color.gLabel` / `color.bLabel` / `color.aLabel`。
 - `EditorCard.test.tsx` 简化 `getAllByRole("slider").find(tagName === "DIV")` → `getByRole("slider")`（alpha range input 已移除，只剩 ScrubInput 的 div slider）。
 - 验证：`pnpm build/test/typecheck/lint` 全绿，**419 例**（inspector 138 → **144**：hexToRgb 6 + ColorRow RGBA 新增 2；extension 173 → **175**）。
+
+**图标迁移到 Lucide + 编辑卡头部下移（2026-09-07）**
+
+用户要求「所有的 icon 保持 Lucide 图标都用线性图标」。
+
+- 实现：`src/ui/icons.tsx` 全部重写——从 Remix Icon（填充型，`fill="currentColor"`）迁移到 Lucide（描边型，`stroke="currentColor"` + `fill="none"` + `strokeWidth="2"` + `strokeLinecap="round"` + `strokeLinejoin="round"`）。28 个图标全部替换为 Lucide 路径数据，新增 `PropertiesIcon`（lucide settings-2）与 `PaletteIcon`（lucide palette）。许可从「Remix Icon License v1.0」改为 MIT（Lucide）。
+- 测试：`icons.test.tsx` 断言从 `fill="currentColor"` 改为 `fill="none"` + `stroke="currentColor"`。
+- 编辑卡头部：第一行顶部间距从 `pt-1.5` 增加到 `pt-2.5`，整体往下移动。
+- 验证：`pnpm build/test/typecheck/lint` 全绿，**419 例**（测试数不变，只改断言）。
 
 ## 7. 项目状态：核心闭环完成，已合并 main
 
