@@ -10,10 +10,10 @@
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）+ **编辑卡交互修正 + 影子样式修复**（2026-09-04：属性图标开关替设置图标 / 去收起箭头 / 行激活态真的画出来 / 修「reset 后保存仍出气泡」/ 修 shadow root 里 Tailwind 边框投影整族失效）+ **属性控件收敛 + 二次保存修复**（2026-09-04：单值属性一律折叠下拉 / 默认态零高亮、强调色只给正在调的控件 / 修「重置已保存属性后无法二次保存」）+ **行激活态移除 + 点击外部关闭**（2026-09-04：去掉行容器高亮、只留控件自身 focus ring / Codex 风格点击卡片外部关闭编辑卡 + picker 抑制）+ **Codex UI 对齐 + 锁定按钮 + 行高加大**（2026-09-04：属性精简到 17 项 / 指令移到头部 / 头部布局对齐 / 锁定按钮可点击切换 / 属性行高度加大）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
+| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）+ **编辑卡交互修正 + 影子样式修复**（2026-09-04：属性图标开关替设置图标 / 去收起箭头 / 行激活态真的画出来 / 修「reset 后保存仍出气泡」/ 修 shadow root 里 Tailwind 边框投影整族失效）+ **属性控件收敛 + 二次保存修复**（2026-09-04：单值属性一律折叠下拉 / 默认态零高亮、强调色只给正在调的控件 / 修「重置已保存属性后无法二次保存」）+ **行激活态移除 + 点击外部关闭**（2026-09-04：去掉行容器高亮、只留控件自身 focus ring / Codex 风格点击卡片外部关闭编辑卡 + picker 抑制）+ **Codex UI 对齐 + 锁定按钮 + 行高加大**（2026-09-04：属性精简到 17 项 / 指令移到头部 / 头部布局对齐 / 锁定按钮可点击切换 / 属性行高度加大）+ **编辑卡 Esc 键修复**（2026-09-07：卡片内 Esc 只收起/关闭卡片，不退出注释模式）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
 | 分支     | **`main`（当前分支）**。`feat/ui-ux-polish`（80 commits）已通过 **PR #1 squash merge** 合入 main（2026-09-07）。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（**385 例测试**：protocol 26 / inspector 119 / bridge 74 / extension 166）；真机 `.playwright-mcp/verify-codex-card-ui.mjs` **106/106 断言全过**                                              |
-| 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡的麦克风是禁用占位**（灰态 + 「语音输入即将上线」，未接语音识别）；**编辑卡指令输入框内按 Esc 会连带退出整个注释模式**（未修，backlog） |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（**388 例测试**：protocol 26 / inspector 119 / bridge 74 / extension 169）；真机 `.playwright-mcp/verify-codex-card-ui.mjs` **106/106 断言全过**                                              |
+| 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡的麦克风是禁用占位**（灰态 + 「语音输入即将上线」，未接语音识别） |
 
 ## 2. 三十秒上下文
 
@@ -123,6 +123,7 @@ UI Tuner/
 | **属性行容器不画激活态**：`Row` 没有 `data-active` / `bg-inset-deep ring-1` 分支，高亮只来自控件自身的 `focus:` ring 与「已改动」行的 `border-l-2 border-accent-text` | 24px 行里外两圈 ring 读成一坨；「哪一行被点过」和「哪一个值被我改过」在视觉上必须能分开。行容器再套强调色会让默认态满眼高亮，违反「默认态零高亮」原则 |
 | **编辑卡点击外部关闭（Codex 风格）**：`mount-card.tsx` 在 `show()` 时挂 `window` capture `mousedown`/`click`，`mousedown` 检测 `composedPath()` 不含 container 即调 `onDismiss`（rollback + hide），`click` 用 `stopPropagation` 阻止 picker 的 document-capture handler 选中元素；关闭后延迟 200ms 才摘 handler，吃掉同一次物理点击的 click 事件 | 用户要「激活面板后鼠标不能再 hover 页面任何元素」。**window capture 先于 document capture**（window → document → target），所以 mousedown 先关掉卡片，picker 的 document-capture mousedown 再触发时卡片已关；click 事件则靠 stopPropagation 挡住 picker 的 click handler。延迟摘 handler 是因为同一物理点击的 mousedown 关卡后，click 还会来——如果不挡，picker 的 click handler 会选中点击位置的元素 |
 | **卡片打开期间 picker 完全停止**：`content/index.ts` 的 `openEditorCard` 在 `show()` 前 `picker.stop()` + `overlay.setHover(null)`，关闭时（save/cancel/delete/dismiss 四条路径）用 `wasPicking` 标记恢复；从气泡打开的卡（picker 本就未运行）关闭后不重启 picker | 单纯停止 click 事件还不够——mousemove 仍会触发 overlay 高亮，视觉上「鼠标不能再 hover 页面任何元素」不成立。完全停 picker 才能让卡片打开期间页面完全静默 |
+| **编辑卡内 Esc 只关卡片不退出注释模式**：`content/index.ts` 的 document capture keydown handler 用 `composedPath()` 检测事件来自 `EDITOR_CARD_ROOT_ID` shadow host 即跳过；`EditorCard` 自己处理 Esc——展开态收起为紧凑态，紧凑态调 `onDismiss` | document capture 先于 shadow root 内任何 handler 触发（window → document → target），不跳过就会先退出注释模式再轮到卡片处理。`composedPath()` 在 capture 阶段仍返回完整路径（含 shadow tree 内节点），所以检测可靠 |
 
 ## 5. 常用命令
 
@@ -366,6 +367,14 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 
 - 验证：`pnpm build/test/typecheck/lint` 全绿，**386 例**（protocol 26 / inspector 119 / bridge 74 / extension **167**）。
 
+**编辑卡 Esc 键修复（2026-09-07）**
+
+用户报 backlog 项：编辑卡指令输入框内按 Esc 会连带退出整个注释模式（期望：只关闭/收起卡片）。
+
+- 根因：`content/index.ts` 的 document-level keydown handler 在 capture 阶段触发，先于 shadow root 内的任何 handler；而 `EditorCard` 本身没有 Esc 处理。
+- 修复两层：① `content/index.ts` 的 keydown handler 用 `composedPath()` 检测事件是否来自编辑卡 shadow host（`EDITOR_CARD_ROOT_ID`），是则跳过（让卡片自己处理）；② `EditorCard.tsx` 新增 `handleKeyDown`：展开态 Esc → 收起为紧凑态，紧凑态 Esc → 调 `onDismiss`（rollback + 关闭）。`onKeyDown` 挂在紧凑态与展开态的根 div 上。
+- 验证：`pnpm build/test/typecheck/lint` 全绿，**388 例**（extension 167 → **169**：EditorCard +2 例 Esc 测试）。
+
 ## 7. 项目状态：核心闭环完成，已合并 main
 
 核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并多轮真机验收（M8、注释模式、页面编辑卡）。无后续里程碑，剩余为 backlog 增强项。
@@ -378,7 +387,7 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 **待办**：
 1. ~~`docs/architecture.md` 未同步~~ → 已同步（2026-09-07，重写为注释模式 + 编辑卡 + Codex 风格 UI 的当前架构）
 
-**注意**：顺延项都在 `docs/backlog.md`（Next App Router 适配、数据驱动文本索引、索引缓存、HMR 跨刷新持久化 §37、颜色 alpha、CLI npm 发布、codex MCP 免 bypass flag、ui_capture 元素级裁剪、**编辑卡内 Esc 只关卡片**、**编辑卡语音输入**（麦克风目前是禁用占位））。
+**注意**：顺延项都在 `docs/backlog.md`（Next App Router 适配、数据驱动文本索引、索引缓存、HMR 跨刷新持久化 §37、颜色 alpha、CLI npm 发布、codex MCP 免 bypass flag、ui_capture 元素级裁剪、**编辑卡语音输入**（麦克风目前是禁用占位））。
 
 ## 8. 新会话启动模板（计划 §52）
 

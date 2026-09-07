@@ -421,6 +421,14 @@ document.addEventListener(
   "keydown",
   (event) => {
     if (picker?.isEnabled || !selectionActive) return;
+    // The editor card handles Esc itself (collapse / dismiss); let it.
+    if (
+      event.composedPath().some(
+        (node) => node instanceof HTMLElement && node.id === EDITOR_CARD_ROOT_ID,
+      )
+    ) {
+      return;
+    }
     if (event.key === "Escape") {
       event.preventDefault();
       closeEditorSession();

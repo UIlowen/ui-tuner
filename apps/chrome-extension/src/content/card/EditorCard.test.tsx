@@ -255,6 +255,30 @@ describe("EditorCard", () => {
     });
   });
 
+  describe("Esc key", () => {
+    it("collapses to compact when expanded instead of dismissing", () => {
+      const props = baseProps({ number: 1 });
+      render(<EditorCard {...props} />);
+      expect(screen.getByText("文本颜色")).toBeTruthy();
+
+      fireEvent.keyDown(screen.getByPlaceholderText(PLACEHOLDER), { key: "Escape" });
+      // Collapsed — property panel gone, no 保存 footer.
+      expect(screen.queryByText("文本颜色")).toBeNull();
+      expect(screen.queryByRole("button", { name: "保存" })).toBeNull();
+      // Must not dismiss — annotation mode stays.
+      expect(props.onDismiss).not.toHaveBeenCalled();
+    });
+
+    it("dismisses the card when already compact", () => {
+      const props = baseProps();
+      render(<EditorCard {...props} />);
+      expect(screen.queryByText("文本颜色")).toBeNull();
+
+      fireEvent.keyDown(compactInput(), { key: "Escape" });
+      expect(props.onDismiss).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("per-property reset", () => {
     it("reverts a changed row when its reset button is clicked", () => {
       const onRevert = vi.fn(() => "20px");

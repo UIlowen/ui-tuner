@@ -21,7 +21,6 @@
 | 源码索引缓存/文件监听        | M6 每次 selection 重建索引（上限 500 文件）；大项目需要缓存或 watch                 | 待定              |
 | codex MCP 免 bypass 配置     | codex exec 调 tools/call 默认被 approval:never 取消（"user cancelled MCP tool call"），需 `--dangerously-bypass-approvals-and-sandbox`；研究 trusted-MCP / 配置文件持久放行（M8 已用 flag 跑通，免 flag 仍开放） | 发布节点          |
 | ui_capture 元素级裁剪        | M7 截图为整页可视区（captureVisibleTab）；元素级裁剪需面 offscreen canvas           | 待定              |
-| 编辑卡内 Esc 只关卡片        | 焦点在页面编辑卡的指令输入里（紧凑态单行 input 或展开态 textarea）按 Esc，会冒泡到 document 的 Picker 监听并**退出整个注释模式**（期望：只关闭/收起卡片，注释模式保持）。2026-09-03 真机验收发现，2026-09-04 两态重做后依然存在，未修 | 待定              |
 | 编辑卡语音输入               | 2026-09-04 按 Codex 交互放上了麦克风图标，但**是禁用占位**（灰态 + 「语音输入即将上线」tooltip）；接语音识别（Web Speech API / 本地转写）属后续增强 | 待定              |
 
 ## Scope 外（V0.1 明确不做，计划 §1.2）

@@ -182,11 +182,22 @@ export function EditorCard(props: EditorCardProps) {
 
   const submit = (): void => props.onSave(instruction);
 
+  const handleKeyDown = (event: React.KeyboardEvent): void => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      if (viewState === "expanded") {
+        setViewState("compact");
+      } else {
+        props.onDismiss();
+      }
+    }
+  };
+
   const tagName = props.tagName ?? "";
 
   if (viewState === "compact") {
     return (
-      <div className="flex w-[320px] items-center gap-1 rounded-card border border-edge bg-surface-solid py-2.5 px-2 shadow-2xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
+      <div onKeyDown={handleKeyDown} className="flex w-[320px] items-center gap-1 rounded-card border border-edge bg-surface-solid py-2.5 px-2 shadow-2xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
         {props.number === null ? (
           <span
             data-drag-handle
@@ -236,7 +247,7 @@ export function EditorCard(props: EditorCardProps) {
   }
 
   return (
-    <div className="flex w-[320px] flex-col overflow-hidden rounded-card border border-edge bg-surface-solid shadow-2xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
+    <div onKeyDown={handleKeyDown} className="flex w-[320px] flex-col overflow-hidden rounded-card border border-edge bg-surface-solid shadow-2xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
       {/* Header: row 1 = ⚙ + instruction, row 2 = tag name + drag handle */}
       <div className="flex shrink-0 flex-col border-b border-edge">
         <div className="flex items-center gap-1.5 px-2 pt-1.5 pb-0.5">
