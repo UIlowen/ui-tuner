@@ -9,7 +9,6 @@
 | Multi Select                 | Shift+Click 多选，max 10（计划 Task 2.5）                                           | M2 后半段 / M3 前 |
 | ⌘↓ 选子级                    | 与 ⌘↑ 对称的向下导航                                                                | 待定              |
 | 自动重连 / 状态持久化        | 页面导航刷新后自动恢复 Port 与选中态（计划 §37）。注：M8 已实现 Apply 链路的 HMR 重定位（§22 locateAppliedElement/confirmApply），跨**手动刷新**的持久化仍开放 | M5 后             |
-| 颜色 alpha 保留              | 色板提交写 `#rrggbb` 丢失半透明 alpha（M3 取舍）                                    | 待定              |
 | box-shadow / grid 可视化编辑 | M3 仅文本输入（§9.8/§9.2 合理最小实现）                                             | 待定              |
 | Playwright E2E               | 计划 §40 Test 01–07（需 headed Chromium + --load-extension）                        | 能力齐备后统一补  |
 | 完整 Undo Stack              | 计划 §14，V0.1 只需 Revert 单属性/元素/全部                                         | P1                |

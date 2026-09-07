@@ -346,8 +346,10 @@ describe("EditorCard", () => {
         />,
       );
       fireEvent.click(screen.getByRole("button", { name: "展开" }));
-      // `height` is the only property with a value, so it is the only slider.
-      fireEvent.keyDown(screen.getByRole("slider"), { key: "ArrowUp" });
+      // The height ScrubInput is a div[role="slider"]; the alpha range inputs
+      // in ColorRow are also sliders, so filter by tag name.
+      const scrubSlider = screen.getAllByRole("slider").find((el) => el.tagName === "DIV");
+      fireEvent.keyDown(scrubSlider!, { key: "ArrowUp" });
       expect(saveButton().disabled).toBe(false);
 
       fireEvent.click(screen.getByRole("button", { name: "还原 高" }));

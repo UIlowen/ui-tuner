@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { formatCssValue, parseCssValue, rgbToHex } from "@ui-tuner/inspector";
+import { formatCssValue, parseCssValue, rgbToHex, extractAlpha, formatColorWithAlpha } from "@ui-tuner/inspector";
 import { useT } from "../i18n/use-t";
 import { ChevronDownIcon, UndoIcon } from "../ui/icons";
 import { ScrubInput } from "./ScrubInput";
@@ -174,7 +174,12 @@ export function TextRow({
   );
 }
 
-/** Color value: swatch (native color input) + hex text. */
+/**
+ * Color value: swatch (native color input) + alpha slider + raw text.
+ * The native `<input type="color">` is opaque, so alpha lives on a separate
+ * range slider. On commit, hex + alpha combine into `rgba(…)` when alpha < 1
+ * or plain `#rrggbb` when fully opaque.
+ */
 export function ColorRow({ property, label }: { property: string; label: string }) {
   const t = useT();
   const { values, updateStyle, revertStyle } = useStyleEdit();
@@ -182,30 +187,56 @@ export function ColorRow({ property, label }: { property: string; label: string 
   const isDirty = useIsDirty(property);
   const raw = values[property] ?? "";
   const storeHex = rgbToHex(raw) ?? "#000000";
-  // Live value while picking. Preview frames (`committed:false`) don't touch
-  // the store, so `storeHex` lags behind the picker; binding the native input
-  // straight to it would snap the swatch back to the original color on every
-  // preview.changed re-render and commit the ORIGINAL value on blur. Track the
-  // picked value locally (ScrubInput does the same via a ref) and commit it.
+  const storeAlpha = extractAlpha(raw);
+  // Live values while picking / dragging. Preview frames (`committed:false`)
+  // don't touch the store, so `storeHex` / `storeAlpha` lag behind. Track
+  // locally and commit on release (same pattern as ScrubInput).
   const [draft, setDraft] = useState<string | null>(null);
+  const [draftAlpha, setDraftAlpha] = useState<number | null>(null);
   const hex = draft ?? storeHex;
+  const alpha = draftAlpha ?? storeAlpha;
+
+  const commit = (h: string, a: number) => {
+    void updateStyle(property, formatColorWithAlpha(h, a), true);
+    setDraft(null);
+    setDraftAlpha(null);
+  };
 
   return (
     <Row label={label} changed={isChanged} dirty={isDirty} onReset={() => revertStyle(property)}>
-      <div className="flex h-7 min-w-[140px] items-center gap-1.5 rounded-control border border-edge bg-inset px-1.5">
+      <div className="flex h-7 min-w-[180px] items-center gap-1.5 rounded-control border border-edge bg-inset px-1.5">
         <input
           type="color"
           value={hex}
           onChange={(event) => {
             setDraft(event.target.value);
-            void updateStyle(property, event.target.value, false);
+            void updateStyle(property, formatColorWithAlpha(event.target.value, alpha), false);
           }}
           onBlur={(event) => {
-            void updateStyle(property, event.target.value, true);
-            setDraft(null);
+            commit(event.target.value, alpha);
           }}
           title={t("color.rowTitle", { label, raw })}
           className="size-4 shrink-0 cursor-pointer rounded-[3px] border border-edge-strong bg-transparent p-0 transition-shadow hover:ring-1 hover:ring-accent-text/40 focus:ring-2 focus:ring-accent-text/70"
+        />
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={alpha}
+          aria-label={t("color.alphaLabel")}
+          onChange={(event) => {
+            const a = Number(event.target.value);
+            setDraftAlpha(a);
+            void updateStyle(property, formatColorWithAlpha(hex, a), false);
+          }}
+          onPointerUp={(event) => {
+            commit(hex, Number((event.currentTarget as HTMLInputElement).value));
+          }}
+          onBlur={() => {
+            commit(hex, alpha);
+          }}
+          className="h-1 w-12 shrink-0 cursor-pointer accent-accent-text"
         />
         <span className="truncate font-mono text-[10px] text-text">{raw}</span>
       </div>

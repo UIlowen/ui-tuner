@@ -3,15 +3,17 @@
  * styles report colors as `rgb(...)` / `rgba(...)` (legacy comma syntax or
  * the space/slash syntax); the color input wants `#rrggbb`.
  *
- * V0.1 note: alpha is dropped when converting to a hex swatch (plan §9.6 —
- * gradient/complex values stay read-only-ish). Committing a swatch writes an
- * opaque `#rrggbb`.
+ * The native color picker is opaque, so alpha lives on a separate slider.
+ * `extractAlpha` reads the alpha from whatever the page reports;
+ * `formatColorWithAlpha` recombines the swatch hex + slider value into
+ * `rgba(…)` on commit (or plain `#rrggbb` when fully opaque).
  */
 
-const RGB_LEGACY = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)\s*(?:,[\s.]*(\d*\.?\d+))??\)$/;
+const RGB_LEGACY = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)\s*(?:,[\s]*(\d*\.?\d+))??\)$/;
 const RGB_SLASH = /^rgba?\(\s*(\d+)\s+(\d+)\s+(\d+)\s*\/\s*(\d*\.?\d+)?\s*\)$/;
 const HEX_3 = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i;
 const HEX_6 = /^#[0-9a-f]{6}$/i;
+const HEX_8 = /^#([0-9a-f]{6})([0-9a-f]{2})$/i;
 
 function toHex2(channel: number): string {
   return channel.toString(16).padStart(2, "0");
@@ -37,7 +39,49 @@ export function rgbToHex(raw: string): string | null {
   return null;
 }
 
-const HEX_8 = /^#([0-9a-f]{6})([0-9a-f]{2})$/i;
+/**
+ * Extract the alpha channel from a CSS color string (0–1).
+ * Returns 1 for opaque colors or unparseable values; 0 for `transparent`.
+ */
+export function extractAlpha(raw: string): number {
+  const value = raw.trim().toLowerCase();
+  if (value === "") return 1;
+  if (value === "transparent") return 0;
+
+  const hex8 = HEX_8.exec(value);
+  if (hex8) {
+    const a = parseInt(hex8[2]!, 16);
+    return a >= 255 ? 1 : Math.round((a / 255) * 1000) / 1000;
+  }
+
+  const legacy = RGB_LEGACY.exec(value);
+  if (legacy && legacy[4] !== undefined && legacy[4] !== "") {
+    const n = Number(legacy[4]);
+    if (Number.isFinite(n)) return n > 1 ? 1 : n;
+  }
+
+  const slash = RGB_SLASH.exec(value);
+  if (slash && slash[4] !== undefined && slash[4] !== "") {
+    const n = Number(slash[4]);
+    if (Number.isFinite(n)) return n > 1 ? 1 : n;
+  }
+
+  return 1;
+}
+
+/**
+ * Combine a `#rrggbb` hex with an alpha (0–1) into a CSS color string.
+ * Fully opaque → `#rrggbb`; translucent → `rgba(r,g,b,a)`.
+ */
+export function formatColorWithAlpha(hex: string, alpha: number): string {
+  const a = Math.round(alpha * 1000) / 1000;
+  if (a >= 1) return hex;
+  if (a <= 0) return "transparent";
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
 
 /** Normalize an alpha channel to a canonical 0–1 string (drops trailing zeros). */
 function alphaKey(raw: string | undefined): string {

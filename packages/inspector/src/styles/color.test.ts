@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { colorKey, rgbToHex } from "./color";
+import { colorKey, extractAlpha, formatColorWithAlpha, rgbToHex } from "./color";
 
 describe("rgbToHex", () => {
   it.each([
@@ -56,5 +56,48 @@ describe("colorKey", () => {
 
   it("normalizes transparent", () => {
     expect(colorKey("transparent")).toBe("rgba(0,0,0,0)");
+  });
+});
+
+describe("extractAlpha", () => {
+  it.each([
+    ["rgb(47, 109, 246)", 1],
+    ["rgba(47, 109, 246, 1)", 1],
+    ["rgba(47, 109, 246, 0.5)", 0.5],
+    ["rgba(139, 92, 246, .25)", 0.25],
+    ["rgb(47 109 246 / 0.8)", 0.8],
+    ["rgb(47 109 246)", 1],
+    ["#2f6df6", 1],
+    ["#2f6df680", 0.502],
+    ["#2f6df6ff", 1],
+    ["#2f6df600", 0],
+    ["transparent", 0],
+    ["", 1],
+    ["white", 1],
+    ["var(--color)", 1],
+  ])("extracts alpha %s → %s", (raw, expected) => {
+    expect(extractAlpha(raw)).toBe(expected);
+  });
+});
+
+describe("formatColorWithAlpha", () => {
+  it("returns hex when alpha is 1", () => {
+    expect(formatColorWithAlpha("#2f6df6", 1)).toBe("#2f6df6");
+  });
+
+  it("returns rgba when alpha < 1", () => {
+    expect(formatColorWithAlpha("#2f6df6", 0.5)).toBe("rgba(47,109,246,0.5)");
+  });
+
+  it("returns transparent when alpha is 0", () => {
+    expect(formatColorWithAlpha("#2f6df6", 0)).toBe("transparent");
+  });
+
+  it("rounds alpha to 3 decimal places", () => {
+    expect(formatColorWithAlpha("#ff0000", 0.3333)).toBe("rgba(255,0,0,0.333)");
+  });
+
+  it("treats alpha > 1 as opaque", () => {
+    expect(formatColorWithAlpha("#ff0000", 1.5)).toBe("#ff0000");
   });
 });

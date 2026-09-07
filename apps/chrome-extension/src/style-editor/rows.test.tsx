@@ -54,6 +54,12 @@ function colorInput(container: HTMLElement): HTMLInputElement {
   return input as HTMLInputElement;
 }
 
+function alphaSlider(container: HTMLElement): HTMLInputElement {
+  const input = container.querySelector('input[type="range"]');
+  if (!input) throw new Error("alpha range input not found");
+  return input as HTMLInputElement;
+}
+
 function committedColorCalls(calls: UpdateCall[]): UpdateCall[] {
   return calls.filter((c) => c.committed && c.property === "color");
 }
@@ -100,6 +106,68 @@ describe("ColorRow", () => {
     fireEvent.focusOut(input);
     // Commits the original color; the content script's color-aware no-op drop
     // (cssValuesEqual) discards it so no spurious change is recorded.
+    expect(committedColorCalls(calls).at(-1)?.value).toBe("#2f6df6");
+  });
+
+  it("preserves alpha: adjusting the slider commits rgba(), not opaque hex", () => {
+    const { api, calls } = createApi({ color: "rgb(47, 109, 246)" });
+    const { container } = render(
+      <StyleEditContext.Provider value={api}>
+        <ColorRow property="color" label="Color" />
+      </StyleEditContext.Provider>,
+    );
+    const slider = alphaSlider(container);
+
+    expect(slider.value).toBe("1");
+
+    // Drag the alpha slider to 0.5.
+    fireEvent.input(slider, { target: { value: "0.5" } });
+    // Release: pointerUp commits.
+    fireEvent.pointerUp(slider);
+
+    expect(committedColorCalls(calls).at(-1)?.value).toBe("rgba(47,109,246,0.5)");
+  });
+
+  it("reads initial alpha from an rgba() value", () => {
+    const { api } = createApi({ color: "rgba(47, 109, 246, 0.5)" });
+    const { container } = render(
+      <StyleEditContext.Provider value={api}>
+        <ColorRow property="color" label="Color" />
+      </StyleEditContext.Provider>,
+    );
+    const slider = alphaSlider(container);
+    expect(slider.value).toBe("0.5");
+  });
+
+  it("picking a new color while alpha < 1 commits rgba with the new color", () => {
+    const { api, calls } = createApi({ color: "rgba(47, 109, 246, 0.5)" });
+    const { container } = render(
+      <StyleEditContext.Provider value={api}>
+        <ColorRow property="color" label="Color" />
+      </StyleEditContext.Provider>,
+    );
+    const swatch = colorInput(container);
+
+    // Pick a new color (red) while alpha is 0.5.
+    fireEvent.input(swatch, { target: { value: "#ff0000" } });
+    fireEvent.focusOut(swatch);
+
+    // The commit should keep the existing alpha.
+    expect(committedColorCalls(calls).at(-1)?.value).toBe("rgba(255,0,0,0.5)");
+  });
+
+  it("setting alpha back to 1 commits opaque hex", () => {
+    const { api, calls } = createApi({ color: "rgba(47, 109, 246, 0.5)" });
+    const { container } = render(
+      <StyleEditContext.Provider value={api}>
+        <ColorRow property="color" label="Color" />
+      </StyleEditContext.Provider>,
+    );
+    const slider = alphaSlider(container);
+
+    fireEvent.input(slider, { target: { value: "1" } });
+    fireEvent.pointerUp(slider);
+
     expect(committedColorCalls(calls).at(-1)?.value).toBe("#2f6df6");
   });
 });
