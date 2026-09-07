@@ -250,7 +250,7 @@ export function EditorCard(props: EditorCardProps) {
     <div onKeyDown={handleKeyDown} className="flex w-[320px] flex-col overflow-hidden rounded-card border border-edge bg-surface-solid shadow-2xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
       {/* Header: row 1 =  + instruction, row 2 = tag name + drag handle */}
       <div className="flex shrink-0 flex-col">
-        <div className="flex items-center gap-1.5 px-2 pt-1.5 pb-1">
+        <div className="flex items-center gap-1.5 px-2 pt-2.5 pb-1">
           <PropertiesToggle
             open
             label={t("card.collapse")}

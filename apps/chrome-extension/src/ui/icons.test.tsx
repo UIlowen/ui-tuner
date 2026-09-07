@@ -6,8 +6,8 @@ import * as icons from "./icons";
 import { MicIcon, type IconProps } from "./icons";
 
 /**
- * Every icon must be theme-aware. Remix Icon geometry is fill-based, so an icon
- * rendered without `fill="currentColor"` inherits solid black and disappears
+ * Every icon must be theme-aware. Lucide geometry is stroke-based, so an icon
+ * rendered without `stroke="currentColor"` inherits solid black and disappears
  * into the dark card/panel background — a bug no snapshot of the light theme
  * would ever catch.
  */
@@ -26,7 +26,8 @@ describe("icon set", () => {
     const svg = container.querySelector("svg");
     expect(svg).not.toBeNull();
     expect(svg?.getAttribute("viewBox")).toBe("0 0 24 24");
-    expect(svg?.getAttribute("fill")).toBe("currentColor");
+    expect(svg?.getAttribute("fill")).toBe("none");
+    expect(svg?.getAttribute("stroke")).toBe("currentColor");
     // Decorative by default: the surrounding button/row carries the label.
     expect(svg?.getAttribute("aria-hidden")).toBe("true");
 
