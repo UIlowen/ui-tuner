@@ -6,12 +6,12 @@
 
 ---
 
-## 1. 当前状态快照（2026-09-04）
+## 1. 当前状态快照（2026-09-07）
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）+ **编辑卡交互修正 + 影子样式修复**（2026-09-04：属性图标开关替设置图标 / 去收起箭头 / 行激活态真的画出来 / 修「reset 后保存仍出气泡」/ 修 shadow root 里 Tailwind 边框投影整族失效）+ **属性控件收敛 + 二次保存修复**（2026-09-04：单值属性一律折叠下拉 / 默认态零高亮、强调色只给正在调的控件 / 修「重置已保存属性后无法二次保存」）+ **行激活态移除 + 点击外部关闭**（2026-09-04：去掉行容器高亮、只留控件自身 focus ring / Codex 风格点击卡片外部关闭编辑卡 + picker 抑制）+ **Codex UI 对齐 + 锁定按钮 + 行高加大**（2026-09-04：属性精简到 17 项 / 指令移到头部 / 头部布局对齐 / 锁定按钮可点击切换 / 属性行高度加大）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
-| 分支     | **`feat/ui-ux-polish`（47 commits，尚未推送，无 upstream）**，基于 `main`。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
+| 分支     | **`main`（当前分支）**。`feat/ui-ux-polish`（80 commits）已通过 **PR #1 squash merge** 合入 main（2026-09-07）。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
 | 验证     | `pnpm build / test / typecheck / lint` 全绿（**385 例测试**：protocol 26 / inspector 119 / bridge 74 / extension 166）；真机 `.playwright-mcp/verify-codex-card-ui.mjs` **106/106 断言全过**                                              |
 | 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；颜色提交丢失 alpha（V0.1）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡的麦克风是禁用占位**（灰态 + 「语音输入即将上线」，未接语音识别）；**编辑卡指令输入框内按 Esc 会连带退出整个注释模式**（未修，backlog）；`docs/architecture.md` 仍描述注释模式之前的三 Tab 面板（未同步，读它时以本文档 §4/§6 为准） |
 
@@ -366,14 +366,17 @@ pnpm bridge       # Local Bridge（--cwd <项目路径> 指定目标项目；npx
 
 - 验证：`pnpm build/test/typecheck/lint` 全绿，**386 例**（protocol 26 / inspector 119 / bridge 74 / extension **167**）。
 
-## 7. 项目状态：核心闭环完成，`feat/ui-ux-polish` 待推送 + 待合并决策
+## 7. 项目状态：核心闭环完成，已合并 main
 
 核心闭环 **Select → Tune → Prompt → Apply to Code** 已端到端打通并多轮真机验收（M8、注释模式、页面编辑卡）。无后续里程碑，剩余为 backlog 增强项。
 
-**下一步待用户决策（截至 2026-09-04）**：
-1. `feat/ui-ux-polish`（80 commits）**从未推送**，无 upstream。推送需代理：`HTTPS_PROXY=http://127.0.0.1:7892 git push -u origin feat/ui-ux-polish`（`docs/superpowers/plans/2026-09-02-annotation-mode.md` Task 7 Step 2 就是这一步）。
-2. 合并到 `main` 的决策（PR 还是直接 merge）尚未做。
-3. `docs/architecture.md` 未同步注释模式 + 页面编辑卡（仍写三 Tab 面板与 `sidepanel.stylePreview`）；下次动架构文档时一并补。
+**已完成（2026-09-07）**：
+1. ~~`feat/ui-ux-polish` 推送~~ → 已推送并建立 upstream 跟踪
+2. ~~合并到 `main`~~ → **PR #1 squash merge** 完成，80 commits 压成 1 个合入 main
+3. 本地 main 已同步（`git pull`）
+
+**待办**：
+1. `docs/architecture.md` 未同步注释模式 + 页面编辑卡（仍写三 Tab 面板与 `sidepanel.stylePreview`）；下次动架构文档时一并补。
 
 **注意**：顺延项都在 `docs/backlog.md`（Next App Router 适配、数据驱动文本索引、索引缓存、HMR 跨刷新持久化 §37、颜色 alpha、CLI npm 发布、codex MCP 免 bypass flag、ui_capture 元素级裁剪、**编辑卡内 Esc 只关卡片**、**编辑卡语音输入**（麦克风目前是禁用占位））。
 
