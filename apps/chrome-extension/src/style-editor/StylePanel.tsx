@@ -7,7 +7,7 @@ import {
   SelectRow,
 } from "./rows";
 import { useStyleEdit } from "./StyleEditContext";
-import { ChevronDownIcon, ChevronRightIcon, LinkIcon } from "../ui/icons";
+import { ChevronDownIcon, ChevronRightIcon, LockIcon, UnlockIcon } from "../ui/icons";
 
 /** Subtle horizontal divider between property groups. */
 function Divider() {
@@ -119,13 +119,15 @@ function SizeGroup() {
   const isLinked = linked.has("width-height");
   return (
     <div className="relative w-full flex flex-col gap-1">
-      {/* Bracket + link icon on the left, between label and input */}
+      {/* Bracket + lock icon on the left, between label and input */}
       <div className="absolute left-[68px] top-0 bottom-0 flex w-4 items-center justify-center">
-        {/* Bracket lines */}
-        <div className="absolute left-0 top-1 bottom-1 w-px bg-edge" />
-        <div className="absolute left-0 top-1 h-1.5 w-1.5 border-l border-t border-edge rounded-tl-sm" />
-        <div className="absolute left-0 bottom-1 h-1.5 w-1.5 border-l border-b border-edge rounded-bl-sm" />
-        {/* Link icon button */}
+        {/* Vertical line connecting top and bottom */}
+        <div className="absolute left-0 top-2 bottom-2 w-px bg-edge" />
+        {/* Top corner: horizontal line going right, then vertical going down (points toward text) */}
+        <div className="absolute left-0 top-2 h-1.5 w-2 border-t border-r border-edge rounded-tr-sm" />
+        {/* Bottom corner: horizontal line going right, then vertical going up (points toward text) */}
+        <div className="absolute left-0 bottom-2 h-1.5 w-2 border-b border-r border-edge rounded-br-sm" />
+        {/* Lock icon button overlaying on the vertical line */}
         <button
           type="button"
           onClick={() => toggleLinked("width-height")}
@@ -137,7 +139,7 @@ function SizeGroup() {
               : "bg-surface-solid text-faint hover:bg-control hover:text-text"
           }`}
         >
-          <LinkIcon className="size-3" />
+          {isLinked ? <LockIcon className="size-3" /> : <UnlockIcon className="size-3" />}
         </button>
       </div>
       <ScrubField property="width" label={t("style.width")} />
@@ -200,7 +202,7 @@ function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: stri
         )}
       </button>
 
-      {/* Expanded: rows with link icons between paired axes */}
+      {/* Expanded: rows with lock icons between paired axes */}
       {expanded && (
         <>
           <ScrubField property={`${kind}-top`} label={t("style.top")} />
@@ -213,7 +215,7 @@ function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: stri
               tbLinked ? "text-accent-text" : "text-faint hover:text-text"
             }`}
           >
-            <LinkIcon className="size-3" />
+            {tbLinked ? <LockIcon className="size-3" /> : <UnlockIcon className="size-3" />}
           </button>
           <ScrubField property={`${kind}-bottom`} label={t("style.bottom")} />
           <ScrubField property={`${kind}-left`} label={t("style.left")} />
@@ -226,7 +228,7 @@ function SpacingGroup({ kind, title }: { kind: "padding" | "margin"; title: stri
               lrLinked ? "text-accent-text" : "text-faint hover:text-text"
             }`}
           >
-            <LinkIcon className="size-3" />
+            {lrLinked ? <LockIcon className="size-3" /> : <UnlockIcon className="size-3" />}
           </button>
           <ScrubField property={`${kind}-right`} label={t("style.right")} />
         </>

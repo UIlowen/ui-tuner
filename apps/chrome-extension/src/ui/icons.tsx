@@ -134,3 +134,13 @@ export const SlidersIcon = /* equalizer-line */ makeIcon(
 export const LinkIcon = /* links-line */ makeIcon(
   "M12.0002 13.0001H14.0002C16.2094 13.0001 18.0002 11.2093 18.0002 9.00005C18.0002 6.79091 16.2094 5.00005 14.0002 5.00005H10.0002C7.79107 5.00005 6.00021 6.79091 6.00021 9.00005M6.00021 9.00005V10.0001M18.0002 9.00005V10.0001M12.0002 11.0001V9.00005M12.0002 11.0001H10.0002C7.79107 11.0001 6.00021 12.7909 6.00021 15.0001C6.00021 17.2092 7.79107 19.0001 10.0002 19.0001H14.0002C16.2094 19.0001 18.0002 17.2092 18.0002 15.0001M18.0002 15.0001V14.0001M6.00021 15.0001V14.0001",
 );
+
+/** Lucide lock-line (MIT): cleaner, more modern than Remix's links-line for lock/unlock toggle. */
+export const LockIcon = /* lucide lock */ makeIcon(
+  "M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2Z M7 11V7a5 5 0 0 1 10 0v4",
+);
+
+/** Lucide unlock-line (MIT): for the unlocked state. */
+export const UnlockIcon = /* lucide unlock */ makeIcon(
+  "M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2Z M7 11V7a5 5 0 0 1 9.9-1",
+);

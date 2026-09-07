@@ -271,7 +271,7 @@ export function EditorCard(props: EditorCardProps) {
         </div>
         <div
           data-drag-handle
-          className="flex items-center gap-1.5 px-2 py-1.5 bg-control cursor-grab select-none"
+          className="flex items-center gap-1.5 px-2 pt-2 pb-2 bg-control cursor-grab select-none"
           aria-label={t("card.dragHandle")}
           title={t("card.dragHandle")}
         >
