@@ -248,9 +248,9 @@ export function EditorCard(props: EditorCardProps) {
 
   return (
     <div onKeyDown={handleKeyDown} className="flex w-[320px] flex-col overflow-hidden rounded-card border border-edge bg-surface-solid shadow-2xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
-      {/* Header: row 1 = ⚙ + instruction, row 2 = tag name + drag handle */}
-      <div className="flex shrink-0 flex-col border-b border-edge">
-        <div className="flex items-center gap-1.5 px-2 pt-1.5 pb-0.5">
+      {/* Header: row 1 =  + instruction, row 2 = tag name + drag handle */}
+      <div className="flex shrink-0 flex-col">
+        <div className="flex items-center gap-1.5 px-2 pt-1.5 pb-1">
           <PropertiesToggle
             open
             label={t("card.collapse")}
@@ -269,21 +269,19 @@ export function EditorCard(props: EditorCardProps) {
             className="h-7 min-w-0 flex-1 rounded-control bg-transparent px-1 text-[12px] font-medium text-text-strong outline-none placeholder:text-ghost"
           />
         </div>
-        <div className="flex items-center gap-1.5 px-2 pb-1.5">
+        <div
+          data-drag-handle
+          className="flex items-center gap-1.5 px-2 py-1.5 bg-control cursor-grab select-none"
+          aria-label={t("card.dragHandle")}
+          title={t("card.dragHandle")}
+        >
           {tagName && (
-            <span className="text-[10px] font-medium uppercase tracking-wider text-faint">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-text">
               {tagName}
             </span>
           )}
           <span className="ml-auto" />
-          <span
-            data-drag-handle
-            aria-label={t("card.dragHandle")}
-            title={t("card.dragHandle")}
-            className="grid h-7 w-7 shrink-0 cursor-grab place-items-center rounded-pill bg-inset text-dim select-none transition-colors hover:bg-control hover:text-text"
-          >
-            <DragIcon className="size-3.5" />
-          </span>
+          <DragIcon className="size-3.5 text-dim" />
         </div>
       </div>
 

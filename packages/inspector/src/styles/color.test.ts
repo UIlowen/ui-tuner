@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { colorKey, extractAlpha, formatColorWithAlpha, rgbToHex } from "./color";
+import { colorKey, extractAlpha, formatColorWithAlpha, hexToRgb, rgbToHex } from "./color";
 
 describe("rgbToHex", () => {
   it.each([
@@ -24,6 +24,18 @@ describe("rgbToHex", () => {
       expect(rgbToHex(raw)).toBeNull();
     },
   );
+});
+
+describe("hexToRgb", () => {
+  it("parses #rrggbb into channels", () => {
+    expect(hexToRgb("#ff0000")).toEqual({ r: 255, g: 0, b: 0 });
+    expect(hexToRgb("#000000")).toEqual({ r: 0, g: 0, b: 0 });
+    expect(hexToRgb("#2f6df6")).toEqual({ r: 47, g: 109, b: 246 });
+  });
+
+  it.each(["#fff", "rgb(0,0,0)", "", "transparent", "#rrggbb"])("returns null for %s", (raw) => {
+    expect(hexToRgb(raw)).toBeNull();
+  });
 });
 
 describe("colorKey", () => {

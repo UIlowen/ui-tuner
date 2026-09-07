@@ -118,21 +118,31 @@ function SizeGroup() {
   const { linked, toggleLinked } = useStyleEdit();
   const isLinked = linked.has("width-height");
   return (
-    <>
+    <div className="relative w-full flex flex-col gap-1">
+      {/* Bracket + link icon on the left, between label and input */}
+      <div className="absolute left-[68px] top-0 bottom-0 flex w-4 items-center justify-center">
+        {/* Bracket lines */}
+        <div className="absolute left-0 top-1 bottom-1 w-px bg-edge" />
+        <div className="absolute left-0 top-1 h-1.5 w-1.5 border-l border-t border-edge rounded-tl-sm" />
+        <div className="absolute left-0 bottom-1 h-1.5 w-1.5 border-l border-b border-edge rounded-bl-sm" />
+        {/* Link icon button */}
+        <button
+          type="button"
+          onClick={() => toggleLinked("width-height")}
+          aria-label={isLinked ? t("style.unlock") : t("style.lock")}
+          title={isLinked ? t("style.unlock") : t("style.lock")}
+          className={`relative z-10 grid size-5 place-items-center rounded-full transition-colors ${
+            isLinked
+              ? "bg-accent-text/20 text-accent-text hover:bg-accent-text/30"
+              : "bg-surface-solid text-faint hover:bg-control hover:text-text"
+          }`}
+        >
+          <LinkIcon className="size-3" />
+        </button>
+      </div>
       <ScrubField property="width" label={t("style.width")} />
-      <button
-        type="button"
-        onClick={() => toggleLinked("width-height")}
-        aria-label={isLinked ? t("style.unlock") : t("style.lock")}
-        title={isLinked ? t("style.unlock") : t("style.lock")}
-        className={`flex items-center justify-center py-0.5 transition-colors ${
-          isLinked ? "text-accent-text" : "text-faint hover:text-text"
-        }`}
-      >
-        <LinkIcon className="size-3" />
-      </button>
       <ScrubField property="height" label={t("style.height")} />
-    </>
+    </div>
   );
 }
 

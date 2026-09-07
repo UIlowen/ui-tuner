@@ -54,10 +54,10 @@ function colorInput(container: HTMLElement): HTMLInputElement {
   return input as HTMLInputElement;
 }
 
-function alphaSlider(container: HTMLElement): HTMLInputElement {
-  const input = container.querySelector('input[type="range"]');
-  if (!input) throw new Error("alpha range input not found");
-  return input as HTMLInputElement;
+function channelInput(container: HTMLElement, label: string): HTMLInputElement {
+  const input = container.querySelector(`input[aria-label="${label}"]`) as HTMLInputElement | null;
+  if (!input) throw new Error(`channel input "${label}" not found`);
+  return input;
 }
 
 function committedColorCalls(calls: UpdateCall[]): UpdateCall[] {
@@ -109,21 +109,19 @@ describe("ColorRow", () => {
     expect(committedColorCalls(calls).at(-1)?.value).toBe("#2f6df6");
   });
 
-  it("preserves alpha: adjusting the slider commits rgba(), not opaque hex", () => {
+  it("preserves alpha: changing A input commits rgba(), not opaque hex", () => {
     const { api, calls } = createApi({ color: "rgb(47, 109, 246)" });
     const { container } = render(
       <StyleEditContext.Provider value={api}>
         <ColorRow property="color" label="Color" />
       </StyleEditContext.Provider>,
     );
-    const slider = alphaSlider(container);
+    const aInput = channelInput(container, "A");
 
-    expect(slider.value).toBe("1");
+    expect(aInput.value).toBe("1");
 
-    // Drag the alpha slider to 0.5.
-    fireEvent.input(slider, { target: { value: "0.5" } });
-    // Release: pointerUp commits.
-    fireEvent.pointerUp(slider);
+    fireEvent.input(aInput, { target: { value: "0.5" } });
+    fireEvent.focusOut(aInput);
 
     expect(committedColorCalls(calls).at(-1)?.value).toBe("rgba(47,109,246,0.5)");
   });
@@ -135,8 +133,8 @@ describe("ColorRow", () => {
         <ColorRow property="color" label="Color" />
       </StyleEditContext.Provider>,
     );
-    const slider = alphaSlider(container);
-    expect(slider.value).toBe("0.5");
+    const aInput = channelInput(container, "A");
+    expect(aInput.value).toBe("0.5");
   });
 
   it("picking a new color while alpha < 1 commits rgba with the new color", () => {
@@ -156,19 +154,51 @@ describe("ColorRow", () => {
     expect(committedColorCalls(calls).at(-1)?.value).toBe("rgba(255,0,0,0.5)");
   });
 
-  it("setting alpha back to 1 commits opaque hex", () => {
+  it("setting A back to 1 commits opaque hex", () => {
     const { api, calls } = createApi({ color: "rgba(47, 109, 246, 0.5)" });
     const { container } = render(
       <StyleEditContext.Provider value={api}>
         <ColorRow property="color" label="Color" />
       </StyleEditContext.Provider>,
     );
-    const slider = alphaSlider(container);
+    const aInput = channelInput(container, "A");
 
-    fireEvent.input(slider, { target: { value: "1" } });
-    fireEvent.pointerUp(slider);
+    fireEvent.input(aInput, { target: { value: "1" } });
+    fireEvent.focusOut(aInput);
 
     expect(committedColorCalls(calls).at(-1)?.value).toBe("#2f6df6");
+  });
+
+  it("changing R input commits the new color", () => {
+    const { api, calls } = createApi({ color: "rgb(47, 109, 246)" });
+    const { container } = render(
+      <StyleEditContext.Provider value={api}>
+        <ColorRow property="color" label="Color" />
+      </StyleEditContext.Provider>,
+    );
+    const rInput = channelInput(container, "R");
+
+    expect(rInput.value).toBe("47");
+
+    fireEvent.input(rInput, { target: { value: "255" } });
+    fireEvent.focusOut(rInput);
+
+    expect(committedColorCalls(calls).at(-1)?.value).toBe("#ff6df6");
+  });
+
+  it("clamps out-of-range R input to 255", () => {
+    const { api, calls } = createApi({ color: "rgb(47, 109, 246)" });
+    const { container } = render(
+      <StyleEditContext.Provider value={api}>
+        <ColorRow property="color" label="Color" />
+      </StyleEditContext.Provider>,
+    );
+    const rInput = channelInput(container, "R");
+
+    fireEvent.input(rInput, { target: { value: "300" } });
+    fireEvent.focusOut(rInput);
+
+    expect(committedColorCalls(calls).at(-1)?.value).toBe("#ff6df6");
   });
 });
 
@@ -199,8 +229,8 @@ describe("changed-property highlight", () => {
 });
 
 describe("per-property reset", () => {
-  it("shows a reset button on a changed row and calls revertStyle when clicked", () => {
-    const { api, reverts } = createApi({ height: "38px" }, ["height"]);
+  it("shows a reset button on a dirty row and calls revertStyle when clicked", () => {
+    const { api, reverts } = createApi({ height: "38px" }, [], ["height"]);
     const { container } = render(
       <StyleEditContext.Provider value={api}>
         <ScrubField property="height" label="Height" />
@@ -222,17 +252,14 @@ describe("per-property reset", () => {
     expect(container.querySelector("[aria-label='还原 Height']")).toBeNull();
   });
 
-  it("shows a reset button for a dirty row (current-session edit) and calls revertStyle", () => {
-    const { api, reverts } = createApi({ height: "38px" }, [], ["height"]);
+  it("hides the reset button for a changed-only row (not dirty in current session)", () => {
+    const { api } = createApi({ height: "38px" }, ["height"], []);
     const { container } = render(
       <StyleEditContext.Provider value={api}>
         <ScrubField property="height" label="Height" />
       </StyleEditContext.Provider>,
     );
-    const reset = container.querySelector("[aria-label='还原 Height']");
-    expect(reset).not.toBeNull();
-    fireEvent.click(reset!);
-    expect(reverts).toEqual(["height"]);
+    expect(container.querySelector("[aria-label='还原 Height']")).toBeNull();
   });
 });
 

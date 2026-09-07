@@ -24,7 +24,7 @@ export {
   clamp,
   type ParsedCssValue,
 } from "./styles/parse";
-export { rgbToHex, extractAlpha, formatColorWithAlpha } from "./styles/color";
+export { rgbToHex, hexToRgb, extractAlpha, formatColorWithAlpha } from "./styles/color";
 
 export { PreviewEngine } from "./preview/PreviewEngine";
 export { ChangeTracker } from "./changes/ChangeTracker";

@@ -280,7 +280,7 @@ describe("EditorCard", () => {
   });
 
   describe("per-property reset", () => {
-    it("reverts a changed row when its reset button is clicked", () => {
+    it("reverts a dirty row when its reset button is clicked", () => {
       const onRevert = vi.fn(() => "20px");
       const onStage = vi.fn();
       const { container } = render(
@@ -295,6 +295,10 @@ describe("EditorCard", () => {
         />,
       );
       expect(container.querySelector("[data-changed=\"true\"]")).not.toBeNull();
+      // First make the row dirty by editing it
+      const scrubSlider = screen.getByRole("slider");
+      fireEvent.keyDown(scrubSlider, { key: "ArrowUp" });
+      // Now the reset button should appear
       fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
       expect(onRevert).toHaveBeenCalledWith("height");
       expect(container.querySelector("[data-changed]")).toBeNull();
@@ -312,12 +316,15 @@ describe("EditorCard", () => {
           })}
         />,
       );
-      // The numeric display should switch to the original value returned by onRevert.
+      // First make the row dirty by editing it
+      const scrubSlider = screen.getByRole("slider");
+      fireEvent.keyDown(scrubSlider, { key: "ArrowUp" });
+      // The reset button should now appear
       fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
       expect(screen.getByText("20")).toBeTruthy();
     });
 
-    it("keeps 保存 usable after resetting a change that was already saved", () => {
+    it("keeps 保存 usable after resetting a dirty row", () => {
       const props = baseProps({
         number: 1,
         initialValues: { height: "38px" },
@@ -327,7 +334,12 @@ describe("EditorCard", () => {
       render(<EditorCard {...props} />);
       expect(saveButton().disabled).toBe(true);
 
-      // Undoing a saved change is an edit like any other — it only lands when
+      // First make the row dirty by editing it
+      const scrubSlider = screen.getByRole("slider");
+      fireEvent.keyDown(scrubSlider, { key: "ArrowUp" });
+      expect(saveButton().disabled).toBe(false);
+
+      // Undoing the edit is an edit like any other — it only lands when
       // the user saves, so a dead 保存 here would strand the reset.
       fireEvent.click(screen.getByRole("button", { name: "还原 高" }));
       expect(saveButton().disabled).toBe(false);
@@ -346,9 +358,8 @@ describe("EditorCard", () => {
         />,
       );
       fireEvent.click(screen.getByRole("button", { name: "展开" }));
-      // The height ScrubInput is a div[role="slider"]; the alpha range inputs
-      // in ColorRow are also sliders, so filter by tag name.
-      const scrubSlider = screen.getAllByRole("slider").find((el) => el.tagName === "DIV");
+      // The height ScrubInput is a div[role="slider"].
+      const scrubSlider = screen.getByRole("slider");
       fireEvent.keyDown(scrubSlider!, { key: "ArrowUp" });
       expect(saveButton().disabled).toBe(false);
 

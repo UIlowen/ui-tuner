@@ -474,11 +474,15 @@ describe("content page-side edit session", () => {
     expect(reportedProperties()).toEqual(["font-family"]);
     expect(bubbles()).toHaveLength(1);
 
-    // Second visit: the bubble reopens the card, the row arrives marked changed,
-    // and its reset button takes the saved value back.
+    // Second visit: the bubble reopens the card, the row arrives marked changed.
+    // To make the reset button appear, first edit the property (make it dirty).
     act(() => {
       fireEvent.click(bubbles()[0]!);
     });
+    act(() => {
+      fireEvent.change(rowControl(card(), "字体", "select"), { target: { value: "Arial" } });
+    });
+    // Now the reset button should appear
     act(() => shadowButton(card(), "还原 字体").click());
 
     return { card, bubbles, reportedProperties };

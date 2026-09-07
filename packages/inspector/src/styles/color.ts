@@ -39,6 +39,16 @@ export function rgbToHex(raw: string): string | null {
   return null;
 }
 
+/** Parse a `#rrggbb` hex into `{r, g, b}` channels (0–255), or null when invalid. */
+export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  if (!HEX_6.test(hex)) return null;
+  return {
+    r: parseInt(hex.slice(1, 3), 16),
+    g: parseInt(hex.slice(3, 5), 16),
+    b: parseInt(hex.slice(5, 7), 16),
+  };
+}
+
 /**
  * Extract the alpha channel from a CSS color string (0–1).
  * Returns 1 for opaque colors or unparseable values; 0 for `transparent`.

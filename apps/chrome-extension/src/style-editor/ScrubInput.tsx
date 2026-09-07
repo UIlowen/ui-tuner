@@ -173,7 +173,7 @@ export function ScrubInput({
           else if (event.key === "Escape") setEditing(false);
         }}
         onBlur={finishEditing}
-        className="h-7 w-full rounded-control bg-base px-1.5 font-mono text-[11px] text-text-strong ring-2 ring-accent-text/80 outline-none"
+        className="h-8 w-full rounded-control bg-transparent px-1.5 font-mono text-[12px] text-text-strong ring-2 ring-accent-text/80 outline-none"
       />
     );
   }
@@ -192,13 +192,13 @@ export function ScrubInput({
       onKeyDown={handleKeyDown}
       onDoubleClick={startEditing}
       title={t("scrub.hint")}
-      className={`group flex h-7 min-w-0 cursor-ew-resize items-center gap-1 rounded-control border border-edge px-1.5 font-mono text-[11px] text-text-strong outline-none select-none transition-colors ${
+      className={`group flex h-8 min-w-0 cursor-ew-resize items-center gap-1 rounded-control border border-edge px-1.5 font-mono text-[12px] text-text-strong outline-none select-none transition-colors ${
         dragging
           ? "border-accent-text/50 bg-accent-text/15 ring-2 ring-accent-text/80"
           : // `focus:` not `focus-visible:` — a scrub field is a div, and Chrome
             // never matches :focus-visible for a mouse click on one, so the
             // control the designer just grabbed would stay unhighlighted.
-            "bg-inset hover:bg-control focus:bg-control focus:ring-2 focus:ring-accent-text/70"
+            "bg-transparent hover:bg-control focus:bg-control focus:ring-2 focus:ring-accent-text/70"
       }`}
       style={{ touchAction: "none" }}
     >
@@ -213,7 +213,7 @@ export function ScrubInput({
       <span ref={displayRef} className="truncate tabular-nums">
         {formatNumber(value)}
       </span>
-      {unit !== "" && <span className="text-[10px] text-faint">{unit}</span>}
+      {unit !== "" && <span className="text-[11px] text-faint">{unit}</span>}
     </div>
   );
 }

@@ -160,7 +160,10 @@ export const zh = {
   "style.unlock": "解除锁定",
   "scrub.hint": "拖动调整 · Shift ×10 · Option ×0.1 · 双击输入",
   "color.rowTitle": "{label}（{raw}）",
-  "color.alphaLabel": "透明度",
+  "color.rLabel": "R",
+  "color.gLabel": "G",
+  "color.bLabel": "B",
+  "color.aLabel": "A",
 
   // --- Page editor card ---
   "card.save": "保存",
@@ -337,7 +340,10 @@ export const en: Record<MessageKey, string> = {
   "style.unlock": "Unlock aspect ratio",
   "scrub.hint": "Drag to adjust · Shift ×10 · Option ×0.1 · double-click to type",
   "color.rowTitle": "{label} ({raw})",
-  "color.alphaLabel": "Alpha",
+  "color.rLabel": "R",
+  "color.gLabel": "G",
+  "color.bLabel": "B",
+  "color.aLabel": "A",
 
   // --- Page editor card ---
   "card.save": "Save",
