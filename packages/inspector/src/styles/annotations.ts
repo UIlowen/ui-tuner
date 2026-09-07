@@ -1,0 +1,30 @@
+/**
+ * Annotation layer styles. Applied inside a Shadow Root so page CSS cannot
+ * reach the annotations — the only style surface is this file. Fixed dark
+ * palette (same precedent as overlay.ts), independent of the panel theme.
+ */
+
+/** Host node: fixed, zero-size; children opt back into pointer events. */
+export const ANNOTATIONS_HOST_STYLE =
+  "position: fixed; top: 0; left: 0; width: 0; height: 0; " +
+  "pointer-events: none; z-index: 2147483646;";
+
+export const ANNOTATIONS_SHADOW_CSS = `
+  .bubble {
+    position: fixed;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: #3b82f6;
+    color: #fff;
+    font: 600 11px/20px ui-sans-serif, system-ui, sans-serif;
+    text-align: center;
+    cursor: pointer;
+    pointer-events: auto;
+    display: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  }
+`;

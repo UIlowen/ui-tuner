@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { ApplyScope } from "@ui-tuner/protocol";
 import { useSidepanelStore } from "../../state/sidepanel-store";
+import { useT } from "../../i18n/use-t";
+import { CheckIcon, CloseIcon, CodeIcon, RefreshIcon } from "../../ui/icons";
 
 /**
  * Apply to Code flow (M8, plan §29/§30/§31/§34). The Changes tab footer Apply
@@ -8,7 +10,9 @@ import { useSidepanelStore } from "../../state/sidepanel-store";
  * bridge → Codex edits source → §31 result card (success / honest failure).
  */
 export function ApplySection() {
+  const t = useT();
   const changes = useSidepanelStore((s) => s.changes);
+  const instructions = useSidepanelStore((s) => s.instructions);
   const selection = useSidepanelStore((s) => s.selection);
   const source = useSidepanelStore((s) => s.source);
   const elementNames = useSidepanelStore((s) => s.elementNames);
@@ -29,6 +33,10 @@ export function ApplySection() {
   const elementChanges = selectedElementId
     ? changes.filter((c) => c.elementId === selectedElementId)
     : [];
+  // An element whose only recorded work is a natural-language instruction is
+  // still applicable: Codex gets an empty change list plus those words.
+  const elementInstruction = selectedElementId ? instructions[selectedElementId]?.trim() : undefined;
+  const hasWork = elementChanges.length > 0 || Boolean(elementInstruction);
   const agent = agents.find((a) => a.id === "codex") ?? agents[0] ?? null;
   const bridgeConnected = bridgeStatus === "connected";
 
@@ -43,22 +51,27 @@ export function ApplySection() {
   // --- Result card (§31) ---------------------------------------------------
   if (applyState === "applied" && applyResult) {
     return (
-      <section className="rounded-md border border-emerald-900/60 bg-emerald-950/40 px-3 py-2.5">
-        <p className="text-[12px] font-semibold text-emerald-300">✓ Applied</p>
-        <p className="mt-1 text-[11px] text-emerald-200/90">
-          {applyConfirmedCount ?? applyResult.files?.length ?? 0} changes
+      <section className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+        <p className="flex items-center gap-1.5 text-[12px] font-semibold text-ok-text">
+          <CheckIcon className="size-4" />
+          {t("apply.applied")}
+        </p>
+        <p className="mt-1 text-[11px] text-ok-text/90">
+          {t("apply.appliedCount", {
+            count: applyConfirmedCount ?? applyResult.files?.length ?? 0,
+          })}
         </p>
         {applyResult.files && applyResult.files.length > 0 && (
-          <p className="mt-0.5 truncate font-mono text-[10px] text-emerald-400/80" title={applyResult.files.join(", ")}>
+          <p className="mt-0.5 truncate font-mono text-[10px] text-ok-text/80" title={applyResult.files.join(", ")}>
             {applyResult.files.join(", ")}
           </p>
         )}
         {applyResult.summary && (
-          <p className="mt-1 text-[10px] leading-relaxed text-emerald-200/70">{applyResult.summary}</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-ok-text/70">{applyResult.summary}</p>
         )}
         {applyNeedsReload && (
-          <p className="mt-2 rounded bg-amber-500/10 px-2 py-1 text-[10px] leading-relaxed text-amber-300/90">
-            改动已写入源码。静态页面无热更新，需刷新后才会生效。
+          <p className="mt-2 rounded-control bg-amber-500/10 px-2 py-1 text-[10px] leading-relaxed text-warn-text/90">
+            {t("apply.needsReload")}
           </p>
         )}
         <div className="mt-2 flex gap-2">
@@ -66,17 +79,17 @@ export function ApplySection() {
             <button
               type="button"
               onClick={reloadPage}
-              className="rounded border border-emerald-700 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-emerald-200 hover:bg-emerald-500/25"
+              className="rounded-control border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-ok-text hover:bg-emerald-500/25"
             >
-              刷新页面查看
+              {t("apply.reload")}
             </button>
           )}
           <button
             type="button"
             onClick={clearApplyState}
-            className="rounded border border-emerald-800 px-2.5 py-1 text-[11px] font-medium text-emerald-200 hover:bg-emerald-900/40"
+            className="rounded-control border border-emerald-500/40 px-2.5 py-1 text-[11px] font-medium text-ok-text hover:bg-emerald-500/20"
           >
-            Done
+            {t("apply.done")}
           </button>
         </div>
       </section>
@@ -85,26 +98,28 @@ export function ApplySection() {
 
   if (applyState === "failed" && applyResult) {
     return (
-      <section className="rounded-md border border-red-900/60 bg-red-950/40 px-3 py-2.5">
-        <p className="text-[12px] font-semibold text-red-300">Unable to apply changes</p>
-        <p className="mt-1 text-[11px] leading-relaxed text-red-200/90">
-          Reason: {applyResult.error?.message ?? "Unknown error."}
+      <section className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2.5">
+        <p className="text-[12px] font-semibold text-danger-text">{t("apply.failed")}</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-danger-text/90">
+          {t("apply.failedReason", { message: applyResult.error?.message ?? "Unknown error." })}
         </p>
-        <p className="mt-1 text-[10px] text-red-300/70">Preview changes are still active.</p>
+        <p className="mt-1 text-[10px] text-danger-text/70">{t("apply.failedHint")}</p>
         <div className="mt-2 flex gap-2">
           <button
             type="button"
             onClick={() => setDialogOpen(true)}
-            className="rounded border border-red-800 px-2.5 py-1 text-[11px] font-medium text-red-200 hover:bg-red-900/40"
+            className="flex items-center gap-1.5 rounded-control border border-red-500/40 px-2.5 py-1 text-[11px] font-medium text-danger-text hover:bg-red-500/20"
           >
-            Retry
+            <RefreshIcon className="size-3.5" />
+            {t("apply.retry")}
           </button>
           <button
             type="button"
             onClick={clearApplyState}
-            className="rounded px-2.5 py-1 text-[11px] text-zinc-400 hover:text-zinc-200"
+            className="flex items-center gap-1.5 rounded-control px-2.5 py-1 text-[11px] text-dim hover:text-text"
           >
-            Dismiss
+            <CloseIcon className="size-3.5" />
+            {t("apply.dismiss")}
           </button>
         </div>
       </section>
@@ -113,12 +128,14 @@ export function ApplySection() {
 
   if (applyState === "applying") {
     return (
-      <section className="rounded-md border border-sky-900/60 bg-sky-950/40 px-3 py-2.5">
-        <p className="flex items-center gap-2 text-[12px] font-medium text-sky-300">
+      <section className="rounded-md border border-sky-500/30 bg-sky-500/10 px-3 py-2.5">
+        <p className="flex items-center gap-2 text-[12px] font-medium text-info-text">
           <span className="size-1.5 animate-pulse rounded-full bg-sky-400" />
-          Applying to source…
+          {t("apply.applying")}
         </p>
-        <p className="mt-1 text-[10px] text-sky-200/70">{agent?.name ?? "Agent"} 正在修改源码</p>
+        <p className="mt-1 text-[10px] text-info-text/70">
+          {t("apply.applyingAgent", { agent: agent?.name ?? "Agent" })}
+        </p>
       </section>
     );
   }
@@ -126,48 +143,56 @@ export function ApplySection() {
   // --- Apply Dialog (§30) ---------------------------------------------------
   if (dialogOpen) {
     return (
-      <section className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2.5">
-        <p className="text-[12px] font-semibold text-zinc-100">Apply Changes</p>
-        <p className="mt-1 truncate font-mono text-[11px] text-violet-300">{componentLabel}</p>
-        <p className="mt-0.5 text-[10px] text-zinc-500">{elementChanges.length} visual changes</p>
+      <section className="rounded-md border border-edge-strong bg-surface-solid px-3 py-2.5">
+        <p className="text-[12px] font-semibold text-text-strong">{t("apply.dialogTitle")}</p>
+        <p className="mt-1 truncate font-mono text-[11px] text-accent-text">{componentLabel}</p>
+        <p className="mt-0.5 text-[10px] text-faint">
+          {elementChanges.length === 0
+            ? t("apply.instructionOnly")
+            : t("apply.changeCount", { count: elementChanges.length })}
+        </p>
 
         <div className="mt-2.5">
-          <p className="text-[10px] font-medium tracking-wider text-zinc-500 uppercase">Scope</p>
-          <label className="mt-1 flex items-center gap-2 text-[11px] text-zinc-300">
+          <p className="text-[10px] font-medium tracking-wider text-faint uppercase">
+            {t("apply.scope")}
+          </p>
+          <label className="mt-1 flex items-center gap-2 text-[11px] text-text">
             <input
               type="radio"
               name="apply-scope"
               checked={scope === "instance"}
               onChange={() => setScope("instance")}
-              className="accent-violet-500"
+              className="accent-accent-text"
             />
-            This instance
+            {t("apply.scopeInstance")}
           </label>
-          <label className="mt-1 flex items-center gap-2 text-[11px] text-zinc-300">
+          <label className="mt-1 flex items-center gap-2 text-[11px] text-text">
             <input
               type="radio"
               name="apply-scope"
               checked={scope === "component"}
               onChange={() => setScope("component")}
-              className="accent-violet-500"
+              className="accent-accent-text"
             />
-            Component
+            {t("apply.scopeComponent")}
           </label>
         </div>
 
         <div className="mt-2.5 flex items-center gap-2">
-          <span className="text-[10px] font-medium tracking-wider text-zinc-500 uppercase">Agent</span>
-          <span className="text-[11px] text-zinc-200">{agent?.name ?? "—"}</span>
+          <span className="text-[10px] font-medium tracking-wider text-faint uppercase">
+            {t("agent.title")}
+          </span>
+          <span className="text-[11px] text-text">{agent?.name ?? "—"}</span>
           {agent && (
             <span
-              className={`ml-auto size-1.5 rounded-full ${agent.available ? "bg-emerald-400" : "bg-zinc-600"}`}
+              className={`ml-auto size-1.5 rounded-full ${agent.available ? "bg-emerald-400" : "bg-ghost"}`}
             />
           )}
         </div>
 
         {sourceUnknown && (
-          <p className="mt-2 rounded bg-amber-500/10 px-2 py-1 text-[10px] leading-relaxed text-amber-300/90">
-            无法定位源码（Preview only）。Apply 需要 ● Source linked 的元素。
+          <p className="mt-2 rounded-control bg-amber-500/10 px-2 py-1 text-[10px] leading-relaxed text-warn-text/90">
+            {t("apply.sourceUnknown")}
           </p>
         )}
 
@@ -175,29 +200,30 @@ export function ApplySection() {
           <button
             type="button"
             onClick={() => setDialogOpen(false)}
-            className="flex-1 rounded-md border border-zinc-700 px-3 py-1.5 text-[12px] font-medium text-zinc-300 hover:bg-zinc-800"
+            className="flex-1 rounded-control border border-edge-strong px-3 py-1.5 text-[12px] font-medium text-text hover:bg-control"
           >
-            Cancel
+            {t("action.cancel")}
           </button>
           <button
             type="button"
-            disabled={!bridgeConnected || elementChanges.length === 0 || sourceUnknown}
+            disabled={!bridgeConnected || !hasWork || sourceUnknown}
             title={
               sourceUnknown
-                ? "无法定位源码（Preview only）——Apply 需要 ● Source linked 的元素"
+                ? t("apply.titleSourceUnknown")
                 : !bridgeConnected
-                  ? "Bridge 未连接"
-                  : elementChanges.length === 0
-                    ? "当前选中元素没有待应用的修改"
-                    : "把修改落到源码"
+                  ? t("apply.titleBridgeOffline")
+                  : !hasWork
+                    ? t("apply.titleNoChanges")
+                    : t("apply.titleApply")
             }
             onClick={() => {
               setDialogOpen(false);
               applyChanges(scope);
             }}
-            className="flex-1 rounded-md bg-zinc-100 px-3 py-1.5 text-[12px] font-semibold text-zinc-900 enabled:hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-control bg-inverse px-3 py-1.5 text-[12px] font-semibold text-inverse-text enabled:hover:bg-inverse-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Apply
+            <CodeIcon className="size-3.5" />
+            {t("apply.confirm")}
           </button>
         </div>
       </section>
@@ -205,24 +231,25 @@ export function ApplySection() {
   }
 
   // --- Idle: Apply button ---------------------------------------------------
-  if (elementChanges.length === 0 && applyState === "idle") return null;
+  if (!hasWork && applyState === "idle") return null;
   return (
     <button
       type="button"
       onClick={() => setDialogOpen(true)}
-      disabled={!bridgeConnected || elementChanges.length === 0 || sourceUnknown}
+      disabled={!bridgeConnected || !hasWork || sourceUnknown}
       title={
         !bridgeConnected
-          ? "Bridge 未连接"
-          : elementChanges.length === 0
-            ? "当前选中元素没有待应用的修改"
+          ? t("apply.titleBridgeOffline")
+          : !hasWork
+            ? t("apply.titleNoChanges")
             : sourceUnknown
-              ? "无法定位源码（Preview only）——Apply 需要 ● Source linked 的元素；可改用「复制改动」手动粘贴给 AI"
-              : "把修改落到源码"
+              ? t("apply.titleManualCopy")
+              : t("apply.titleApply")
       }
-      className="w-full rounded-md bg-violet-500/20 px-3 py-1.5 text-[12px] font-semibold text-violet-300 ring-1 ring-violet-500/50 transition-colors enabled:hover:bg-violet-500/30 disabled:cursor-not-allowed disabled:opacity-40"
+      className="flex w-full items-center justify-center gap-1.5 rounded-control bg-accent-text/15 px-3 py-1.5 text-[12px] font-semibold text-accent-text ring-1 ring-accent-text/50 transition-colors enabled:hover:bg-accent-text/25 disabled:cursor-not-allowed disabled:opacity-40"
     >
-      Apply to Code
+      <CodeIcon className="size-3.5" />
+      {t("apply.button")}
     </button>
   );
 }

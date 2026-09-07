@@ -5,6 +5,9 @@ import {
   type ContextLevel,
 } from "@ui-tuner/protocol";
 import { useSidepanelStore } from "../../state/sidepanel-store";
+import { useT } from "../../i18n/use-t";
+import type { MessageKey } from "../../i18n/messages";
+import { CloseIcon, CopyIcon } from "../../ui/icons";
 
 /**
  * Agent tab (plan §23–§27). Assembles the prompt context the coding agent
@@ -13,12 +16,12 @@ import { useSidepanelStore } from "../../state/sidepanel-store";
  * change source itself.
  */
 
-const INCLUDE_LABELS: { key: keyof AgentInclude; label: string }[] = [
-  { key: "dom", label: "DOM" },
-  { key: "styles", label: "Styles" },
-  { key: "source", label: "Source" },
-  { key: "screenshot", label: "Screenshot" },
-  { key: "parentTree", label: "Parent Tree" },
+const INCLUDE_LABELS: { key: keyof AgentInclude; labelKey: MessageKey }[] = [
+  { key: "dom", labelKey: "include.dom" },
+  { key: "styles", labelKey: "include.styles" },
+  { key: "source", labelKey: "include.source" },
+  { key: "screenshot", labelKey: "include.screenshot" },
+  { key: "parentTree", labelKey: "include.parentTree" },
 ];
 
 const LEVELS: ContextLevel[] = [1, 2, 3];
@@ -28,9 +31,11 @@ function formatTime(at: number): string {
 }
 
 export function AgentTab() {
+  const t = useT();
   const selection = useSidepanelStore((s) => s.selection);
   const source = useSidepanelStore((s) => s.source);
   const changes = useSidepanelStore((s) => s.changes);
+  const instructions = useSidepanelStore((s) => s.instructions);
   const bridgeStatus = useSidepanelStore((s) => s.bridgeStatus);
   const agents = useSidepanelStore((s) => s.agents);
   const agentInstruction = useSidepanelStore((s) => s.agentInstruction);
@@ -48,6 +53,7 @@ export function AgentTab() {
   // Codex is the priority agent (plan §44); fall back to the first detected.
   const agent = agents.find((a) => a.id === "codex") ?? agents[0] ?? null;
   const connected = bridgeStatus === "connected";
+  const agentName = agent?.name ?? "Agent";
 
   const prompt = useMemo(
     () =>
@@ -56,10 +62,11 @@ export function AgentTab() {
         source,
         changes,
         instruction: agentInstruction,
+        instructions,
         include: agentInclude,
         level: agentContextLevel,
       }),
-    [selection, source, changes, agentInstruction, agentInclude, agentContextLevel],
+    [selection, source, changes, agentInstruction, instructions, agentInclude, agentContextLevel],
   );
 
   const copyPrompt = async () => {
@@ -73,117 +80,122 @@ export function AgentTab() {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {lastApplied && (
-        <section className="rounded-md border border-emerald-900/60 bg-emerald-950/40 px-3 py-2">
+        <section className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[11px] leading-relaxed text-emerald-200">
-              <span className="font-semibold">{agent?.name ?? "Agent"} 已修改源码：</span>
-              {lastApplied.summary}（{lastApplied.files.length} 个文件）
+            <p className="text-[11px] leading-relaxed text-ok-text">
+              {t("agent.applied", {
+                agent: agentName,
+                summary: lastApplied.summary,
+                count: lastApplied.files.length,
+              })}
             </p>
             <button
               type="button"
               onClick={dismissApplied}
-              aria-label="关闭"
-              className="shrink-0 text-emerald-400/70 hover:text-emerald-300"
+              aria-label={t("action.close")}
+              title={t("action.close")}
+              className="grid size-5 shrink-0 place-items-center rounded-control text-ok-text/70 hover:text-ok-text"
             >
-              ✕
+              <CloseIcon className="size-3.5" />
             </button>
           </div>
-          <p className="mt-1 text-[10px] text-emerald-400/70">刷新页面后可重新核对 Preview</p>
+          <p className="mt-1 text-[10px] text-ok-text/70">{t("agent.appliedHint")}</p>
         </section>
       )}
 
       {/* Context card (§23) */}
-      <section className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2.5">
-        <p className="text-[10px] font-medium tracking-wider text-zinc-500 uppercase">Context</p>
+      <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
+        <p className="text-[10px] font-medium tracking-wider text-faint uppercase">
+          {t("agent.context")}
+        </p>
         {selection ? (
           <>
-            <p className="mt-1 truncate font-mono text-[12px] font-semibold text-violet-300">
+            <p className="mt-1 truncate font-mono text-[12px] font-semibold text-accent-text">
               {"<"}
               {selection.element.tagName}
               {">"}
-              <span className="ml-1.5 rounded bg-zinc-800 px-1 py-px text-[9px] font-normal text-zinc-400">
+              <span className="ml-1.5 rounded-control bg-control px-1 py-px text-[9px] font-normal text-dim">
                 {selection.element.id}
               </span>
             </p>
-            <p className="mt-0.5 truncate font-mono text-[10px] text-zinc-500">
+            <p className="mt-0.5 truncate font-mono text-[10px] text-faint">
               {source?.confidence === "exact" && source.file
                 ? `${source.componentName ?? selection.element.tagName} · ${source.file}${source.line !== undefined ? `:${source.line}` : ""}`
                 : source?.confidence === "inferred" && source.file
-                  ? `Possible: ${source.file}`
-                  : "Preview only — 未定位源码"}
+                  ? `${t("source.possible")}${source.file}`
+                  : t("source.previewOnlyLong")}
             </p>
           </>
         ) : (
-          <p className="mt-1 text-[11px] text-zinc-600">未选中元素</p>
+          <p className="mt-1 text-[11px] text-ghost">{t("selection.empty")}</p>
         )}
-        <div className="mt-2 flex h-16 items-center justify-center rounded border border-dashed border-zinc-800 text-[10px] text-zinc-600">
-          截图由 {agent?.name ?? "Agent"} 经 ui_capture 抓取
+        <div className="mt-2 flex h-16 items-center justify-center rounded-control border border-dashed border-edge text-[10px] text-ghost">
+          {t("agent.screenshotHint", { agent: agentName })}
         </div>
       </section>
 
       {/* Instruction */}
       <section>
-        <p className="mb-1.5 text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
-          Instruction
+        <p className="mb-1.5 text-[10px] font-medium tracking-wider text-faint uppercase">
+          {t("agent.instruction")}
         </p>
         <textarea
           value={agentInstruction}
           onChange={(event) => setAgentInstruction(event.target.value)}
-          placeholder="整体紧凑一点，标题不要变小…"
+          placeholder={t("agent.instructionPlaceholder")}
           rows={3}
-          className="w-full resize-none rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-[12px] leading-relaxed text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-600 focus:outline-none"
+          className="w-full resize-none rounded-control border border-edge bg-surface px-3 py-2 text-[12px] leading-relaxed text-text placeholder:text-ghost focus:border-accent-text/50 focus:ring-1 focus:ring-accent-text/40 focus:outline-none"
         />
       </section>
 
       {/* Agent row + include flags */}
-      <section className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2.5">
+      <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
-            Agent
+          <span className="text-[10px] font-medium tracking-wider text-faint uppercase">
+            {t("agent.title")}
           </span>
-          <span className="text-[12px] font-medium text-zinc-200">{agent?.name ?? "—"}</span>
+          <span className="text-[12px] font-medium text-text">{agent?.name ?? "—"}</span>
           {agent && (
             <span
               className={`ml-auto flex items-center gap-1 text-[10px] font-medium ${
-                agent.available ? "text-emerald-400" : "text-zinc-500"
+                agent.available ? "text-ok-text" : "text-faint"
               }`}
             >
               <span
-                className={`size-1.5 rounded-full ${agent.available ? "bg-emerald-400" : "bg-zinc-600"}`}
+                className={`size-1.5 rounded-full ${agent.available ? "bg-emerald-400" : "bg-ghost"}`}
               />
-              {agent.available ? "available" : "not found"}
+              {agent.available ? t("agent.available") : t("agent.notFound")}
             </span>
           )}
         </div>
         {!connected && (
-          <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
-            Agent unavailable — Preview changes are safe（§36）。启动 Bridge 后 Codex 即可经 MCP
-            获取上下文。
+          <p className="mt-1.5 text-[10px] leading-relaxed text-faint">
+            {t("agent.unavailableHint")}
           </p>
         )}
 
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5">
-          {INCLUDE_LABELS.map(({ key, label }) => (
+          {INCLUDE_LABELS.map(({ key, labelKey }) => (
             <label
               key={key}
-              className="flex cursor-pointer items-center gap-1.5 text-[11px] text-zinc-300"
+              className="flex cursor-pointer items-center gap-1.5 text-[11px] text-text"
             >
               <input
                 type="checkbox"
                 checked={agentInclude[key]}
                 onChange={(event) => setAgentInclude(key, event.target.checked)}
-                className="size-3 accent-violet-500"
+                className="size-3 accent-accent-text"
               />
-              {label}
+              {t(labelKey)}
             </label>
           ))}
         </div>
 
         <div className="mt-2.5 flex items-center gap-2">
-          <span className="text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
-            Context Level
+          <span className="text-[10px] font-medium tracking-wider text-faint uppercase">
+            {t("agent.contextLevel")}
           </span>
           <div className="flex gap-1">
             {LEVELS.map((level) => (
@@ -191,10 +203,10 @@ export function AgentTab() {
                 key={level}
                 type="button"
                 onClick={() => setAgentContextLevel(level)}
-                className={`rounded px-2 py-0.5 text-[10px] font-medium tabular-nums ${
+                className={`rounded-control px-2 py-0.5 text-[10px] font-medium tabular-nums ${
                   agentContextLevel === level
-                    ? "bg-violet-500/25 text-violet-300"
-                    : "bg-zinc-800 text-zinc-500 hover:text-zinc-300"
+                    ? "bg-accent-text/20 text-accent-text"
+                    : "bg-control text-faint hover:text-dim"
                 }`}
               >
                 {level}
@@ -207,18 +219,19 @@ export function AgentTab() {
       {/* §26 prompt preview */}
       <section>
         <div className="mb-1.5 flex items-center justify-between">
-          <p className="text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
-            Prompt Context（§26）
+          <p className="text-[10px] font-medium tracking-wider text-faint uppercase">
+            {t("agent.promptTitle")}
           </p>
           <button
             type="button"
             onClick={() => void copyPrompt()}
-            className="rounded border border-zinc-700 px-2 py-0.5 text-[10px] font-medium text-zinc-300 hover:bg-zinc-800"
+            className="flex items-center gap-1 rounded-control border border-edge-strong px-2 py-0.5 text-[10px] font-medium text-text hover:bg-control"
           >
-            {copied ? "已复制" : "Copy"}
+            <CopyIcon className="size-3" />
+            {copied ? t("action.copied") : t("agent.copyPrompt")}
           </button>
         </div>
-        <pre className="max-h-56 overflow-auto rounded-md border border-zinc-800 bg-zinc-950/70 px-3 py-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-zinc-400">
+        <pre className="max-h-56 overflow-auto rounded-control border border-edge bg-inset-deep px-3 py-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-dim">
           {prompt}
         </pre>
       </section>
@@ -227,14 +240,13 @@ export function AgentTab() {
         type="button"
         onClick={sendAgentRequest}
         disabled={!connected}
-        className="w-full rounded-md bg-zinc-100 px-3 py-1.5 text-[12px] font-semibold text-zinc-900 enabled:hover:bg-white disabled:opacity-40"
+        className="w-full rounded-control bg-inverse px-3 py-1.5 text-[12px] font-semibold text-inverse-text enabled:hover:bg-inverse-hover disabled:opacity-40"
       >
-        发送至 Bridge
+        {t("agent.send")}
       </button>
       {agentSent && (
-        <p className="text-center text-[10px] text-zinc-500">
-          已发送至 Bridge · {formatTime(agentSent.at)} — {agent?.name ?? "Codex"} 可经 MCP
-          ui_get_context 获取
+        <p className="text-center text-[10px] text-faint">
+          {t("agent.sent", { time: formatTime(agentSent.at), agent: agentName })}
         </p>
       )}
     </div>

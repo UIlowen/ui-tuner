@@ -5,6 +5,8 @@ export interface FormatChangesetInput {
   changes: StyleChange[];
   /** elementId → tagName label, accumulated from selections. */
   elementNames: Record<string, string>;
+  /** Per-element natural-language instructions (elementId → instruction). */
+  instructions?: Record<string, string>;
   /** Source resolution for the currently selected element (if linked). */
   source?: SourceResolution | null;
   /** Current selection, for element tag/text fallback. */
@@ -19,7 +21,7 @@ export interface FormatChangesetInput {
  * Grouped per element, newest group last, matching the Changes tab order.
  */
 export function formatChangesetForCopy(input: FormatChangesetInput): string {
-  const { changes, elementNames, source, selection } = input;
+  const { changes, elementNames, instructions, source, selection } = input;
 
   // Group by element, preserving first-seen order (same as ChangesTab).
   const groups: { elementId: string; changes: StyleChange[] }[] = [];
@@ -30,6 +32,14 @@ export function formatChangesetForCopy(input: FormatChangesetInput): string {
       groups.push(group);
     }
     group.changes.push(change);
+  }
+  // Instruction-only elements are first-class: an element with a saved
+  // instruction but zero property changes still gets an entry (its 指令 line).
+  for (const elementId of Object.keys(instructions ?? {})) {
+    if (!instructions?.[elementId]?.trim()) continue;
+    if (!groups.some((g) => g.elementId === elementId)) {
+      groups.push({ elementId, changes: [] });
+    }
   }
 
   const lines: string[] = ["请把我在浏览器里调好的样式改动应用到对应源码：", ""];
@@ -57,11 +67,18 @@ export function formatChangesetForCopy(input: FormatChangesetInput): string {
       lines.push(`选择器：${selection.element.selector}`);
     }
 
-    lines.push("改动（旧值 → 新值）：");
-    for (const change of group.changes) {
-      // Bullet prefix + the shared change line (same rendering as the §26
-      // agent prompt) so Changes-copy and Agent-tab never drift.
-      lines.push(`- ${formatStyleChangeLine(change)}`);
+    const instruction = instructions?.[group.elementId];
+    if (instruction) {
+      lines.push(`指令：${instruction}`);
+    }
+
+    if (group.changes.length > 0) {
+      lines.push("改动（旧值 → 新值）：");
+      for (const change of group.changes) {
+        // Bullet prefix + the shared change line (same rendering as the §26
+        // agent prompt) so Changes-copy and Agent-tab never drift.
+        lines.push(`- ${formatStyleChangeLine(change)}`);
+      }
     }
     lines.push("");
   }

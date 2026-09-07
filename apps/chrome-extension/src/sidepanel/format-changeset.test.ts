@@ -97,8 +97,61 @@ describe("formatChangesetForCopy", () => {
     expect(out).toContain("- height: (empty) → 52px");
   });
 
+  it("includes the per-element instruction line before its changes when provided", () => {
+    const out = formatChangesetForCopy({
+      changes: [change({})],
+      elementNames: { "ut-a": "button" },
+      instructions: { "ut-a": "再高一点，别太挤" },
+    });
+    expect(out).toContain("指令：再高一点，别太挤");
+    // Instruction sits inside the element block, above the changes list.
+    expect(out.indexOf("指令：再高一点，别太挤")).toBeGreaterThan(out.indexOf("元素：button"));
+    expect(out.indexOf("指令：再高一点，别太挤")).toBeLessThan(out.indexOf("改动（旧值 → 新值）："));
+  });
+
+  it("omits the instruction line for elements without one", () => {
+    const out = formatChangesetForCopy({
+      changes: [
+        change({ id: "1", elementId: "ut-a" }),
+        change({ id: "2", elementId: "ut-b", property: "color", previousValue: "#000", nextValue: "#fff" }),
+      ],
+      elementNames: { "ut-a": "button", "ut-b": "p" },
+      instructions: { "ut-b": "提亮一点" },
+    });
+    expect(out).toContain("指令：提亮一点");
+    // Only one instruction line overall — ut-a has none.
+    expect(out.match(/指令：/g)).toHaveLength(1);
+  });
+
   it("falls back to elementId when no name/selection known", () => {
     const out = formatChangesetForCopy({ changes: [change({})], elementNames: {} });
     expect(out).toContain("元素：ut-a");
+  });
+
+  it("includes an instruction-only element (no property changes) with its 指令 line", () => {
+    const out = formatChangesetForCopy({
+      changes: [],
+      elementNames: { "ut-solo": "button" },
+      instructions: { "ut-solo": "圆角更大" },
+    });
+    expect(out).toContain("元素：button");
+    expect(out).toContain("指令：圆角更大");
+    // No changes anywhere — the 改动 header must not render.
+    expect(out).not.toContain("改动（旧值 → 新值）：");
+  });
+
+  it("lists an instruction-only element alongside changed elements", () => {
+    const out = formatChangesetForCopy({
+      changes: [change({})],
+      elementNames: { "ut-a": "button", "ut-solo": "p" },
+      instructions: { "ut-solo": "行距松一点" },
+    });
+    // The changed group renders normally…
+    expect(out).toContain("元素：button");
+    expect(out).toContain("- height: 38px → 52px");
+    // …and the instruction-only group appears too, without its own 改动 header.
+    expect(out).toContain("元素：p");
+    expect(out).toContain("指令：行距松一点");
+    expect(out.match(/改动（旧值 → 新值）：/g)).toHaveLength(1);
   });
 });

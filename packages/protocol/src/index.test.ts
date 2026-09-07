@@ -19,6 +19,7 @@ import {
   createPreviewChanged,
   createSelectionChanged,
   createSelectionCleared,
+  createSidepanelClearSelection,
   createSidepanelConfirmApply,
   createSidepanelPing,
   createSidepanelPicking,
@@ -26,7 +27,6 @@ import {
   createSidepanelRevertChange,
   createSidepanelRevertElement,
   createSidepanelSelectAncestor,
-  createSidepanelStylePreview,
   isAgentAppliedMessage,
   isAgentCaptureMessage,
   isAgentCaptureResultMessage,
@@ -45,6 +45,7 @@ import {
   isPreviewChangedMessage,
   isSelectionChangedMessage,
   isSelectionClearedMessage,
+  isSidepanelClearSelectionMessage,
   isSidepanelConfirmApplyMessage,
   isSidepanelPingMessage,
   isSidepanelPickingMessage,
@@ -52,7 +53,6 @@ import {
   isSidepanelRevertChangeMessage,
   isSidepanelRevertElementMessage,
   isSidepanelSelectAncestorMessage,
-  isSidepanelStylePreviewMessage,
   isUiTunerMessage,
   UI_TUNER_PORT_NAME,
   type ApplyElementContext,
@@ -88,12 +88,6 @@ function createEveryMessage(): UiTunerMessage[] {
     }),
     createSelectionCleared(),
     createSidepanelSelectAncestor("ut-000002"),
-    createSidepanelStylePreview({
-      uiTunerId: "ut-000001",
-      property: "gap",
-      value: "16px",
-      committed: false,
-    }),
     createPreviewChanged([
       {
         id: "ch-000001",
@@ -108,6 +102,7 @@ function createEveryMessage(): UiTunerMessage[] {
     createSidepanelRevertChange("ch-000001"),
     createSidepanelRevertElement("ut-000001"),
     createSidepanelResetChanges(),
+    createSidepanelClearSelection(),
     createBridgeHello({ extensionVersion: "0.1.0", pageUrl: "http://localhost:5173/" }),
     createBridgeWelcome({
       bridgeVersion: "0.1.0",
@@ -247,19 +242,7 @@ describe("creators", () => {
     });
   });
 
-  it("creates style preview messages", () => {
-    expect(
-      createSidepanelStylePreview({
-        uiTunerId: "ut-000001",
-        property: "padding-top",
-        value: null,
-        committed: true,
-      }),
-    ).toEqual({
-      type: "sidepanel.stylePreview",
-      payload: { uiTunerId: "ut-000001", property: "padding-top", value: null, committed: true },
-    });
-
+  it("creates preview.changed messages", () => {
     const change = {
       id: "ch-000002",
       elementId: "ut-000001",
@@ -275,6 +258,14 @@ describe("creators", () => {
     });
   });
 
+  it("preview.changed carries an optional instructions map", () => {
+    const message = createPreviewChanged([], { "ut-1": "紧凑一点" });
+    expect(message.payload.instructions).toEqual({ "ut-1": "紧凑一点" });
+    expect(isPreviewChangedMessage(message)).toBe(true);
+    // 缺省可省略
+    expect(createPreviewChanged([]).payload.instructions).toBeUndefined();
+  });
+
   it("creates revert and reset messages", () => {
     expect(createSidepanelRevertChange("ch-000001")).toEqual({
       type: "sidepanel.revertChange",
@@ -286,6 +277,10 @@ describe("creators", () => {
     });
     expect(createSidepanelResetChanges()).toEqual({
       type: "sidepanel.resetChanges",
+      payload: {},
+    });
+    expect(createSidepanelClearSelection()).toEqual({
+      type: "sidepanel.clearSelection",
       payload: {},
     });
   });
@@ -469,11 +464,11 @@ describe("per-type guards", () => {
     expect(messages.filter(isSelectionChangedMessage)).toHaveLength(1);
     expect(messages.filter(isSelectionClearedMessage)).toHaveLength(1);
     expect(messages.filter(isSidepanelSelectAncestorMessage)).toHaveLength(1);
-    expect(messages.filter(isSidepanelStylePreviewMessage)).toHaveLength(1);
     expect(messages.filter(isPreviewChangedMessage)).toHaveLength(1);
     expect(messages.filter(isSidepanelRevertChangeMessage)).toHaveLength(1);
     expect(messages.filter(isSidepanelRevertElementMessage)).toHaveLength(1);
     expect(messages.filter(isSidepanelResetChangesMessage)).toHaveLength(1);
+    expect(messages.filter(isSidepanelClearSelectionMessage)).toHaveLength(1);
     expect(messages.filter(isBridgeHelloMessage)).toHaveLength(1);
     expect(messages.filter(isBridgeWelcomeMessage)).toHaveLength(1);
     expect(messages.filter(isBridgeSyncMessage)).toHaveLength(1);
@@ -559,6 +554,77 @@ describe("assembleAgentContext (plan §26)", () => {
   it("honestly reports when nothing is selected", () => {
     const text = assembleAgentContext({ selection: null, source: null, changes: [], instruction: "" });
     expect(text).toContain("(none — pick an element in the browser first)");
+  });
+
+  it("groups changes per element with its instruction when instructions are provided", () => {
+    const text = assembleAgentContext({
+      selection: null,
+      source: null,
+      changes: [
+        ...changes,
+        {
+          id: "ch-2",
+          elementId: "ut-000002",
+          property: "color",
+          previousValue: "#000000",
+          nextValue: "#ffffff",
+          source: "manual",
+          createdAt: 2,
+        },
+      ],
+      instruction: "",
+      instructions: { "ut-000001": "整体紧凑一点" },
+    });
+    // Element with an instruction shows it above its change lines.
+    expect(text).toContain("Element ut-000001:");
+    expect(text).toContain("instruction for ut-000001: 整体紧凑一点");
+    const instrIdx = text.indexOf("instruction for ut-000001: 整体紧凑一点");
+    expect(instrIdx).toBeGreaterThan(text.indexOf("User preview changes:"));
+    expect(instrIdx).toBeLessThan(text.indexOf("gap: 24px → 16px"));
+    // Element without an instruction still lists its change.
+    expect(text).toContain("Element ut-000002:");
+    expect(text).toContain("color: #000000 → #ffffff");
+    expect(text).not.toContain("instruction for ut-000002");
+  });
+
+  it("keeps the flat change list when no instructions are provided", () => {
+    const text = assembleAgentContext({
+      selection: null,
+      source: null,
+      changes,
+      instruction: "",
+    });
+    expect(text).toContain("User preview changes:\ngap: 24px → 16px");
+    expect(text).not.toContain("Element ut-000001:");
+  });
+
+  it("includes change-less instruction entries (instruction-only elements)", () => {
+    const text = assembleAgentContext({
+      selection: null,
+      source: null,
+      changes,
+      instruction: "",
+      instructions: { "ut-000009": "整体收紧" },
+    });
+    // The instruction-only element gets its own group even with zero changes…
+    expect(text).toContain("Element ut-000009:");
+    expect(text).toContain("instruction for ut-000009: 整体收紧");
+    // …and the changed element still lists its change (grouped form).
+    expect(text).toContain("Element ut-000001:");
+    expect(text).toContain("gap: 24px → 16px");
+  });
+
+  it("renders an instruction-only element when there are no changes at all", () => {
+    const text = assembleAgentContext({
+      selection: null,
+      source: null,
+      changes: [],
+      instruction: "",
+      instructions: { "ut-000009": "整体收紧" },
+    });
+    expect(text).not.toContain("(none yet)");
+    expect(text).toContain("Element ut-000009:");
+    expect(text).toContain("instruction for ut-000009: 整体收紧");
   });
 
   it("omits the DOM block when include.dom is false", () => {

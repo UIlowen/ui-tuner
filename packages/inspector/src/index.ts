@@ -1,5 +1,6 @@
 export { Picker, type PickerCallbacks } from "./picker/Picker";
 export { Overlay } from "./overlay/Overlay";
+export { Annotations, type AnnotationsCallbacks } from "./annotations/Annotations";
 export { SelectionTracker, type SelectionTrackerOptions } from "./dom/selection";
 export {
   assignUiTunerId,
@@ -27,4 +28,7 @@ export { rgbToHex } from "./styles/color";
 
 export { PreviewEngine } from "./preview/PreviewEngine";
 export { ChangeTracker } from "./changes/ChangeTracker";
+export { InstructionStore } from "./changes/InstructionStore";
 export { cssValuesEqual, normalizeCssValue } from "./changes/confirm";
+export { StagingEngine } from "./staging/StagingEngine";
+export type { StagedEdit } from "./staging/StagingEngine";

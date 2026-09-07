@@ -110,6 +110,24 @@ describe("buildCodexApplyPrompt (plan §28/§45)", () => {
     request.instruction = "";
     expect(buildCodexApplyPrompt(request)).not.toContain("User instruction:");
   });
+
+  it("renders a composed (per-element + global) instruction verbatim", () => {
+    // The side panel composes the card's per-element instruction ahead of the
+    // global Agent-tab note into the single `instruction` field.
+    const request = makeRequest("/tmp/demo");
+    request.instruction = "圆角更大\n全局备注";
+    const prompt = buildCodexApplyPrompt(request);
+    expect(prompt).toContain("User instruction:\n圆角更大\n全局备注");
+  });
+
+  it("marks an instruction-only request as instruction-driven instead of listing zero changes", () => {
+    const request = makeRequest("/tmp/demo");
+    request.changes = [];
+    const prompt = buildCodexApplyPrompt(request);
+    expect(prompt).not.toContain("Apply these exact style changes");
+    expect(prompt).toContain("No measured property changes");
+    expect(prompt).toContain("整体紧凑一点");
+  });
 });
 
 describe("fileDiff", () => {
@@ -177,6 +195,22 @@ describe("CodexAdapter.applyChanges (plan §45/§46)", () => {
     expect(result.success).toBe(true);
     expect(result.files).toEqual(["src/components/Card.tsx"]);
     expect(result.summary).toContain("1 change");
+  });
+
+  it("summarizes an instruction-only apply without claiming a change count", async () => {
+    const runner: CodexRunner = async ({ cwd }) => {
+      writeFileSync(join(cwd, "src", "components", "Card.tsx"), "export function Card() { /* edited */ }");
+      return { exitCode: 0, stdout: "done", stderr: "", timedOut: false };
+    };
+    const adapter = new CodexAdapter(available, runner);
+    const request = makeRequest(dir);
+    request.changes = [];
+    const result = await adapter.applyChanges(request);
+    expect(result.success).toBe(true);
+    expect(result.files).toEqual(["src/components/Card.tsx"]);
+    expect(result.summary).not.toMatch(/0 change/);
+    expect(result.summary).toContain("instruction");
+    expect(result.summary).toContain("src/components/Card.tsx");
   });
 
   it("fails honestly when codex exits non-zero", async () => {

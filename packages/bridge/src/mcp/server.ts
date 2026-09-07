@@ -117,6 +117,7 @@ export function createMcpServer(deps: McpDeps): McpServer {
         source: deps.getSource(),
         changes: sync?.changes ?? [],
         instruction: request?.instruction ?? "",
+        instructions: sync?.instructions,
         include: request?.include,
         level,
       });

@@ -98,21 +98,23 @@ describe("sidepanel store", () => {
     expect(useSidepanelStore.getState().picking).toBe(false);
   });
 
-  it("stores the selection and exits picking on selection.changed", () => {
+  it("stores the selection and keeps picking on selection.changed (annotation mode persists)", () => {
     resetStore();
     useSidepanelStore.getState().receive(createPickerState(true));
     selectElement({ gap: "24px" });
 
     const state = useSidepanelStore.getState();
-    expect(state.picking).toBe(false);
+    // Annotation mode persists across selections — only picker.state acks
+    // (Esc / panel toggle) turn it off.
+    expect(state.picking).toBe(true);
     expect(state.selection?.element.tagName).toBe("button");
     expect(state.selection?.breadcrumb).toHaveLength(2);
   });
 
-  it("seeds styleValues from the selection payload", () => {
+  it("stores the selection's styles on selection.changed", () => {
     resetStore();
     selectElement({ gap: "24px", "font-size": "16px" });
-    expect(useSidepanelStore.getState().styleValues).toEqual({
+    expect(useSidepanelStore.getState().selection?.styles).toEqual({
       gap: "24px",
       "font-size": "16px",
     });
@@ -126,7 +128,6 @@ describe("sidepanel store", () => {
     useSidepanelStore.getState().receive(createSelectionCleared());
     const state = useSidepanelStore.getState();
     expect(state.selection).toBeNull();
-    expect(state.styleValues).toBeNull();
     expect(state.changes).toEqual([]); // changes survive selection clears (plan §36)
   });
 
@@ -151,51 +152,8 @@ describe("sidepanel store", () => {
     expect(state.status).toBe("idle");
     expect(state.picking).toBe(false);
     expect(state.selection).toBeNull();
-    expect(state.styleValues).toBeNull();
     expect(state.changes).toEqual([]);
     expect(state.log).toHaveLength(0);
-  });
-
-  it("updateStyle sends preview frames without touching styleValues", () => {
-    resetStore();
-    const { port, sent } = createSpyPort();
-    useSidepanelStore.getState().connect(Channel.accept(port));
-    selectElement({ gap: "24px" });
-
-    useSidepanelStore.getState().updateStyle("gap", "20px", false);
-
-    expect(sent).toEqual([
-      {
-        type: "sidepanel.stylePreview",
-        payload: { uiTunerId: "ut-000001", property: "gap", value: "20px", committed: false },
-      },
-    ]);
-    // Scrub frames must not re-render the panel — baseline stays at 24px.
-    expect(useSidepanelStore.getState().styleValues).toEqual({ gap: "24px" });
-  });
-
-  it("updateStyle commits update styleValues and null deletes the property", () => {
-    resetStore();
-    const { port, sent } = createSpyPort();
-    useSidepanelStore.getState().connect(Channel.accept(port));
-    selectElement({ gap: "24px" });
-
-    useSidepanelStore.getState().updateStyle("gap", "16px", true);
-    expect(useSidepanelStore.getState().styleValues).toEqual({ gap: "16px" });
-
-    useSidepanelStore.getState().updateStyle("gap", null, true);
-    expect(useSidepanelStore.getState().styleValues).toEqual({});
-    expect(sent).toHaveLength(2);
-  });
-
-  it("updateStyle is a no-op without a channel or selection", () => {
-    resetStore();
-    const { port, sent } = createSpyPort();
-
-    // No selection yet.
-    useSidepanelStore.getState().connect(Channel.accept(port));
-    useSidepanelStore.getState().updateStyle("gap", "16px", true);
-    expect(sent).toHaveLength(0);
   });
 
   it("stores page-side change records from preview.changed", () => {
@@ -211,6 +169,14 @@ describe("sidepanel store", () => {
     };
     useSidepanelStore.getState().receive(createPreviewChanged([change]));
     expect(useSidepanelStore.getState().changes).toEqual([change]);
+  });
+
+  it("stores instructions from preview.changed", () => {
+    resetStore();
+    useSidepanelStore
+      .getState()
+      .receive(createPreviewChanged([], { "ut-1": "紧凑一点" }));
+    expect(useSidepanelStore.getState().instructions).toEqual({ "ut-1": "紧凑一点" });
   });
 
   it("remembers element names from selections for the changes tab", () => {
@@ -254,7 +220,7 @@ describe("sidepanel store", () => {
         type: "bridge.hello",
         payload: { extensionVersion: "0.1.0", pageUrl: "http://localhost:5173/" },
       },
-      { type: "bridge.sync", payload: { selection: null, changes: [] } },
+      { type: "bridge.sync", payload: { selection: null, changes: [], instructions: {} } },
     ]);
     expect(useSidepanelStore.getState().bridgeStatus).toBe("connected");
 
@@ -549,7 +515,7 @@ describe("sidepanel store — M8 apply to code (plan §29/§30/§31)", () => {
     expect(useSidepanelStore.getState().applyRequestId).toBe(sent.payload.requestId);
   });
 
-  it("applyChanges is a no-op without bridge, selection, or changes", () => {
+  it("applyChanges is a no-op without bridge, selection, or changes/instruction", () => {
     resetStore();
     useSidepanelStore.getState().applyChanges("instance"); // no bridge
     expect(useSidepanelStore.getState().applyState).toBe("idle");
@@ -560,6 +526,87 @@ describe("sidepanel store — M8 apply to code (plan §29/§30/§31)", () => {
     useSidepanelStore.getState().applyChanges("instance");
     expect(useSidepanelStore.getState().applyState).toBe("idle");
     expect(socket.sent.some((m) => (m as { type: string }).type === "changes.apply")).toBe(false);
+  });
+
+  it("applyChanges sends an instruction-only request when the element has no property changes", () => {
+    resetStore();
+    const socket = openBridge();
+    selectElement({ gap: "24px" });
+    // The card saved an instruction for this element, with zero change records.
+    useSidepanelStore
+      .getState()
+      .receive(createPreviewChanged([], { "ut-000001": "把这个改成主按钮" }));
+
+    socket.sent.length = 0;
+    useSidepanelStore.getState().applyChanges("instance");
+
+    const sent = socket.sent.at(-1) as {
+      type: string;
+      payload: { changes: unknown[]; instruction?: string };
+    };
+    expect(sent.type).toBe("changes.apply");
+    expect(sent.payload.changes).toHaveLength(0);
+    expect(sent.payload.instruction).toBe("把这个改成主按钮");
+    expect(useSidepanelStore.getState().applyState).toBe("applying");
+  });
+
+  it("applyChanges composes the per-element card instruction ahead of the global note", () => {
+    resetStore();
+    const socket = openBridge();
+    useSidepanelStore.getState().setAgentInstruction("全局备注");
+    withSelectionAndChange();
+    // The card-saved instruction for this element arrives via preview.changed.
+    useSidepanelStore.getState().receive(
+      createPreviewChanged(
+        [
+          {
+            id: "ch-1",
+            elementId: "ut-000001",
+            property: "gap",
+            previousValue: "24px",
+            nextValue: "16px",
+            source: "manual",
+            createdAt: 1,
+          },
+        ],
+        { "ut-000001": "圆角更大" },
+      ),
+    );
+
+    socket.sent.length = 0;
+    useSidepanelStore.getState().applyChanges("instance");
+
+    const sent = socket.sent.at(-1) as { payload: { instruction?: string } };
+    // Element instruction first, then the global Agent-tab note.
+    expect(sent.payload.instruction).toBe("圆角更大\n全局备注");
+  });
+
+  it("applyChanges sends only the per-element instruction when no global note", () => {
+    resetStore();
+    const socket = openBridge();
+    withSelectionAndChange();
+    useSidepanelStore.getState().receive(
+      createPreviewChanged(
+        [
+          {
+            id: "ch-1",
+            elementId: "ut-000001",
+            property: "gap",
+            previousValue: "24px",
+            nextValue: "16px",
+            source: "manual",
+            createdAt: 1,
+          },
+        ],
+        { "ut-000001": "圆角更大" },
+      ),
+    );
+
+    socket.sent.length = 0;
+    useSidepanelStore.getState().applyChanges("instance");
+
+    const sent = socket.sent.at(-1) as { payload: { instruction?: string } };
+    expect(sent.payload.instruction).toBe("圆角更大");
   });
 
   it("apply.result success marks applied and asks content to confirm", () => {

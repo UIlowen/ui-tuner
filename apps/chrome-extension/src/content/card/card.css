@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+/*
+ * Editor-card theme tokens — same names and values as the sidepanel's
+ * styles/sidepanel.css, but scoped to :host / :host(.dark): inside a shadow
+ * root :root does not inherit the page's :root, so the raw values must live
+ * on the host element itself. Light is the :host default; dark hangs off the
+ * "dark" class on the host (mirrors the sidepanel's .dark zinc palette).
+ */
+:host {
+  /* Chrome draws a native <select>'s popup from color-scheme, and the property
+     rows are dropdowns — without this a dark card opens a white option list. */
+  color-scheme: light;
+  --base: #f4f4f5;
+  --surface: rgb(255 255 255 / 0.7);
+  --surface-solid: #ffffff;
+  --inset: rgb(0 0 0 / 0.04);
+  --inset-deep: rgb(0 0 0 / 0.06);
+  --control: rgb(228 228 231 / 0.7);
+  --control-hover: rgb(212 212 216 / 0.8);
+  --elevated: #e4e4e7;
+  --edge: #e4e4e7;
+  --edge-strong: #d4d4d8;
+  --text-strong: #18181b;
+  --text: #3f3f46;
+  --dim: #52525b;
+  --faint: #71717a;
+  --ghost: #a1a1aa;
+  --inverse: #18181b;
+  --inverse-hover: #27272a;
+  --inverse-text: #f4f4f5;
+  --accent-text: #6d28d9;
+  --ok-text: #047857;
+  --warn-text: #b45309;
+  --danger-text: #b91c1c;
+  --info-text: #0369a1;
+}
+
+:host(.dark) {
+  color-scheme: dark;
+  --base: #09090b;
+  --surface: rgb(24 24 27 / 0.6);
+  --surface-solid: #18181b;
+  --inset: rgb(9 9 11 / 0.4);
+  --inset-deep: rgb(9 9 11 / 0.7);
+  --control: rgb(39 39 42 / 0.7);
+  --control-hover: rgb(63 63 70 / 0.7);
+  --elevated: rgb(63 63 70 / 0.8);
+  --edge: #27272a;
+  --edge-strong: #3f3f46;
+  --text-strong: #f4f4f5;
+  --text: #e4e4e7;
+  --dim: #a1a1aa;
+  --faint: #71717a;
+  --ghost: #52525b;
+  --inverse: #f4f4f5;
+  --inverse-hover: #ffffff;
+  --inverse-text: #18181b;
+  --accent-text: #c4b5fd;
+  --ok-text: #6ee7b7;
+  --warn-text: #fcd34d;
+  --danger-text: #fca5a5;
+  --info-text: #7dd3fc;
+}
+
+@theme inline {
+  --color-base: var(--base);
+  --color-surface: var(--surface);
+  --color-surface-solid: var(--surface-solid);
+  --color-inset: var(--inset);
+  --color-inset-deep: var(--inset-deep);
+  --color-control: var(--control);
+  --color-control-hover: var(--control-hover);
+  --color-elevated: var(--elevated);
+  --color-edge: var(--edge);
+  --color-edge-strong: var(--edge-strong);
+  --color-text-strong: var(--text-strong);
+  --color-text: var(--text);
+  --color-dim: var(--dim);
+  --color-faint: var(--faint);
+  --color-ghost: var(--ghost);
+  --color-inverse: var(--inverse);
+  --color-inverse-hover: var(--inverse-hover);
+  --color-inverse-text: var(--inverse-text);
+  --color-accent-text: var(--accent-text);
+  --color-ok-text: var(--ok-text);
+  --color-warn-text: var(--warn-text);
+  --color-danger-text: var(--danger-text);
+  --color-info-text: var(--info-text);
+
+  /* Radii don't vary by theme, so they are literals here rather than
+     :host/:host(.dark) variables. Mirrored in styles/sidepanel.css —
+     tokens.test.ts fails when the two files drift. */
+  --radius-card: 14px;
+  --radius-control: 6px;
+  --radius-pill: 999px;
+}
+
+/*
+ * Tailwind v4 builds its compound utilities out of `--tw-*` custom properties:
+ * `.border` is `border-style: var(--tw-border-style)`, `.shadow-2xl` and every
+ * `ring-*` are one `box-shadow` reading five vars, `tabular-nums` is a
+ * `font-variant-numeric` reading five more. Only the var the utility itself sets
+ * is declared; the rest come from the `@property` initial-values Tailwind emits.
+ *
+ * Chrome does not register `@property` rules delivered through a shadow-tree
+ * stylesheet (this sheet is adopted into the card's shadow root by
+ * inject-styles.ts), so those vars stay guaranteed-invalid, the whole
+ * declaration is invalid at computed-value time, and the card renders with no
+ * border, no drop shadow and no focus/active ring whatsoever. Verified in a real
+ * browser: computed `border: 0px none`, `box-shadow: none`.
+ *
+ * Tailwind ships these same values as a fallback for browsers without
+ * `@property`, but gates it behind an `@supports` query that excludes Chrome.
+ * Repeat it unconditionally here, in the base layer so utilities — which live in
+ * a later layer — still override per element. Keep in sync with the fallback
+ * block in the compiled output; verify-codex-card-ui.mjs asserts the painted
+ * result.
+ */
+@layer base {
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    --tw-rotate-x: initial;
+    --tw-rotate-y: initial;
+    --tw-rotate-z: initial;
+    --tw-skew-x: initial;
+    --tw-skew-y: initial;
+    --tw-space-y-reverse: 0;
+    --tw-border-style: solid;
+    --tw-leading: initial;
+    --tw-font-weight: initial;
+    --tw-tracking: initial;
+    --tw-ordinal: initial;
+    --tw-slashed-zero: initial;
+    --tw-numeric-figure: initial;
+    --tw-numeric-spacing: initial;
+    --tw-numeric-fraction: initial;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-color: initial;
+    --tw-shadow-alpha: 100%;
+    --tw-inset-shadow: 0 0 #0000;
+    --tw-inset-shadow-color: initial;
+    --tw-inset-shadow-alpha: 100%;
+    --tw-ring-color: initial;
+    --tw-ring-shadow: 0 0 #0000;
+    --tw-inset-ring-color: initial;
+    --tw-inset-ring-shadow: 0 0 #0000;
+    --tw-ring-inset: initial;
+    --tw-ring-offset-width: 0px;
+    --tw-ring-offset-color: #fff;
+    --tw-ring-offset-shadow: 0 0 #0000;
+    --tw-blur: initial;
+    --tw-brightness: initial;
+    --tw-contrast: initial;
+    --tw-grayscale: initial;
+    --tw-hue-rotate: initial;
+    --tw-invert: initial;
+    --tw-opacity: initial;
+    --tw-saturate: initial;
+    --tw-sepia: initial;
+    --tw-drop-shadow: initial;
+    --tw-drop-shadow-color: initial;
+    --tw-drop-shadow-alpha: 100%;
+    --tw-drop-shadow-size: initial;
+  }
+}

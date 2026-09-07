@@ -154,27 +154,13 @@ export interface SidepanelSelectAncestorMessage {
 // M3 — style inspector messages
 // ---------------------------------------------------------------------------
 
-/**
- * Side Panel → Content. Set one CSS property on the selected element via the
- * preview `<style>` override (plan §11). `committed: false` frames arrive
- * while scrubbing; `committed: true` on release records a StyleChange.
- * `value: null` removes the override.
- */
-export interface SidepanelStylePreviewMessage {
-  type: "sidepanel.stylePreview";
-  payload: {
-    uiTunerId: string;
-    property: string;
-    value: string | null;
-    committed: boolean;
-  };
-}
-
 /** Content → Side Panel. The page-side change list changed (plan §12/§13). */
 export interface PreviewChangedMessage {
   type: "preview.changed";
   payload: {
     changes: StyleChange[];
+    /** elementId → 自然语言指令（可选，与 changes 搭配下发给 sidepanel）。 */
+    instructions?: Record<string, string>;
   };
 }
 
@@ -201,6 +187,15 @@ export interface SidepanelRevertElementMessage {
 /** Side Panel → Content. Reset all preview changes (plan §13/§14). */
 export interface SidepanelResetChangesMessage {
   type: "sidepanel.resetChanges";
+  payload: Record<string, never>;
+}
+
+/**
+ * Side Panel → Content. Clear the current selection without leaving
+ * annotation mode (the "done with this element" button); picking stays on.
+ */
+export interface SidepanelClearSelectionMessage {
+  type: "sidepanel.clearSelection";
   payload: Record<string, never>;
 }
 
@@ -244,6 +239,8 @@ export interface BridgeSyncMessage {
   payload: {
     selection: SelectionPayload | null;
     changes: StyleChange[];
+    /** elementId → 自然语言指令（可选，与 changes 搭配下发给 agent 上下文）。 */
+    instructions?: Record<string, string>;
   };
 }
 
@@ -494,11 +491,11 @@ export type UiTunerMessage =
   | SelectionChangedMessage
   | SelectionClearedMessage
   | SidepanelSelectAncestorMessage
-  | SidepanelStylePreviewMessage
   | PreviewChangedMessage
   | SidepanelRevertChangeMessage
   | SidepanelRevertElementMessage
   | SidepanelResetChangesMessage
+  | SidepanelClearSelectionMessage
   | BridgeHelloMessage
   | BridgeWelcomeMessage
   | BridgeSyncMessage
@@ -525,11 +522,11 @@ const MESSAGE_TYPES: readonly UiTunerMessageType[] = [
   "selection.changed",
   "selection.cleared",
   "sidepanel.selectAncestor",
-  "sidepanel.stylePreview",
   "preview.changed",
   "sidepanel.revertChange",
   "sidepanel.revertElement",
   "sidepanel.resetChanges",
+  "sidepanel.clearSelection",
   "bridge.hello",
   "bridge.welcome",
   "bridge.sync",
@@ -599,12 +596,6 @@ export function isSidepanelSelectAncestorMessage(
   return value.type === "sidepanel.selectAncestor";
 }
 
-export function isSidepanelStylePreviewMessage(
-  value: UiTunerMessage,
-): value is SidepanelStylePreviewMessage {
-  return value.type === "sidepanel.stylePreview";
-}
-
 export function isPreviewChangedMessage(value: UiTunerMessage): value is PreviewChangedMessage {
   return value.type === "preview.changed";
 }
@@ -625,6 +616,12 @@ export function isSidepanelResetChangesMessage(
   value: UiTunerMessage,
 ): value is SidepanelResetChangesMessage {
   return value.type === "sidepanel.resetChanges";
+}
+
+export function isSidepanelClearSelectionMessage(
+  value: UiTunerMessage,
+): value is SidepanelClearSelectionMessage {
+  return value.type === "sidepanel.clearSelection";
 }
 
 export function isBridgeHelloMessage(value: UiTunerMessage): value is BridgeHelloMessage {
@@ -729,14 +726,11 @@ export function createSidepanelSelectAncestor(uiTunerId: string): SidepanelSelec
   return { type: "sidepanel.selectAncestor", payload: { uiTunerId } };
 }
 
-export function createSidepanelStylePreview(
-  payload: SidepanelStylePreviewMessage["payload"],
-): SidepanelStylePreviewMessage {
-  return { type: "sidepanel.stylePreview", payload };
-}
-
-export function createPreviewChanged(changes: StyleChange[]): PreviewChangedMessage {
-  return { type: "preview.changed", payload: { changes } };
+export function createPreviewChanged(
+  changes: StyleChange[],
+  instructions?: Record<string, string>,
+): PreviewChangedMessage {
+  return { type: "preview.changed", payload: instructions ? { changes, instructions } : { changes } };
 }
 
 export function createSidepanelRevertChange(changeId: string): SidepanelRevertChangeMessage {
@@ -749,6 +743,10 @@ export function createSidepanelRevertElement(elementId: string): SidepanelRevert
 
 export function createSidepanelResetChanges(): SidepanelResetChangesMessage {
   return { type: "sidepanel.resetChanges", payload: {} };
+}
+
+export function createSidepanelClearSelection(): SidepanelClearSelectionMessage {
+  return { type: "sidepanel.clearSelection", payload: {} };
 }
 
 export function createBridgeHello(payload: BridgeHelloMessage["payload"]): BridgeHelloMessage {
@@ -826,6 +824,8 @@ export interface AgentContextInput {
   changes: StyleChange[];
   /** User instruction from the Agent tab (may be empty). */
   instruction: string;
+  /** Per-element natural-language instructions (elementId → instruction). */
+  instructions?: Record<string, string>;
   include?: AgentInclude;
   /** Context depth (plan §25); default Level 1 per §24. */
   level?: ContextLevel;
@@ -887,7 +887,7 @@ export function assembleAgentContext(input: AgentContextInput): string {
     parentTree: false,
   };
   const level = input.level ?? 1;
-  const { selection, source, changes, instruction } = input;
+  const { selection, source, changes, instruction, instructions } = input;
   const lines: string[] = [];
 
   // Selected component -------------------------------------------------------
@@ -937,8 +937,25 @@ export function assembleAgentContext(input: AgentContextInput): string {
 
   // User preview changes -----------------------------------------------------
   lines.push("User preview changes:");
-  if (changes.length === 0) {
+  const instructionIds = instructions
+    ? Object.keys(instructions).filter((id) => instructions[id]?.trim())
+    : [];
+  if (changes.length === 0 && instructionIds.length === 0) {
     lines.push("(none yet)");
+  } else if (instructionIds.length > 0) {
+    // Group per element (first-seen order, changed elements then
+    // instruction-only ids) so each element's instruction sits with its
+    // changes — mirrors the Changes-tab copy snippet. Instruction-only
+    // elements (saved instruction, zero property changes) are first-class.
+    const elementIds = [...new Set([...changes.map((c) => c.elementId), ...instructionIds])];
+    for (const elementId of elementIds) {
+      lines.push(`Element ${elementId}:`);
+      const note = instructions?.[elementId];
+      if (note) lines.push(`instruction for ${elementId}: ${note}`);
+      for (const change of changes) {
+        if (change.elementId === elementId) lines.push(formatStyleChangeLine(change));
+      }
+    }
   } else {
     for (const change of changes) {
       lines.push(formatStyleChangeLine(change));

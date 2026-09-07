@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { clamp, formatNumber, parseCssValue, scrubMultiplier } from "@ui-tuner/inspector";
+import { useT } from "../i18n/use-t";
+import { DragIcon } from "../ui/icons";
+
+/** Round `value` to the nearest `step`, trimming float artifacts via toFixed. */
+function snapToStep(value: number, step: number): number {
+  const decimals = Math.max(0, Math.round(-Math.log10(step)));
+  return Number((Math.round(value / step) * step).toFixed(decimals));
+}
 
 /**
  * ScrubInput (plan §10, P0): drag to scrub a numeric CSS value.
@@ -31,6 +39,7 @@ export function ScrubInput({
   onPreview,
   onCommit,
 }: ScrubInputProps) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [draft, setDraft] = useState("");
@@ -95,29 +104,32 @@ export function ScrubInput({
     const start = dragStart.current;
     if (!start) return;
     const multiplier = scrubMultiplier({ shift: event.shiftKey, alt: event.altKey });
-    const next = clamp(start.value + (event.clientX - start.x) * step * multiplier, min, max);
+    const raw = start.value + (event.clientX - start.x) * step * multiplier;
+    const snapped = snapToStep(raw, step);
+    const next = clamp(snapped, min, max);
     applyDragValue(next);
     flushPreview(next);
   };
 
   const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!dragStart.current) return;
+    const startValue = dragStart.current.value;
     dragStart.current = null;
     setDragging(false);
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
-    // Commit BEFORE releasing capture, and guard the release:
-    // releasePointerCapture throws NotFoundError when the pointer was already
-    // implicitly released — that must never swallow the commit.
-    commit(clamp(currentValue.current, min, max));
+    const next = clamp(currentValue.current, min, max);
     pendingRef.current = null;
     try {
       event.currentTarget.releasePointerCapture(event.pointerId);
     } catch {
       // Pointer already released — safe to ignore.
     }
+    // A click without movement must not count as a change.
+    if (next === startValue) return;
+    commit(next);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -126,7 +138,9 @@ export function ScrubInput({
     event.preventDefault();
     const direction = event.key === "ArrowUp" ? 1 : -1;
     const multiplier = event.shiftKey ? 10 : 1;
-    commit(clamp(currentValue.current + direction * step * multiplier, min, max));
+    const next = clamp(snapToStep(currentValue.current + direction * step * multiplier, step), min, max);
+    if (next === currentValue.current) return;
+    commit(next);
   };
 
   const startEditing = () => {
@@ -139,7 +153,10 @@ export function ScrubInput({
     const parsed =
       parseCssValue(draft) ??
       (Number.isFinite(Number(draft)) ? { value: Number(draft), unit: "" } : null);
-    if (parsed) commit(clamp(parsed.value, min, max));
+    if (!parsed) return;
+    const next = clamp(parsed.value, min, max);
+    if (next === currentValue.current) return;
+    commit(next);
   };
 
   if (editing) {
@@ -156,7 +173,7 @@ export function ScrubInput({
           else if (event.key === "Escape") setEditing(false);
         }}
         onBlur={finishEditing}
-        className="h-6 w-full rounded bg-zinc-950 px-1.5 font-mono text-[11px] text-zinc-100 outline-none ring-1 ring-violet-500/70"
+        className="h-7 w-full rounded-control bg-base px-1.5 font-mono text-[11px] text-text-strong ring-2 ring-accent-text/80 outline-none"
       />
     );
   }
@@ -174,18 +191,29 @@ export function ScrubInput({
       onPointerCancel={endDrag}
       onKeyDown={handleKeyDown}
       onDoubleClick={startEditing}
-      title="拖动调整 · Shift ×10 · Option ×0.1 · 双击输入"
-      className={`flex h-6 min-w-0 flex-1 cursor-ew-resize items-center justify-end gap-0.5 rounded px-1.5 font-mono text-[11px] text-zinc-200 outline-none select-none ${
+      title={t("scrub.hint")}
+      className={`group flex h-7 min-w-0 cursor-ew-resize items-center gap-1 rounded-control border border-edge px-1.5 font-mono text-[11px] text-text-strong outline-none select-none transition-colors ${
         dragging
-          ? "bg-violet-500/20 ring-1 ring-violet-500/70"
-          : "bg-zinc-800/70 hover:bg-zinc-700/70 focus-visible:bg-zinc-700/70 focus-visible:ring-1 focus-visible:ring-zinc-500"
+          ? "border-accent-text/50 bg-accent-text/15 ring-2 ring-accent-text/80"
+          : // `focus:` not `focus-visible:` — a scrub field is a div, and Chrome
+            // never matches :focus-visible for a mouse click on one, so the
+            // control the designer just grabbed would stay unhighlighted.
+            "bg-inset hover:bg-control focus:bg-control focus:ring-2 focus:ring-accent-text/70"
       }`}
       style={{ touchAction: "none" }}
     >
+      <span
+        aria-hidden
+        className={`shrink-0 text-faint transition-opacity ${
+          dragging ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus:opacity-100"
+        }`}
+      >
+        <DragIcon className="size-3" />
+      </span>
       <span ref={displayRef} className="truncate tabular-nums">
         {formatNumber(value)}
       </span>
-      {unit !== "" && <span className="text-[10px] text-zinc-500">{unit}</span>}
+      {unit !== "" && <span className="text-[10px] text-faint">{unit}</span>}
     </div>
   );
 }

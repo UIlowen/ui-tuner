@@ -13,7 +13,6 @@ import {
   createSidepanelRevertChange,
   createSidepanelRevertElement,
   createSidepanelSelectAncestor,
-  createSidepanelStylePreview,
   isAgentAppliedMessage,
   isAgentCaptureMessage,
   isApplyConfirmedMessage,
@@ -41,6 +40,8 @@ import {
 } from "@ui-tuner/protocol";
 import { Channel } from "../messaging/channel";
 import { BridgeChannel } from "../messaging/bridge-channel";
+import { translate } from "../i18n/messages";
+import { usePrefsStore } from "./prefs";
 
 export type ConnectionStatus = "idle" | "connecting" | "connected" | "disconnected";
 export type BridgeStatus = "offline" | "connecting" | "connected";
@@ -66,10 +67,10 @@ interface SidepanelState {
   picking: boolean;
   /** Current selection, or null when nothing is selected. */
   selection: SelectionPayload | null;
-  /** Committed style values for the selected element — scrub frames don't touch this. */
-  styleValues: Record<string, string> | null;
   /** Page-side change records (content is the source of truth, plan §12). */
   changes: StyleChange[];
+  /** elementId → natural-language instruction, from preview.changed payloads. */
+  instructions: Record<string, string>;
   /** elementId → tagName, accumulated from selections (Changes tab labels). */
   elementNames: Record<string, string>;
   /** Local bridge link state (plan §35: offline never blocks preview editing). */
@@ -123,12 +124,6 @@ interface SidepanelState {
   setPicking: (enabled: boolean) => void;
   /** Breadcrumb jump: select the ancestor with this uiTunerId. */
   selectAncestor: (uiTunerId: string) => void;
-  /**
-   * Send one style value for the selected element (plan §10/§11). Preview
-   * frames (committed=false) only hit the page; commits also update
-   * `styleValues` locally.
-   */
-  updateStyle: (property: string, value: string | null, committed: boolean) => void;
   /** Revert one recorded change (plan §14). */
   revertChange: (changeId: string) => void;
   /** Revert every change of one element (plan §14). */
@@ -198,8 +193,8 @@ function rememberElementNames(
 /** Mirror selection + change records to the bridge (M5 acceptance, §16). */
 function sendBridgeSync(): void {
   if (!bridgeChannel) return;
-  const { selection, changes } = useSidepanelStore.getState();
-  bridgeChannel.send(createBridgeSync({ selection, changes }));
+  const { selection, changes, instructions } = useSidepanelStore.getState();
+  bridgeChannel.send(createBridgeSync({ selection, changes, instructions }));
 }
 
 /** Reply to a bridge ui_capture request (M7, plan §27) with fresh state. */
@@ -236,8 +231,8 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
   log: [],
   picking: false,
   selection: null,
-  styleValues: null,
   changes: [],
+  instructions: {},
   elementNames: {},
   bridgeStatus: "offline",
   bridgeProject: null,
@@ -334,14 +329,18 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       log: [],
       picking: false,
       selection: null,
-      styleValues: null,
       changes: [],
+      instructions: {},
       elementNames: {},
       source: null,
     });
     nextChannel.onDisconnect(() => {
       if (channel === nextChannel)
-        set({ status: "disconnected", statusError: "Connection closed", picking: false });
+        set({
+          status: "disconnected",
+          statusError: translate(usePrefsStore.getState().locale, "error.connectionClosed"),
+          picking: false,
+        });
     });
     nextChannel.onMessage((message) => get().receive(message));
   },
@@ -357,18 +356,21 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
     } else if (isSelectionChangedMessage(message)) {
       set((state) => ({
         selection: message.payload,
-        styleValues: message.payload.styles,
-        picking: false,
+        // Annotation mode persists across selections — `picking` is owned by
+        // picker.state acks only (Esc / panel toggle).
         elementNames: rememberElementNames(state.elementNames, message.payload),
         // Pending: the bridge re-resolves source for the new selection.
         source: null,
       }));
       sendBridgeSync();
     } else if (isSelectionClearedMessage(message)) {
-      set({ selection: null, styleValues: null, source: null });
+      set({ selection: null, source: null });
       sendBridgeSync();
     } else if (isPreviewChangedMessage(message)) {
-      set({ changes: message.payload.changes });
+      set({
+        changes: message.payload.changes,
+        instructions: message.payload.instructions ?? {},
+      });
       sendBridgeSync();
     } else if (isApplyConfirmedMessage(message)) {
       // M8 §29: page confirmed which applied changes are live in source.
@@ -395,26 +397,6 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
     const message = createSidepanelSelectAncestor(uiTunerId);
     channel.send(message);
     set((state) => ({ log: appendLog(state.log, "out", message) }));
-  },
-
-  updateStyle: (property, value, committed) => {
-    const elementId = get().selection?.element.id;
-    if (!channel || !elementId) return;
-    const message = createSidepanelStylePreview({
-      uiTunerId: elementId,
-      property,
-      value,
-      committed,
-    });
-    channel.send(message);
-    set((state) => {
-      const log = appendLog(state.log, "out", message);
-      if (!committed || !state.styleValues) return { log };
-      const styleValues = { ...state.styleValues };
-      if (value === null) delete styleValues[property];
-      else styleValues[property] = value;
-      return { log, styleValues };
-    });
   },
 
   revertChange: (changeId) => {
@@ -473,14 +455,26 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
   },
 
   applyChanges: (scope) => {
-    const { selection, source, changes, pageUrl, bridgeStatus, agentInstruction } = get();
+    const { selection, source, changes, instructions, pageUrl, bridgeStatus, agentInstruction } =
+      get();
     if (!bridgeChannel || bridgeStatus !== "connected") return;
     if (!selection) return;
     const elementId = selection.element.id;
     // Apply only the currently-selected element's changes (plan §30 dialog is
     // per-component).
     const elementChanges = changes.filter((c) => c.elementId === elementId);
-    if (elementChanges.length === 0) return;
+
+    // Compose the card's per-element instruction into the request's existing
+    // `instruction` field (element instruction first, then the global Agent-tab
+    // note) so Apply hands it to Codex without a protocol schema change.
+    const elementInstruction = instructions[elementId]?.trim();
+    const instruction = [elementInstruction, agentInstruction.trim()]
+      .filter((part): part is string => Boolean(part))
+      .join("\n");
+
+    // An instruction-only element is real work: Codex gets an empty change list
+    // plus the user's words. Bail only when there is nothing to say at all.
+    if (elementChanges.length === 0 && !elementInstruction) return;
 
     const context: ApplyElementContext = {
       page: { url: pageUrl ?? "" },
@@ -502,7 +496,7 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       requestId,
       context,
       changes: elementChanges,
-      ...(agentInstruction.trim() ? { instruction: agentInstruction.trim() } : {}),
+      ...(instruction ? { instruction } : {}),
       scope,
     });
     bridgeChannel.send(message);
@@ -544,8 +538,8 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
       log: [],
       picking: false,
       selection: null,
-      styleValues: null,
       changes: [],
+      instructions: {},
       elementNames: {},
       bridgeStatus: "offline",
       bridgeProject: null,
@@ -579,8 +573,8 @@ export function reportConnectFailure(reason: string): void {
     log: [],
     picking: false,
     selection: null,
-    styleValues: null,
     changes: [],
+    instructions: {},
     elementNames: {},
     bridgeStatus: "offline",
     bridgeProject: null,
