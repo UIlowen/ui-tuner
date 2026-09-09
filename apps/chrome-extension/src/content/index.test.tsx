@@ -87,7 +87,7 @@ function shadowButton(shadow: ShadowRoot, name: string): HTMLButtonElement {
   return button!;
 }
 
-const INSTRUCTION_PLACEHOLDER = "这个元素要怎么改？";
+const INSTRUCTION_PLACEHOLDER = "这个元素要怎么修改...";
 
 /** The open card's instruction field, in whichever state the card rendered. */
 function instructionField(shadow: ShadowRoot): HTMLInputElement | HTMLTextAreaElement {

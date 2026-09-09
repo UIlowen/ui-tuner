@@ -27,7 +27,7 @@ function hostEl(): HTMLElement | null {
   return document.getElementById(EDITOR_CARD_ROOT_ID);
 }
 
-const PLACEHOLDER = "这个元素要怎么改？";
+const PLACEHOLDER = "这个元素要怎么修改...";
 
 /** The instruction field: a one-line input in the compact row, a textarea when expanded. */
 function instructionField(shadow: ShadowRoot): HTMLInputElement | HTMLTextAreaElement {
@@ -99,18 +99,22 @@ describe("mountEditorCard", () => {
     expect(host).not.toBeNull();
     expect(host?.style.position).toBe("fixed");
     expect(host?.style.pointerEvents).toBe("none");
+    // Topmost of the extension's layers: annotations 2147483646 and the
+    // hover/selection overlay 2147483645 must never cover the card.
+    expect(host?.style.zIndex).toBe("2147483647");
     expect(host?.shadowRoot).not.toBeNull();
     expect(mount.isOpen).toBe(false);
 
-    act(() => mount.show(baseProps({ number: 2 })));
+    act(() => mount.show(baseProps({ number: 2, tagName: "div" })));
     expect(mount.isOpen).toBe(true);
     const text = host?.shadowRoot?.textContent ?? "";
-    expect(text).toContain("2"); // sequence badge
-    expect(text).toContain("保存"); // expanded footer
+    expect(text).toContain("div"); // element bar tag
+    // Save is an icon-only button — assert its accessible name, not text.
+    expect(host?.shadowRoot?.querySelector('button[aria-label="保存"]')).not.toBeNull();
 
     act(() => mount.hide());
     expect(mount.isOpen).toBe(false);
-    expect(host?.shadowRoot?.textContent ?? "").not.toContain("保存");
+    expect(host?.shadowRoot?.querySelector('button[aria-label="保存"]')).toBeNull();
   });
 
   it("places the card beside the anchor element instead of the viewport corner", () => {

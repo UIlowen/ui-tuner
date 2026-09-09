@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { clamp, formatNumber, parseCssValue, scrubMultiplier } from "@ui-tuner/inspector";
 import { useT } from "../i18n/use-t";
-import { DragIcon } from "../ui/icons";
 
 /** Round `value` to the nearest `step`, trimming float artifacts via toFixed. */
 function snapToStep(value: number, step: number): number {
@@ -16,7 +15,9 @@ function snapToStep(value: number, step: number): number {
  *   ↑/↓ ±step · Shift+↑↓ ×10 · double-click → type an exact value
  *
  * Drag frames fire `onPreview` only (rAF-throttled, no React re-render — the
- * label is written to the DOM directly); releasing fires `onCommit`.
+ * label is written to the DOM directly); releasing fires `onCommit`. The drag
+ * also reports `onDragStart`/`onDragEnd` so the surrounding card can collapse
+ * to this row alone (Codex behavior: everything else fades away mid-scrub).
  */
 export interface ScrubInputProps {
   value: number;
@@ -26,8 +27,16 @@ export interface ScrubInputProps {
   step?: number;
   /** Unit suffix shown next to the number ("" for unitless). */
   unit?: string;
+  /** CSS property being scrubbed. Stamped as `data-scrub-property` on the
+   *  slider root so a locked sibling's drag can live-update this control's
+   *  displayed number (preview frames deliberately skip the React snapshot). */
+  property?: string;
   onPreview(value: number): void;
   onCommit(value: number): void;
+  /** Pointer pressed on the control — the card hides every other row. */
+  onDragStart?(): void;
+  /** Pointer released (drag committed or cancelled) — the card restores. */
+  onDragEnd?(): void;
 }
 
 export function ScrubInput({
@@ -36,8 +45,11 @@ export function ScrubInput({
   max,
   step = 1,
   unit = "",
+  property,
   onPreview,
   onCommit,
+  onDragStart,
+  onDragEnd,
 }: ScrubInputProps) {
   const t = useT();
   const [editing, setEditing] = useState(false);
@@ -50,6 +62,11 @@ export function ScrubInput({
   const rafRef = useRef<number | null>(null);
   const pendingRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** The edit-mode ref callback runs on EVERY render (inline function), so the
+   *  "select all on focus" must be gated — otherwise each typed character
+   *  re-selects the whole draft and the next keystroke replaces it, making it
+   *  impossible to type past a couple of digits. */
+  const didAutoSelect = useRef(false);
 
   // Sync the live ref from the prop only while idle. During a drag (or text
   // edit) the ref holds the live value and must NOT be reset by a re-render
@@ -98,6 +115,7 @@ export function ScrubInput({
     event.currentTarget.setPointerCapture(event.pointerId);
     dragStart.current = { x: event.clientX, value: currentValue.current };
     setDragging(true);
+    onDragStart?.();
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -116,6 +134,7 @@ export function ScrubInput({
     const startValue = dragStart.current.value;
     dragStart.current = null;
     setDragging(false);
+    onDragEnd?.();
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
@@ -144,6 +163,7 @@ export function ScrubInput({
   };
 
   const startEditing = () => {
+    didAutoSelect.current = false;
     setDraft(`${formatNumber(currentValue.current)}${unit}`);
     setEditing(true);
   };
@@ -164,7 +184,10 @@ export function ScrubInput({
       <input
         ref={(node) => {
           inputRef.current = node;
-          if (node) node.select();
+          if (node && !didAutoSelect.current) {
+            didAutoSelect.current = true;
+            node.select();
+          }
         }}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
@@ -173,7 +196,7 @@ export function ScrubInput({
           else if (event.key === "Escape") setEditing(false);
         }}
         onBlur={finishEditing}
-        className="h-8 w-full rounded-control bg-transparent px-1.5 font-mono text-[12px] text-text-strong ring-2 ring-accent-text/80 outline-none"
+        className="ut-font-value h-[30px] w-full rounded-[8px] bg-transparent px-3 text-[12px] text-text-strong ring-1 ring-accent-text/60 outline-none"
       />
     );
   }
@@ -185,6 +208,7 @@ export function ScrubInput({
       aria-valuenow={currentValue.current}
       aria-valuemin={min}
       aria-valuemax={max}
+      data-scrub-property={property}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
@@ -192,28 +216,20 @@ export function ScrubInput({
       onKeyDown={handleKeyDown}
       onDoubleClick={startEditing}
       title={t("scrub.hint")}
-      className={`group flex h-8 min-w-0 cursor-ew-resize items-center gap-1 rounded-control border border-edge px-1.5 font-mono text-[12px] text-text-strong outline-none select-none transition-colors ${
+      className={`ut-font-value flex h-[30px] w-[108px] min-w-0 items-center justify-between rounded-[8px] border px-3 text-[12px] outline-none select-none transition-colors ${
         dragging
-          ? "border-accent-text/50 bg-accent-text/15 ring-2 ring-accent-text/80"
+          ? "cursor-ew-resize border-accent-text/50 bg-accent-text/15 text-text-strong ring-1 ring-accent-text/60"
           : // `focus:` not `focus-visible:` — a scrub field is a div, and Chrome
             // never matches :focus-visible for a mouse click on one, so the
             // control the designer just grabbed would stay unhighlighted.
-            "bg-transparent hover:bg-control focus:bg-control focus:ring-2 focus:ring-accent-text/70"
+            "cursor-ew-resize border-edge bg-transparent text-text-strong hover:bg-control focus:bg-control focus:ring-1 focus:ring-accent-text/60"
       }`}
       style={{ touchAction: "none" }}
     >
-      <span
-        aria-hidden
-        className={`shrink-0 text-faint transition-opacity ${
-          dragging ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus:opacity-100"
-        }`}
-      >
-        <DragIcon className="size-3" />
-      </span>
       <span ref={displayRef} className="truncate tabular-nums">
         {formatNumber(value)}
       </span>
-      {unit !== "" && <span className="text-[11px] text-faint">{unit}</span>}
+      {unit !== "" && <span className="shrink-0 text-dim">{unit}</span>}
     </div>
   );
 }

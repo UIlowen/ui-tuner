@@ -12,6 +12,12 @@ export interface EditorCardProps {
   /** 气泡序号；null = 未保存。 */
   number: number | null;
   initialValues: Record<string, string>;
+  /**
+   * The element's current text content — only passed for text-only elements
+   * (no element children), which is when the 文本 row appears. Editing stages
+   * a textContent change under the pseudo-property "text-content".
+   */
+  initialText?: string;
   /** 之前已保存的自然语言指令（"" 表示无）。 */
   initialInstruction: string;
   /**

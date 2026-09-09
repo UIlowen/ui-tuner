@@ -3,10 +3,13 @@
  * cannot reach the overlay — the only style surface is this file.
  */
 
-/** Host node: fixed, zero-size, never intercepts pointer events. */
+/** Host node: fixed, zero-size, never intercepts pointer events. Bottom of the
+ *  extension's own stack: editor card 2147483647 > annotations 2147483646 >
+ *  overlay (the card must never be covered; hover highlights under it are fine
+ *  — the picker is off while the card is open anyway). */
 export const OVERLAY_HOST_STYLE =
   "position: fixed; top: 0; left: 0; width: 0; height: 0; " +
-  "pointer-events: none; z-index: 2147483647;";
+  "pointer-events: none; z-index: 2147483645;";
 
 export const OVERLAY_SHADOW_CSS = `
   .box {

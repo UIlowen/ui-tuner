@@ -118,3 +118,65 @@ describe("ScrubInput no-op interactions", () => {
     expect(onCommit).not.toHaveBeenCalled();
   });
 });
+
+describe("ScrubInput drag lifecycle", () => {
+  it("fires onDragStart on pointer down and onDragEnd on release — the card collapses to this row", () => {
+    const onDragStart = vi.fn();
+    const onDragEnd = vi.fn();
+    const { container } = render(
+      <ScrubInput
+        value={38}
+        unit="px"
+        onPreview={vi.fn()}
+        onCommit={vi.fn()}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />,
+    );
+    const slider = sliderOf(container);
+
+    expect(onDragStart).not.toHaveBeenCalled();
+    fireEvent.pointerDown(slider, { clientX: 100, pointerId: 1 });
+    expect(onDragStart).toHaveBeenCalledTimes(1);
+    expect(onDragEnd).not.toHaveBeenCalled();
+
+    fireEvent.pointerUp(slider, { pointerId: 1 });
+    expect(onDragEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it("fires onDragEnd even when the drag is cancelled (pointercancel)", () => {
+    const onDragEnd = vi.fn();
+    const { container } = render(
+      <ScrubInput value={38} onPreview={vi.fn()} onCommit={vi.fn()} onDragEnd={onDragEnd} />,
+    );
+    const slider = sliderOf(container);
+
+    fireEvent.pointerDown(slider, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerCancel(slider, { pointerId: 1 });
+    expect(onDragEnd).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ScrubInput edit mode auto-select", () => {
+  it("selects the draft only once — typing multi-digit values is possible", () => {
+    const selectSpy = vi.spyOn(HTMLInputElement.prototype, "select");
+    const onCommit = vi.fn();
+    const { container } = render(
+      <ScrubInput value={38} unit="px" onPreview={vi.fn()} onCommit={onCommit} />,
+    );
+    fireEvent.doubleClick(sliderOf(container));
+
+    const input = container.querySelector("input");
+    if (!input) throw new Error("editor input not found");
+    expect(selectSpy).toHaveBeenCalledTimes(1);
+
+    // Each keystroke re-renders the controlled input; the ref callback must
+    // NOT re-select, or the next keystroke would replace the whole draft.
+    fireEvent.change(input, { target: { value: "100px" } });
+    expect(selectSpy).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledWith(100);
+    selectSpy.mockRestore();
+  });
+});

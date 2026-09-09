@@ -30,6 +30,7 @@
   --inverse-hover: #27272a;
   --inverse-text: #f4f4f5;
   --accent-text: #6d28d9;
+     where a translucent badge would let whatever sits behind it show through. */
   --ok-text: #047857;
   --warn-text: #b45309;
   --danger-text: #b91c1c;
@@ -38,34 +39,35 @@
 
 :host(.dark) {
   color-scheme: dark;
+  /* Figma card design (180:759/180:824): #2d2d2d shell, white-alpha text and
+     control borders. Token NAMES mirror sidepanel.css — only values differ. */
   --base: #09090b;
-  --surface: rgb(24 24 27 / 0.6);
-  --surface-solid: #18181b;
-  --inset: rgb(9 9 11 / 0.4);
-  --inset-deep: rgb(9 9 11 / 0.7);
-  --control: rgb(39 39 42 / 0.7);
-  --control-hover: rgb(63 63 70 / 0.7);
-  --elevated: rgb(63 63 70 / 0.8);
-  --edge: #27272a;
-  --edge-strong: #3f3f46;
-  --text-strong: #f4f4f5;
-  --text: #e4e4e7;
-  --dim: #a1a1aa;
-  --faint: #71717a;
-  --ghost: #52525b;
+  --surface: rgb(45 45 45 / 0.6);
+  --surface-solid: #2d2d2d;
+  --inset: rgb(255 255 255 / 0.04);
+  --inset-deep: rgb(255 255 255 / 0.06);
+  --control: rgb(255 255 255 / 0.08);
+  --control-hover: rgb(255 255 255 / 0.12);
+  --elevated: rgb(255 255 255 / 0.08);
+  --edge: rgb(255 255 255 / 0.1);
+  --edge-strong: rgb(255 255 255 / 0.2);
+  --text-strong: #ffffff;
+  --text: rgb(255 255 255 / 0.8);
+  --dim: rgb(255 255 255 / 0.6);
+  --faint: rgb(255 255 255 / 0.6);
+  --ghost: rgb(255 255 255 / 0.2);
   --inverse: #f4f4f5;
   --inverse-hover: #ffffff;
   --inverse-text: #18181b;
   --accent-text: #c4b5fd;
-  --ok-text: #6ee7b7;
+  --ok-text: #31c58d;
   --warn-text: #fcd34d;
   --danger-text: #fca5a5;
   --info-text: #7dd3fc;
 }
 
 @theme inline {
-  --color-base: var(--base);
-  --color-surface: var(--surface);
+  --color-base: var(--base);  --color-surface: var(--surface);
   --color-surface-solid: var(--surface-solid);
   --color-inset: var(--inset);
   --color-inset-deep: var(--inset-deep);
@@ -94,6 +96,48 @@
   --radius-card: 14px;
   --radius-control: 6px;
   --radius-pill: 999px;
+}
+
+/*
+ * Card component classes from the Figma design (180:759 / 180:824) that need
+ * values not expressible with the shared tokens alone. Plain CSS, not tokens —
+ * tokens.test.ts only compares the :host / :host(.dark) / @theme blocks, so
+ * these stay card-local and never force a sidepanel.css change.
+ *
+ *   .ut-divider     group separator line (Figma: white 8% / 1px)
+ *   .ut-element-bar purple tint behind the tag name (brand at 10% dark / 8% light)
+ *   .ut-link-badge  link-toggle box on the width/height bracket (#272121 dark)
+ *   .ut-font-label  PingFang SC Medium stack — row labels, tag, placeholder
+ *   .ut-font-value  Inter Regular stack — values inside controls
+ */
+@layer components {
+  .ut-divider {
+    background: rgb(0 0 0 / 0.06);
+  }
+  .ut-element-bar {
+    background: rgb(109 40 217 / 0.08);
+  }
+  .ut-link-badge {
+    background: var(--control);
+  }
+  .ut-font-label {
+    font-family: "PingFang SC", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-weight: 500;
+  }
+  .ut-font-value {
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-weight: 400;
+  }
+
+  :host(.dark) .ut-divider {
+    background: rgb(255 255 255 / 0.08);
+  }
+  :host(.dark) .ut-element-bar {
+    background: rgb(135 117 237 / 0.10);
+  }
+  :host(.dark) .ut-link-badge {
+    background: #272121;
+  }
 }
 
 /*

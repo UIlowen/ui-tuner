@@ -203,6 +203,37 @@ function openEditorCard(element: Element): void {
     overlay?.setHover(null);
   }
 
+  // The 文本 row edits textContent — not a CSS property, so it bypasses the
+  // CSS-only StagingEngine/PreviewEngine and stages directly on the element
+  // under the pseudo-property "text-content", with the same 保存才记录 model:
+  // typing previews live, commit() records, cancel restores. Only offered for
+  // text-only elements (replacing a subtree's textContent would destroy it).
+  const isTextOnly = element.children.length === 0;
+  const textSession = { original: null as string | null, staged: null as string | null };
+  const recordedTextChange = () =>
+    changeTracker
+      .all()
+      .find((c) => c.elementId === elementId && c.property === "text-content");
+  /** Put the element's text back to the pre-session state (recorded value if
+   *  one exists — the pre-session override — else the captured original). */
+  const restoreText = (): void => {
+    if (textSession.original === null && textSession.staged === null) return;
+    const recorded = recordedTextChange();
+    element.textContent = recorded ? recorded.nextValue : (textSession.original ?? "");
+  };
+  /** Mirror StagingEngine.commit() for the text pseudo-property: record the
+   *  staged value, dropping the record when it lands back on the original. */
+  const commitText = (): void => {
+    if (textSession.staged === null) return;
+    const existing = recordedTextChange();
+    const original = existing ? existing.previousValue : (textSession.original ?? "");
+    changeTracker.record(elementId, "text-content", textSession.staged, original);
+    const change = recordedTextChange();
+    if (change && change.nextValue === change.previousValue) {
+      changeTracker.revertProperty(elementId, "text-content");
+    }
+  };
+
   stagingEngine.begin(elementId);
   cardMount.show(
     {
@@ -211,13 +242,21 @@ function openEditorCard(element: Element): void {
       // Bubble sequence number; null when the element has no saved change yet.
       number: annotations?.numberFor(elementId) ?? null,
       initialValues: collectWhitelistedStyles(element),
+      ...(isTextOnly ? { initialText: element.textContent?.trim() ?? "" } : {}),
       initialInstruction: instructionStore.get(elementId) ?? "",
       changedProperties: changedPropertiesFor(elementId),
       onStage: (property, value) => {
+        if (property === "text-content") {
+          if (textSession.original === null) textSession.original = element.textContent ?? "";
+          element.textContent = value;
+          textSession.staged = value;
+          return;
+        }
         stagingEngine?.stage(element, property, value);
       },
       onSave: (instruction) => {
         stagingEngine?.commit();
+        commitText();
         instructionStore.set(elementId, instruction);
         reportChanges();
         cardMount?.hide();
@@ -225,11 +264,14 @@ function openEditorCard(element: Element): void {
       },
       onCancel: () => {
         stagingEngine?.rollback();
+        restoreText();
         cardMount?.hide();
         if (wasPicking) startPicking();
       },
       onDelete: () => {
         stagingEngine?.end(); // discard any unsaved staged edits first
+        textSession.original = null;
+        textSession.staged = null;
         revertElement(elementId); // clears committed changes + instruction, reports
         cardMount?.hide();
         if (wasPicking) startPicking();
@@ -238,11 +280,29 @@ function openEditorCard(element: Element): void {
         // Codex-style click-outside dismiss: same rollback as 取消, then
         // restart the picker so the user can keep annotating.
         stagingEngine?.rollback();
+        restoreText();
         overlay?.setHover(null);
         cardMount?.hide();
         if (wasPicking) startPicking();
       },
       onRevert: (property) => {
+        if (property === "text-content") {
+          const change = recordedTextChange();
+          if (change) {
+            // Stage the undo as a live preview (see the style branch below for
+            // why this isn't a direct revert): 保存 drops the record, 取消 puts
+            // the saved text back.
+            if (textSession.original === null) textSession.original = element.textContent ?? "";
+            element.textContent = change.previousValue;
+            textSession.staged = change.previousValue;
+            return change.previousValue;
+          }
+          // Nothing recorded — just this session's unsaved preview. Restore the
+          // original so it cannot ride along into the next commit.
+          if (textSession.original !== null) element.textContent = textSession.original;
+          textSession.staged = null;
+          return null;
+        }
         const change = changeTracker
           .all()
           .find((c) => c.elementId === elementId && c.property === property);
@@ -307,7 +367,13 @@ function syncAfterChanges(affectedElementIds: string[]): void {
 function revertChange(changeId: string): void {
   const change = changeTracker.revert(changeId);
   if (!change) return;
-  previewEngine.setOverride(change.elementId, change.property, null);
+  if (change.property === "text-content") {
+    // Text lives on the element, not in the preview stylesheet.
+    const el = document.querySelector(`[${UI_TUNER_ID_ATTR}="${change.elementId}"]`);
+    if (el) el.textContent = change.previousValue;
+  } else {
+    previewEngine.setOverride(change.elementId, change.property, null);
+  }
   syncAfterChanges([change.elementId]);
 }
 
@@ -318,19 +384,33 @@ function revertElement(uiTunerId: string): void {
   const removed = changeTracker.revertElement(uiTunerId);
   // No-op only when there were neither style changes nor an instruction.
   if (removed.length === 0 && !hadInstruction) return;
-  if (removed.length > 0) previewEngine.removeElement(uiTunerId);
+  const textRevert = removed.find((change) => change.property === "text-content");
+  if (textRevert) {
+    const el = document.querySelector(`[${UI_TUNER_ID_ATTR}="${uiTunerId}"]`);
+    if (el) el.textContent = textRevert.previousValue;
+  }
+  if (removed.some((change) => change.property !== "text-content")) {
+    previewEngine.removeElement(uiTunerId);
+  }
   syncAfterChanges([uiTunerId]);
 }
 
 /** Reset all preview changes (plan §13/§14). */
 function resetChanges(): void {
-  const affected = [...new Set(changeTracker.all().map((change) => change.elementId))];
+  const all = changeTracker.all();
+  const affected = [...new Set(all.map((change) => change.elementId))];
   const hadInstructions = Object.keys(instructionStore.all()).length > 0;
   instructionStore.clear();
   if (affected.length === 0) {
     // No style changes, but clearing instructions still needs reporting.
     if (hadInstructions) reportChanges();
     return;
+  }
+  // Restore element text before dropping the records — it lives on the DOM.
+  for (const change of all) {
+    if (change.property !== "text-content") continue;
+    const el = document.querySelector(`[${UI_TUNER_ID_ATTR}="${change.elementId}"]`);
+    if (el) el.textContent = change.previousValue;
   }
   changeTracker.clear();
   previewEngine.unmount();

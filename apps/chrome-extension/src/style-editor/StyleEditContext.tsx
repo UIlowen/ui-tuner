@@ -9,6 +9,10 @@ export interface StyleEditApi {
   dirty: ReadonlySet<string>;
   /** 已锁定的属性对（如 width/height、top/bottom、left/right）。 */
   linked: ReadonlySet<string>;
+  /** 正在拖动调节的属性（非 null 时卡片收敛为只显示该行，其余隐藏）。 */
+  scrubbing: string | null;
+  /** ScrubInput 拖动开始/结束时调用。 */
+  setScrubbing(property: string | null): void;
   /**
    * committed=false 是拖动中的预览帧；committed=true 是松手提交帧。两种帧都会
    * 经 content 的 onStage 进入 StagingEngine（预览引擎实时反映），区别在

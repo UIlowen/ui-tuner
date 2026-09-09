@@ -23,8 +23,9 @@ export interface CardMount {
   readonly isOpen: boolean;
 }
 
-/** Above every page layer, but one below the annotations/overlay (also 2147483646) so a covered bubble stays clickable. */
-const HOST_Z_INDEX = "2147483645";
+/** Topmost layer — above the annotations (2147483646) and the hover/selection
+ *  overlay (2147483645): the card must never be covered by a bubble. */
+const HOST_Z_INDEX = "2147483647";
 /** Fallback position for a card shown without an anchor. */
 const INITIAL_OFFSET = { x: 16, y: 16 };
 
