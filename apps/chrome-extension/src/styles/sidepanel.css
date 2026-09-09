@@ -27,6 +27,27 @@
   --inverse-hover: #27272a;
   --inverse-text: #f4f4f5;
   --accent-text: #6d28d9;
+  /* Opaque stand-ins for accent-text/20 and /30 over --surface-solid — used
+     where a translucent badge would let whatever sits behind it show through. */
+  --accent-badge: #e2d4f7;
+  --accent-badge-hover: #d3bff4;
+  /* Brand purple (primary buttons, active tab) + agent-include chip colors. */
+  --brand: #6d28d9;
+  --brand-hover: #7c3aed;
+  --chip-dom: #7c6ce7;
+  --chip-styles: #14b8a6;
+  --chip-source: #eab308;
+  --chip-screenshot: #ef4444;
+  --chip-parent: #22c55e;
+  /* Soft purple for subtle fills (hover fills, slider track); the `<tag>` blue;
+     the "new value" cyan; the card border. Values from the Figma design. */
+  --brand-soft: #8b5cf6;
+  --tag-text: #2563eb;
+  --value-new: #0f766e;
+  --card-edge: #e4e4e7;
+  /* "live" bright green — connected badge & preview count (dark design). Light
+     uses a readable green; dark uses the design's vivid #4fff38. */
+  --live: #16a34a;
   --ok-text: #047857;
   --warn-text: #b45309;
   --danger-text: #b91c1c;
@@ -34,26 +55,42 @@
 }
 
 .dark {
-  --base: #09090b;
-  --surface: rgb(24 24 27 / 0.6);
-  --surface-solid: #18181b;
-  --inset: rgb(9 9 11 / 0.4);
-  --inset-deep: rgb(9 9 11 / 0.7);
-  --control: rgb(39 39 42 / 0.7);
-  --control-hover: rgb(63 63 70 / 0.7);
-  --elevated: rgb(63 63 70 / 0.8);
-  --edge: #27272a;
-  --edge-strong: #3f3f46;
-  --text-strong: #f4f4f5;
-  --text: #e4e4e7;
-  --dim: #a1a1aa;
-  --faint: #71717a;
-  --ghost: #52525b;
+  /* 363×860 redesign: deep blue-charcoal base with white-opacity text scale. */
+  --base: #12171f;
+  --surface: rgb(255 255 255 / 0.02);
+  --surface-solid: #171d27;
+  --inset: rgb(255 255 255 / 0.03);
+  --inset-deep: rgb(255 255 255 / 0.02);
+  --control: rgb(255 255 255 / 0.05);
+  --control-hover: rgb(255 255 255 / 0.1);
+  --elevated: rgb(255 255 255 / 0.08);
+  --edge: rgb(255 255 255 / 0.09);
+  --edge-strong: rgb(255 255 255 / 0.16);
+  --text-strong: #ffffff;
+  --text: rgb(255 255 255 / 0.9);
+  --dim: rgb(255 255 255 / 0.6);
+  --faint: rgb(255 255 255 / 0.6);
+  --ghost: rgb(255 255 255 / 0.52);
   --inverse: #f4f4f5;
   --inverse-hover: #ffffff;
   --inverse-text: #18181b;
   --accent-text: #c4b5fd;
-  --ok-text: #6ee7b7;
+  --accent-badge: #3a3748;
+  --accent-badge-hover: #4c475f;
+  --brand: #8775ed;
+  --brand-hover: #8775ed;
+  --chip-dom: #8775ed;
+  --chip-styles: #28c7c2;
+  --chip-source: #bfaf62;
+  --chip-screenshot: #e37c7c;
+  --chip-parent: #4eb06a;
+  --brand-soft: #9d7ce3;
+  --tag-text: #4cbaff;
+  --value-new: #1dfbd9;
+  --card-edge: rgb(93 110 140 / 0.26);
+  /* "live" bright green — connected badge & preview count (设计稿 #4fff38). */
+  --live: #4fff38;
+  --ok-text: #31c58d;
   --warn-text: #fcd34d;
   --danger-text: #fca5a5;
   --info-text: #7dd3fc;
@@ -79,6 +116,20 @@
   --color-inverse-hover: var(--inverse-hover);
   --color-inverse-text: var(--inverse-text);
   --color-accent-text: var(--accent-text);
+  --color-accent-badge: var(--accent-badge);
+  --color-accent-badge-hover: var(--accent-badge-hover);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-chip-dom: var(--chip-dom);
+  --color-chip-styles: var(--chip-styles);
+  --color-chip-source: var(--chip-source);
+  --color-chip-screenshot: var(--chip-screenshot);
+  --color-chip-parent: var(--chip-parent);
+  --color-brand-soft: var(--brand-soft);
+  --color-tag-text: var(--tag-text);
+  --color-value-new: var(--value-new);
+  --color-card-edge: var(--card-edge);
+  --color-live: var(--live);
   --color-ok-text: var(--ok-text);
   --color-warn-text: var(--warn-text);
   --color-danger-text: var(--danger-text);

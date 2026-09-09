@@ -39,22 +39,27 @@ export const zh = {
   "pick.start": "选取元素",
   "pick.repick": "重新选取",
   "pick.cancel": "取消选取 (Esc)",
-  "pick.exit": "退出注释模式 (Esc)",
+  "pick.exit": "退出注释",
   "pick.hint": "点击页面中的元素",
   "done.element": "✓ 完成此元素",
   "agent.advancedSettings": "Agent 高级设置",
   "style.emptyHint1": "选取页面元素后在此调整样式",
   "style.emptyHint2": "拖动数值实时预览 · 只改浏览器，不动源码",
 
+  // --- Tabs ---
+  "tab.preview": "预览",
+  "tab.agent": "智能体",
+
   // --- Changes tab ---
-  "changes.title": "Preview · {count}",
+  "changes.title": "预览 {count}",
   "changes.emptyHint":
     "点「选取元素」后在页面的编辑卡里调整，保存的改动会记录在这里。Preview 只改浏览器，不动源码。",
   "changes.revertElement": "还原",
   "changes.revertProperty": "还原 {property}",
+  "changes.revertInstruction": "撤销指令",
   "changes.copy": "复制改动",
   "changes.copyTitle": "复制全部改动（含源码位置），粘贴到 Claude / Codex 对话框",
-  "changes.resetAll": "全部重置",
+  "changes.resetAll": "一键还原",
   "changes.pending": "{count} 项待应用",
   "changes.instruction": "指令",
 
@@ -64,14 +69,15 @@ export const zh = {
   "agent.context": "上下文",
   "agent.screenshotHint": "截图由 {agent} 经 ui_capture 抓取",
   "agent.instruction": "指令",
-  "agent.instructionPlaceholder": "整体紧凑一点，标题不要变小…",
+  "agent.instructionPlaceholder": "请输入修改指令...",
   "agent.title": "Agent",
   "agent.available": "可用",
   "agent.notFound": "未找到",
   "agent.unavailableHint":
     "Agent 不可用——Preview 修改是安全的（§36）。启动 Bridge 后 Codex 即可经 MCP 获取上下文。",
   "agent.contextLevel": "上下文级别",
-  "agent.promptTitle": "Prompt 上下文（§26）",
+  "agent.levelValue": "{level}级",
+  "agent.promptTitle": "Prompt",
   "agent.copyPrompt": "复制",
   "agent.send": "发送至 Bridge",
   "agent.sent": "已发送至 Bridge · {time} — {agent} 可经 MCP ui_get_context 获取",
@@ -79,7 +85,11 @@ export const zh = {
   "include.styles": "样式",
   "include.source": "源码",
   "include.screenshot": "截图",
-  "include.parentTree": "父级树",
+  "include.parentTree": "父树级",
+  "hint.context": "当前选中的页面元素及其源码定位，随选区实时同步给 Agent。",
+  "hint.instruction": "写给 Agent 的自然语言修改要求，会并入下方 Prompt 一起发送。",
+  "hint.agent": "选择随 Prompt 一起发送给 Agent 的上下文内容。",
+  "hint.prompt": "实时拼装的提示词预览：选中元素、DOM/样式/源码、你的预览改动与指令。",
 
   // --- Apply to Code ---
   "apply.applied": "已应用",
@@ -223,22 +233,27 @@ export const en: Record<MessageKey, string> = {
   "pick.start": "Select element",
   "pick.repick": "Reselect",
   "pick.cancel": "Cancel picking (Esc)",
-  "pick.exit": "Exit annotation mode (Esc)",
+  "pick.exit": "Exit annotation",
   "pick.hint": "Click an element on the page",
   "done.element": "✓ Done with this element",
   "agent.advancedSettings": "Agent Advanced Settings",
   "style.emptyHint1": "Select an element on the page to tune its styles here",
   "style.emptyHint2": "Drag values for live preview · browser only, source untouched",
 
+  // --- Tabs ---
+  "tab.preview": "Preview",
+  "tab.agent": "Agent",
+
   // --- Changes tab ---
-  "changes.title": "Preview · {count}",
+  "changes.title": "Preview {count}",
   "changes.emptyHint":
     "Click “Select element” and tune in the editor card on the page — saved changes are recorded here. Preview only changes the browser, not the source.",
   "changes.revertElement": "Revert",
   "changes.revertProperty": "Revert {property}",
+  "changes.revertInstruction": "Revert instruction",
   "changes.copy": "Copy changes",
   "changes.copyTitle": "Copy all changes (with source locations) to paste into a Claude / Codex chat",
-  "changes.resetAll": "Reset All",
+  "changes.resetAll": "Revert all",
   "changes.pending": "{count} pending",
   "changes.instruction": "Instruction",
 
@@ -248,14 +263,15 @@ export const en: Record<MessageKey, string> = {
   "agent.context": "Context",
   "agent.screenshotHint": "Screenshot is captured by {agent} via ui_capture",
   "agent.instruction": "Instruction",
-  "agent.instructionPlaceholder": "Make it tighter overall, keep the title size…",
+  "agent.instructionPlaceholder": "Type your change request...",
   "agent.title": "Agent",
   "agent.available": "available",
   "agent.notFound": "not found",
   "agent.unavailableHint":
     "Agent unavailable — Preview changes are safe (§36). Start the Bridge and Codex can fetch context via MCP.",
   "agent.contextLevel": "Context Level",
-  "agent.promptTitle": "Prompt Context (§26)",
+  "agent.levelValue": "Level {level}",
+  "agent.promptTitle": "Prompt",
   "agent.copyPrompt": "Copy",
   "agent.send": "Send to Bridge",
   "agent.sent": "Sent to Bridge · {time} — {agent} can fetch it via MCP ui_get_context",
@@ -264,6 +280,10 @@ export const en: Record<MessageKey, string> = {
   "include.source": "Source",
   "include.screenshot": "Screenshot",
   "include.parentTree": "Parent Tree",
+  "hint.context": "The selected page element and its resolved source location, synced to the agent with the selection.",
+  "hint.instruction": "A natural-language change request for the agent, merged into the prompt below.",
+  "hint.agent": "Choose which context is sent to the agent with the prompt.",
+  "hint.prompt": "Live preview of the assembled prompt: selection, DOM/styles/source, your preview changes and instruction.",
 
   // --- Apply to Code ---
   "apply.applied": "Applied",

@@ -6,6 +6,7 @@ import { Annotations, Overlay } from "@ui-tuner/inspector";
 import {
   createSidepanelPicking,
   createSidepanelResetChanges,
+  createSidepanelRevertInstruction,
   UI_TUNER_PORT_NAME,
 } from "@ui-tuner/protocol";
 import { EDITOR_CARD_ROOT_ID } from "./card/mount-card";
@@ -299,6 +300,40 @@ describe("content page-side edit session", () => {
     // Annotated, so it opens expanded — the instruction is already on screen.
     expect(instructionField(card()).tagName).toBe("INPUT");
     expect(instructionField(card()).value).toBe("圆角更大");
+
+    act(() => port.disconnect());
+  });
+
+  it("revertInstruction clears only the instruction and re-reports", () => {
+    const connect = connectListeners[0]!;
+    const port = createFakePort();
+    act(() => connect(port.port));
+    act(() => port.emitToContent(createSidepanelResetChanges()));
+    act(() => port.emitToContent(createSidepanelPicking(true)));
+    act(() => {
+      fireEvent.click(document.body, { clientX: 5, clientY: 5 });
+    });
+
+    const elementId = target.getAttribute("data-ui-tuner-id")!;
+    const card = () => document.getElementById(EDITOR_CARD_ROOT_ID)!.shadowRoot!;
+    saveInstruction(card(), "圆角更大");
+    expect(
+      previewChangedMessages(port.sent).find(
+        (m) => m.payload.instructions?.[elementId] === "圆角更大",
+      ),
+    ).toBeTruthy();
+    expect(
+      document.getElementById(Annotations.ROOT_ID)!.shadowRoot!.querySelectorAll(".bubble"),
+    ).toHaveLength(1);
+
+    act(() => port.emitToContent(createSidepanelRevertInstruction(elementId)));
+
+    // The instruction is gone from the mirror, and so is the bubble it caused.
+    const last = previewChangedMessages(port.sent).at(-1)!;
+    expect(last.payload.instructions?.[elementId]).toBeUndefined();
+    expect(
+      document.getElementById(Annotations.ROOT_ID)!.shadowRoot!.querySelectorAll(".bubble"),
+    ).toHaveLength(0);
 
     act(() => port.disconnect());
   });

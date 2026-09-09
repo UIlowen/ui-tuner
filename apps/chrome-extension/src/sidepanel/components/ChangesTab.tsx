@@ -1,13 +1,43 @@
 import { useSidepanelStore } from "../../state/sidepanel-store";
 import { useT } from "../../i18n/use-t";
-import { RefreshIcon, UndoIcon } from "../../ui/icons";
+import { CursorIcon, RotateCcwIcon } from "../../ui/icons";
 
 /**
- * Changes list: changes grouped per element, each row revertable, per-element
- * Revert, Reset All in the header. The element's natural-language instruction
- * (entered in the page-side editor card) shows under the group header when
- * present. The copy/apply actions live in the panel's sticky footer
- * (App.tsx FooterActions).
+ * Pick-mode toggle. Shared by the Preview tab's empty state (big, centered)
+ * and the sticky footer (next to 复制改动). While picking it flips to the
+ * sky "exit annotation mode" affordance.
+ */
+export function PickButton({ className = "" }: { className?: string }) {
+  const t = useT();
+  const picking = useSidepanelStore((s) => s.picking);
+  const status = useSidepanelStore((s) => s.status);
+  const setPicking = useSidepanelStore((s) => s.setPicking);
+  return (
+    <button
+      type="button"
+      onClick={() => setPicking(!picking)}
+      disabled={status !== "connected"}
+      // 断连时仍要可读：设计稿没有禁用变体，opacity-40 会把图标文字压成一团死灰。
+      // 用 opacity-60 保持接近其它未选择按钮的亮度，cursor-not-allowed 仍示意不可点。
+      className={`flex items-center justify-center gap-2 rounded-lg text-[14px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+        picking
+          ? "bg-info-text/30 text-info-text"
+          : "bg-brand/12 text-text/90 hover:bg-brand hover:text-white"
+      } ${className}`}
+    >
+      <CursorIcon className="size-4" />
+      {picking ? t("pick.exit") : t("pick.start")}
+    </button>
+  );
+}
+
+/**
+ * Preview tab: changes grouped per element, each card revertable as a whole
+ * (还原), each property row individually (↺), and — when the element also has
+ * property changes — its instruction line individually (↺). An instruction-
+ * only card skips that per-line button because 还原 already covers it.
+ *
+ * The empty state is the design's 图1: centered hint + big pick button.
  */
 export function ChangesTab() {
   const t = useT();
@@ -16,6 +46,7 @@ export function ChangesTab() {
   const instructions = useSidepanelStore((s) => s.instructions);
   const revertChange = useSidepanelStore((s) => s.revertChange);
   const revertElement = useSidepanelStore((s) => s.revertElement);
+  const revertInstruction = useSidepanelStore((s) => s.revertInstruction);
   const resetChanges = useSidepanelStore((s) => s.resetChanges);
 
   // Group changes by element, preserving first-seen order. Elements with a
@@ -45,77 +76,102 @@ export function ChangesTab() {
   // element with both is counted by its change rows alone (no double-count).
   const itemCount = changes.length + groups.filter((group) => group.changes.length === 0).length;
 
-  return (
-    <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
-      <div className="flex items-center gap-2">
-        <p className="text-[12px] font-semibold text-text">
-          {t("changes.title", { count: itemCount })}
+  if (groups.length === 0) {
+    // 2:3 spacers put the content at ~40% height — 中偏上 (设计图1), not dead center.
+    return (
+      <div className="flex h-full flex-col items-center px-6">
+        {/* 设计稿空态内容靠上（约主区 14%），不是垂直居中。 */}
+        <div className="flex-[1]" />
+        {/* 设计稿把提示限宽 w-228 + 居中 + 0.48px 字距 → 自然折成三行。 */}
+        <p className="w-[228px] text-center text-[12px] leading-relaxed tracking-[0.48px] text-ghost">
+          {t("changes.emptyHint")}
         </p>
-        {groups.length > 0 && (
-          <button
-            type="button"
-            onClick={resetChanges}
-            className="ml-auto flex items-center gap-1 rounded-control px-1.5 py-0.5 text-[10px] font-medium text-danger-text hover:bg-red-500/15"
-          >
-            <RefreshIcon className="size-3" />
-            {t("changes.resetAll")}
-          </button>
-        )}
+        <PickButton className="mt-[26px] h-11 w-full" />
+        <div className="flex-[5]" />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-center px-1">
+        <p className="flex items-center gap-2 text-[14px] font-medium text-text">
+          {t("tab.preview")}
+          <span className="font-semibold text-live">{itemCount}</span>
+        </p>
+        <button
+          type="button"
+          onClick={resetChanges}
+          className="ml-auto text-[12px] text-text transition-colors hover:text-brand-hover"
+        >
+          {t("changes.resetAll")}
+        </button>
       </div>
 
-      {groups.length === 0 ? (
-        <p className="mt-2 text-[11px] leading-relaxed text-ghost">{t("changes.emptyHint")}</p>
-      ) : (
-        <div className="mt-2 space-y-2.5">
-          {groups.map((group) => (
-            <div key={group.elementId} className="rounded-control bg-inset px-2 py-1.5">
-              <div className="flex items-center gap-1.5">
-                <span className="truncate font-mono text-[11px] font-semibold text-accent-text/90">
-                  {group.tagName}
+      <div className="mt-3 space-y-4">
+        {groups.map((group) => {
+          const instruction = instructions[group.elementId];
+          return (
+            <div
+              key={group.elementId}
+              className="rounded-lg border border-card-edge bg-surface px-4 py-3 transition-colors hover:border-brand hover:bg-brand-soft/12"
+            >
+              <div className="flex items-center gap-4.5">
+                <span className="font-mono text-[14px] font-semibold text-tag-text">
+                  {"<"}{group.tagName}{">"}
                 </span>
-                <span className="shrink-0 font-mono text-[9px] text-ghost">
-                  {group.elementId}
-                </span>
+                <span className="font-mono text-[12px] text-text">{group.elementId}</span>
                 <button
                   type="button"
                   onClick={() => revertElement(group.elementId)}
-                  className="ml-auto shrink-0 rounded-control px-1.5 py-0.5 text-[10px] text-dim hover:bg-control hover:text-text"
+                  className="ml-auto shrink-0 text-[12px] text-text transition-colors hover:text-brand-hover"
                 >
                   {t("changes.revertElement")}
                 </button>
               </div>
-              {instructions[group.elementId] && (
-                <p className="mt-1 text-[10px] text-dim">
-                  {t("changes.instruction")}：{instructions[group.elementId]}
+              {instruction && (
+                <p className="mt-3 flex items-center gap-1 text-[12px] text-text/80">
+                  <span className="min-w-0 truncate">
+                    {t("changes.instruction")}：{instruction}
+                  </span>
+                  {group.changes.length > 0 && (
+                    <button
+                      type="button"
+                      title={t("changes.revertInstruction")}
+                      aria-label={t("changes.revertInstruction")}
+                      onClick={() => revertInstruction(group.elementId)}
+                      className="ml-auto grid size-4 shrink-0 place-items-center text-faint transition-colors hover:text-brand-hover"
+                    >
+                      <RotateCcwIcon className="size-3" />
+                    </button>
+                  )}
                 </p>
               )}
-              <ul className="mt-1 space-y-0.5">
+              <ul className="mt-2 space-y-1">
                 {group.changes.map((change) => (
-                  <li key={change.id} className="flex items-baseline gap-2 text-[11px]">
+                  <li key={change.id} className="flex items-center gap-2 text-[12px]">
                     <span className="shrink-0 text-faint">{change.property}</span>
-                    <span className="ml-auto min-w-0 truncate font-mono text-[10px]">
-                      <span className="text-ghost line-through decoration-edge-strong">
-                        {change.previousValue || "—"}
-                      </span>
-                      <span className="text-ghost">{" → "}</span>
-                      <span className="text-ok-text">{change.nextValue}</span>
+                    <span className="ml-auto min-w-0 truncate font-mono text-[12px]">
+                      <span className="text-dim">{change.previousValue || "—"}</span>
+                      <span className="text-dim">{" → "}</span>
+                      <span className="text-value-new">{change.nextValue}</span>
                     </span>
                     <button
                       type="button"
                       title={t("changes.revertProperty", { property: change.property })}
                       aria-label={t("changes.revertProperty", { property: change.property })}
                       onClick={() => revertChange(change.id)}
-                      className="grid size-4 shrink-0 self-center place-items-center rounded-control text-faint hover:bg-control hover:text-text"
+                      className="grid size-4 shrink-0 place-items-center text-faint transition-colors hover:text-brand-hover"
                     >
-                      <UndoIcon className="size-3" />
+                      <RotateCcwIcon className="size-3" />
                     </button>
                   </li>
                 ))}
               </ul>
             </div>
-          ))}
-        </div>
-      )}
-    </section>
+          );
+        })}
+      </div>
+    </div>
   );
 }

@@ -194,11 +194,13 @@ describe("sidepanel store", () => {
 
     useSidepanelStore.getState().revertChange("ch-000001");
     useSidepanelStore.getState().revertElement("ut-000001");
+    useSidepanelStore.getState().revertInstruction("ut-000001");
     useSidepanelStore.getState().resetChanges();
 
     expect(sent).toEqual([
       { type: "sidepanel.revertChange", payload: { changeId: "ch-000001" } },
       { type: "sidepanel.revertElement", payload: { elementId: "ut-000001" } },
+      { type: "sidepanel.revertInstruction", payload: { elementId: "ut-000001" } },
       { type: "sidepanel.resetChanges", payload: {} },
     ]);
   });

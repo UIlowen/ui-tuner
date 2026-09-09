@@ -31,6 +31,7 @@ import {
   isSidepanelResetChangesMessage,
   isSidepanelRevertChangeMessage,
   isSidepanelRevertElementMessage,
+  isSidepanelRevertInstructionMessage,
   isSidepanelSelectAncestorMessage,
   type SelectionPayload,
   type StyleChange,
@@ -395,6 +396,13 @@ function revertElement(uiTunerId: string): void {
   syncAfterChanges([uiTunerId]);
 }
 
+/** Clear one element's natural-language instruction only (style changes stay). */
+function revertInstruction(uiTunerId: string): void {
+  if (instructionStore.get(uiTunerId) === undefined) return;
+  instructionStore.delete(uiTunerId);
+  syncAfterChanges([uiTunerId]);
+}
+
 /** Reset all preview changes (plan §13/§14). */
 function resetChanges(): void {
   const all = changeTracker.all();
@@ -615,6 +623,8 @@ chrome.runtime.onConnect.addListener((port) => {
       revertChange(message.payload.changeId);
     } else if (isSidepanelRevertElementMessage(message)) {
       revertElement(message.payload.elementId);
+    } else if (isSidepanelRevertInstructionMessage(message)) {
+      revertInstruction(message.payload.elementId);
     } else if (isSidepanelResetChangesMessage(message)) {
       resetChanges();
     } else if (isSidepanelClearSelectionMessage(message)) {

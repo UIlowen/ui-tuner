@@ -184,6 +184,14 @@ export interface SidepanelRevertElementMessage {
   };
 }
 
+/** Side Panel → Content. Clear one element's natural-language instruction only. */
+export interface SidepanelRevertInstructionMessage {
+  type: "sidepanel.revertInstruction";
+  payload: {
+    elementId: string;
+  };
+}
+
 /** Side Panel → Content. Reset all preview changes (plan §13/§14). */
 export interface SidepanelResetChangesMessage {
   type: "sidepanel.resetChanges";
@@ -494,6 +502,7 @@ export type UiTunerMessage =
   | PreviewChangedMessage
   | SidepanelRevertChangeMessage
   | SidepanelRevertElementMessage
+  | SidepanelRevertInstructionMessage
   | SidepanelResetChangesMessage
   | SidepanelClearSelectionMessage
   | BridgeHelloMessage
@@ -525,6 +534,7 @@ const MESSAGE_TYPES: readonly UiTunerMessageType[] = [
   "preview.changed",
   "sidepanel.revertChange",
   "sidepanel.revertElement",
+  "sidepanel.revertInstruction",
   "sidepanel.resetChanges",
   "sidepanel.clearSelection",
   "bridge.hello",
@@ -610,6 +620,12 @@ export function isSidepanelRevertElementMessage(
   value: UiTunerMessage,
 ): value is SidepanelRevertElementMessage {
   return value.type === "sidepanel.revertElement";
+}
+
+export function isSidepanelRevertInstructionMessage(
+  value: UiTunerMessage,
+): value is SidepanelRevertInstructionMessage {
+  return value.type === "sidepanel.revertInstruction";
 }
 
 export function isSidepanelResetChangesMessage(
@@ -739,6 +755,12 @@ export function createSidepanelRevertChange(changeId: string): SidepanelRevertCh
 
 export function createSidepanelRevertElement(elementId: string): SidepanelRevertElementMessage {
   return { type: "sidepanel.revertElement", payload: { elementId } };
+}
+
+export function createSidepanelRevertInstruction(
+  elementId: string,
+): SidepanelRevertInstructionMessage {
+  return { type: "sidepanel.revertInstruction", payload: { elementId } };
 }
 
 export function createSidepanelResetChanges(): SidepanelResetChangesMessage {

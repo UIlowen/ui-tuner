@@ -30,7 +30,25 @@
   --inverse-hover: #27272a;
   --inverse-text: #f4f4f5;
   --accent-text: #6d28d9;
+  /* Opaque stand-ins for accent-text/20 and /30 over --surface-solid — used
      where a translucent badge would let whatever sits behind it show through. */
+  --accent-badge: #e2d4f7;
+  --accent-badge-hover: #d3bff4;
+  /* Brand purple (primary buttons, active tab) + agent-include chip colors. */
+  --brand: #6d28d9;
+  --brand-hover: #7c3aed;
+  --chip-dom: #7c6ce7;
+  --chip-styles: #14b8a6;
+  --chip-source: #eab308;
+  --chip-screenshot: #ef4444;
+  --chip-parent: #22c55e;
+  /* Soft purple for subtle fills (hover fills, slider track); the `<tag>` blue;
+     the "new value" cyan; the card border. Values from the Figma design. */
+  --brand-soft: #8b5cf6;
+  --tag-text: #2563eb;
+  --value-new: #0f766e;
+  --card-edge: #e4e4e7;
+  --live: #16a34a;
   --ok-text: #047857;
   --warn-text: #b45309;
   --danger-text: #b91c1c;
@@ -60,6 +78,20 @@
   --inverse-hover: #ffffff;
   --inverse-text: #18181b;
   --accent-text: #c4b5fd;
+  --accent-badge: #3a3748;
+  --accent-badge-hover: #4c475f;
+  --brand: #8775ed;
+  --brand-hover: #8775ed;
+  --chip-dom: #8775ed;
+  --chip-styles: #28c7c2;
+  --chip-source: #bfaf62;
+  --chip-screenshot: #e37c7c;
+  --chip-parent: #4eb06a;
+  --brand-soft: #9d7ce3;
+  --tag-text: #4cbaff;
+  --value-new: #1dfbd9;
+  --card-edge: rgb(255 255 255 / 0.08);
+  --live: #4fff38;
   --ok-text: #31c58d;
   --warn-text: #fcd34d;
   --danger-text: #fca5a5;
@@ -85,6 +117,20 @@
   --color-inverse-hover: var(--inverse-hover);
   --color-inverse-text: var(--inverse-text);
   --color-accent-text: var(--accent-text);
+  --color-accent-badge: var(--accent-badge);
+  --color-accent-badge-hover: var(--accent-badge-hover);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-chip-dom: var(--chip-dom);
+  --color-chip-styles: var(--chip-styles);
+  --color-chip-source: var(--chip-source);
+  --color-chip-screenshot: var(--chip-screenshot);
+  --color-chip-parent: var(--chip-parent);
+  --color-brand-soft: var(--brand-soft);
+  --color-tag-text: var(--tag-text);
+  --color-value-new: var(--value-new);
+  --color-card-edge: var(--card-edge);
+  --color-live: var(--live);
   --color-ok-text: var(--ok-text);
   --color-warn-text: var(--warn-text);
   --color-danger-text: var(--danger-text);
@@ -115,7 +161,7 @@
     background: rgb(0 0 0 / 0.06);
   }
   .ut-element-bar {
-    background: rgb(109 40 217 / 0.08);
+    background: color-mix(in srgb, var(--brand) 8%, transparent);
   }
   .ut-link-badge {
     background: var(--control);
@@ -133,7 +179,7 @@
     background: rgb(255 255 255 / 0.08);
   }
   :host(.dark) .ut-element-bar {
-    background: rgb(135 117 237 / 0.10);
+    background: color-mix(in srgb, var(--brand) 10%, transparent);
   }
   :host(.dark) .ut-link-badge {
     background: #272121;

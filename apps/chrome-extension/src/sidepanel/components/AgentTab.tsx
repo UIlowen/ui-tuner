@@ -2,32 +2,43 @@ import { useMemo, useState } from "react";
 import {
   assembleAgentContext,
   type AgentInclude,
-  type ContextLevel,
 } from "@ui-tuner/protocol";
 import { useSidepanelStore } from "../../state/sidepanel-store";
 import { useT } from "../../i18n/use-t";
 import type { MessageKey } from "../../i18n/messages";
-import { CloseIcon, CopyIcon } from "../../ui/icons";
+import { CloseIcon, CopyIcon, InfoIcon, SendIcon } from "../../ui/icons";
+import { ApplySection } from "./ApplySection";
 
 /**
- * Agent tab (plan §23–§27). Assembles the prompt context the coding agent
- * (Codex) will read over MCP, mirrors it as a live §26 preview, and hands the
- * instruction to the bridge. Apply to Code is M8 — this tab never claims to
- * change source itself.
+ * Agent tab (plan §23–§27), laid out per the design's 图3: context card,
+ * instruction textarea, include chips + context-level slider, live §26 prompt
+ * preview, and the send button. Apply to Code (M8) sits above the send button
+ * — it is the agent's other hand-off path.
  */
 
-const INCLUDE_LABELS: { key: keyof AgentInclude; labelKey: MessageKey }[] = [
-  { key: "dom", labelKey: "include.dom" },
-  { key: "styles", labelKey: "include.styles" },
-  { key: "source", labelKey: "include.source" },
-  { key: "screenshot", labelKey: "include.screenshot" },
-  { key: "parentTree", labelKey: "include.parentTree" },
+const CHIPS: { key: keyof AgentInclude; labelKey: MessageKey; active: string; inactive: string }[] = [
+  { key: "dom", labelKey: "include.dom", active: "bg-chip-dom text-white", inactive: "bg-chip-dom/10" },
+  { key: "styles", labelKey: "include.styles", active: "bg-chip-styles text-white", inactive: "bg-chip-styles/10" },
+  { key: "source", labelKey: "include.source", active: "bg-chip-source text-white", inactive: "bg-chip-source/10" },
+  { key: "screenshot", labelKey: "include.screenshot", active: "bg-chip-screenshot text-white", inactive: "bg-chip-screenshot/20" },
+  { key: "parentTree", labelKey: "include.parentTree", active: "bg-chip-parent text-white", inactive: "bg-chip-parent/20" },
 ];
-
-const LEVELS: ContextLevel[] = [1, 2, 3];
 
 function formatTime(at: number): string {
   return new Date(at).toTimeString().slice(0, 8);
+}
+
+/** Section label with the design's hover-for-explanation info icon. */
+function SectionLabel({ label, hintKey }: { label: string; hintKey: MessageKey }) {
+  const t = useT();
+  return (
+    <p className="mb-3.5 flex items-center gap-2 text-[14px] font-medium text-text">
+      {label}
+      <span title={t(hintKey)} className="grid place-items-center text-ghost">
+        <InfoIcon className="size-3" />
+      </span>
+    </p>
+  );
 }
 
 export function AgentTab() {
@@ -80,7 +91,7 @@ export function AgentTab() {
   };
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       {lastApplied && (
         <section className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
           <div className="flex items-start justify-between gap-2">
@@ -106,142 +117,122 @@ export function AgentTab() {
       )}
 
       {/* Context card (§23) */}
-      <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
-        <p className="text-[10px] font-medium tracking-wider text-faint uppercase">
-          {t("agent.context")}
-        </p>
-        {selection ? (
-          <>
-            <p className="mt-1 truncate font-mono text-[12px] font-semibold text-accent-text">
-              {"<"}
-              {selection.element.tagName}
-              {">"}
-              <span className="ml-1.5 rounded-control bg-control px-1 py-px text-[9px] font-normal text-dim">
-                {selection.element.id}
-              </span>
-            </p>
-            <p className="mt-0.5 truncate font-mono text-[10px] text-faint">
-              {source?.confidence === "exact" && source.file
-                ? `${source.componentName ?? selection.element.tagName} · ${source.file}${source.line !== undefined ? `:${source.line}` : ""}`
-                : source?.confidence === "inferred" && source.file
-                  ? `${t("source.possible")}${source.file}`
-                  : t("source.previewOnlyLong")}
-            </p>
-          </>
-        ) : (
-          <p className="mt-1 text-[11px] text-ghost">{t("selection.empty")}</p>
-        )}
-        <div className="mt-2 flex h-16 items-center justify-center rounded-control border border-dashed border-edge text-[10px] text-ghost">
-          {t("agent.screenshotHint", { agent: agentName })}
+      <section>
+        <SectionLabel label={t("agent.context")} hintKey="hint.context" />
+        <div className="rounded-lg border border-card-edge bg-surface px-4 py-4">
+          {selection ? (
+            <>
+              <p className="flex items-baseline gap-4.5">
+                <span className="truncate font-mono text-[14px] font-semibold text-tag-text">
+                  {"<"}{selection.element.tagName}{">"}
+                </span>
+                <span className="shrink-0 font-mono text-[14px] text-text">
+                  {selection.element.id}
+                </span>
+              </p>
+              <p className="mt-1.5 truncate font-mono text-[12px] text-text/90">
+                {source?.confidence === "exact" && source.file
+                  ? `${source.componentName ?? selection.element.tagName} · ${source.file}${source.line !== undefined ? `:${source.line}` : ""}`
+                  : source?.confidence === "inferred" && source.file
+                    ? `${t("source.possible")}${source.file}`
+                    : t("source.previewOnlyLong")}
+              </p>
+            </>
+          ) : (
+            <p className="text-[12px] text-ghost">{t("selection.empty")}</p>
+          )}
         </div>
       </section>
 
       {/* Instruction */}
       <section>
-        <p className="mb-1.5 text-[10px] font-medium tracking-wider text-faint uppercase">
-          {t("agent.instruction")}
-        </p>
+        <SectionLabel label={t("agent.instruction")} hintKey="hint.instruction" />
         <textarea
           value={agentInstruction}
           onChange={(event) => setAgentInstruction(event.target.value)}
           placeholder={t("agent.instructionPlaceholder")}
           rows={3}
-          className="w-full resize-none rounded-control border border-edge bg-surface px-3 py-2 text-[12px] leading-relaxed text-text placeholder:text-ghost focus:border-accent-text/50 focus:ring-1 focus:ring-accent-text/40 focus:outline-none"
+          className="w-full resize-none rounded-lg border border-card-edge bg-surface px-4 py-3 text-[12px] leading-relaxed text-text placeholder:text-ghost focus:border-brand focus:ring-1 focus:ring-brand/40 focus:outline-none"
         />
       </section>
 
-      {/* Agent row + include flags */}
-      <section className="rounded-md border border-edge bg-surface px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-medium tracking-wider text-faint uppercase">
-            {t("agent.title")}
-          </span>
-          <span className="text-[12px] font-medium text-text">{agent?.name ?? "—"}</span>
-          {agent && (
-            <span
-              className={`ml-auto flex items-center gap-1 text-[10px] font-medium ${
-                agent.available ? "text-ok-text" : "text-faint"
-              }`}
-            >
-              <span
-                className={`size-1.5 rounded-full ${agent.available ? "bg-emerald-400" : "bg-ghost"}`}
-              />
-              {agent.available ? t("agent.available") : t("agent.notFound")}
-            </span>
-          )}
-        </div>
-        {!connected && (
-          <p className="mt-1.5 text-[10px] leading-relaxed text-faint">
-            {t("agent.unavailableHint")}
-          </p>
-        )}
-
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5">
-          {INCLUDE_LABELS.map(({ key, labelKey }) => (
-            <label
-              key={key}
-              className="flex cursor-pointer items-center gap-1.5 text-[11px] text-text"
-            >
-              <input
-                type="checkbox"
-                checked={agentInclude[key]}
-                onChange={(event) => setAgentInclude(key, event.target.checked)}
-                className="size-3 accent-accent-text"
-              />
-              {t(labelKey)}
-            </label>
-          ))}
-        </div>
-
-        <div className="mt-2.5 flex items-center gap-2">
-          <span className="text-[10px] font-medium tracking-wider text-faint uppercase">
-            {t("agent.contextLevel")}
-          </span>
-          <div className="flex gap-1">
-            {LEVELS.map((level) => (
+      {/* Include chips + context level slider (one card, per the design's 图3) */}
+      <section>
+        <SectionLabel label={t("agent.title")} hintKey="hint.agent" />
+        <div className="rounded-lg border border-card-edge bg-surface px-4 py-3">
+          <div className="flex flex-wrap gap-3.5">
+            {CHIPS.map(({ key, labelKey, active, inactive }) => (
               <button
-                key={level}
+                key={key}
                 type="button"
-                onClick={() => setAgentContextLevel(level)}
-                className={`rounded-control px-2 py-0.5 text-[10px] font-medium tabular-nums ${
-                  agentContextLevel === level
-                    ? "bg-accent-text/20 text-accent-text"
-                    : "bg-control text-faint hover:text-dim"
+                aria-pressed={agentInclude[key]}
+                onClick={() => setAgentInclude(key, !agentInclude[key])}
+                className={`rounded px-2.5 py-[3px] text-[12px] font-medium transition-colors ${
+                  agentInclude[key] ? active : `${inactive} text-ghost`
                 }`}
               >
-                {level}
+                {t(labelKey)}
               </button>
             ))}
+          </div>
+          <div className="mt-3 flex items-center gap-2.5">
+            <span className="shrink-0 text-[12px] text-faint">{t("agent.contextLevel")}</span>
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={1}
+              value={agentContextLevel}
+              aria-label={t("agent.contextLevel")}
+              onChange={(event) =>
+                setAgentContextLevel(Number(event.target.value) as 1 | 2 | 3)
+              }
+              className="h-1 min-w-0 flex-1 cursor-pointer accent-brand"
+            />
+            <span className="shrink-0 text-[12px] font-medium text-brand-hover tabular-nums">
+              {t("agent.levelValue", { level: agentContextLevel })}
+            </span>
           </div>
         </div>
       </section>
 
       {/* §26 prompt preview */}
       <section>
-        <div className="mb-1.5 flex items-center justify-between">
-          <p className="text-[10px] font-medium tracking-wider text-faint uppercase">
+        <div className="mb-3.5 flex items-center justify-between">
+          <p className="flex items-center gap-2 text-[14px] font-medium text-text">
             {t("agent.promptTitle")}
+            <span title={t("hint.prompt")} className="grid place-items-center text-ghost">
+              <InfoIcon className="size-3" />
+            </span>
           </p>
           <button
             type="button"
             onClick={() => void copyPrompt()}
-            className="flex items-center gap-1 rounded-control border border-edge-strong px-2 py-0.5 text-[10px] font-medium text-text hover:bg-control"
+            title={copied ? t("action.copied") : t("agent.copyPrompt")}
+            aria-label={copied ? t("action.copied") : t("agent.copyPrompt")}
+            className="grid size-5 place-items-center rounded-control text-faint transition-colors hover:bg-control hover:text-text"
           >
-            <CopyIcon className="size-3" />
-            {copied ? t("action.copied") : t("agent.copyPrompt")}
+            <CopyIcon className="size-4" />
           </button>
         </div>
-        <pre className="max-h-56 overflow-auto rounded-control border border-edge bg-inset-deep px-3 py-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-dim">
+        <pre className="max-h-56 overflow-auto rounded-lg border border-card-edge bg-inset-deep px-4 py-3 font-mono text-[12px] leading-relaxed whitespace-pre-wrap text-dim">
           {prompt}
         </pre>
       </section>
 
+      {/* Apply to Code (M8) — the agent tab's other hand-off path. */}
+      <ApplySection />
+
+      {!connected && (
+        <p className="text-[10px] leading-relaxed text-faint">{t("agent.unavailableHint")}</p>
+      )}
       <button
         type="button"
         onClick={sendAgentRequest}
         disabled={!connected}
-        className="w-full rounded-control bg-inverse px-3 py-1.5 text-[12px] font-semibold text-inverse-text enabled:hover:bg-inverse-hover disabled:opacity-40"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand/12 px-3 py-2.5 text-[14px] font-medium text-text/90 transition-colors enabled:hover:bg-brand enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
       >
+        <SendIcon className="size-4" />
         {t("agent.send")}
       </button>
       {agentSent && (

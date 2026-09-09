@@ -12,6 +12,7 @@ import {
   createSidepanelResetChanges,
   createSidepanelRevertChange,
   createSidepanelRevertElement,
+  createSidepanelRevertInstruction,
   createSidepanelSelectAncestor,
   isAgentAppliedMessage,
   isAgentCaptureMessage,
@@ -128,6 +129,8 @@ interface SidepanelState {
   revertChange: (changeId: string) => void;
   /** Revert every change of one element (plan §14). */
   revertElement: (elementId: string) => void;
+  /** Clear one element's natural-language instruction (style changes stay). */
+  revertInstruction: (elementId: string) => void;
   /** Reset all preview changes (plan §13/§14). */
   resetChanges: () => void;
   /** Update the Agent tab instruction draft. */
@@ -409,6 +412,13 @@ export const useSidepanelStore = create<SidepanelState>((set, get) => ({
   revertElement: (elementId) => {
     if (!channel) return;
     const message = createSidepanelRevertElement(elementId);
+    channel.send(message);
+    set((state) => ({ log: appendLog(state.log, "out", message) }));
+  },
+
+  revertInstruction: (elementId) => {
+    if (!channel) return;
+    const message = createSidepanelRevertInstruction(elementId);
     channel.send(message);
     set((state) => ({ log: appendLog(state.log, "out", message) }));
   },
