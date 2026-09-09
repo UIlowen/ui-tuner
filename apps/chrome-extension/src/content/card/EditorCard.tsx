@@ -336,17 +336,13 @@ export function EditorCard(props: EditorCardProps) {
           but invisible. */}
       <div className={`flex shrink-0 flex-col${scrubbing !== null ? " invisible" : ""}`}>
         <div className="flex items-center justify-between px-4 pt-[10px] pb-[11px]">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <PropertiesToggle
               open
               label={t("card.collapse")}
               onToggle={() => setViewState("compact")}
             />
             {instructionInput}
-          </div>
-          <div className="flex items-center gap-[10px]">
-            <MicButton voice={voice} />
-            <SubmitButton disabled={!canSave} label={t("card.save")} onSubmit={submit} />
           </div>
         </div>
         <div
