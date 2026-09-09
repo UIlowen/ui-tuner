@@ -6,14 +6,14 @@
 
 ---
 
-## 1. 当前状态快照（2026-09-07）
+## 1. 当前状态快照（2026-09-09）
 
 | 项       | 状态                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）+ **编辑卡交互修正 + 影子样式修复**（2026-09-04：属性图标开关替设置图标 / 去收起箭头 / 行激活态真的画出来 / 修「reset 后保存仍出气泡」/ 修 shadow root 里 Tailwind 边框投影整族失效）+ **属性控件收敛 + 二次保存修复**（2026-09-04：单值属性一律折叠下拉 / 默认态零高亮、强调色只给正在调的控件 / 修「重置已保存属性后无法二次保存」）+ **行激活态移除 + 点击外部关闭**（2026-09-04：去掉行容器高亮、只留控件自身 focus ring / Codex 风格点击卡片外部关闭编辑卡 + picker 抑制）+ **Codex UI 对齐 + 锁定按钮 + 行高加大**（2026-09-04：属性精简到 17 项 / 指令移到头部 / 头部布局对齐 / 锁定按钮可点击切换 / 属性行高度加大）+ **编辑卡 Esc 键修复**（2026-09-07：卡片内 Esc 只收起/关闭卡片，不退出注释模式）+ **颜色 RGBA 输入**（2026-09-07：色板 + R/G/B/A 数字输入框替透明度滑块，提交保留半透明 alpha）+ **图标迁移到 Lucide**（2026-09-07：全部图标从 Remix Icon 填充式改为 Lucide 线性/描边式，编辑卡头部下移）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
+| 里程碑   | **M1–M8 完成** + **注释模式重构**（2026-09-02）+ **页面侧编辑卡**（2026-09-03，SDD 14 任务）+ **页面侧交互打磨**（2026-09-04：退出即净页 / 改动行高亮 / 卡片就近弹出）+ **Codex 风格视觉重做**（2026-09-04：编辑卡紧凑/展开两态、Remix 图标、属性控件与面板换外观）+ **编辑卡 UI 细节打磨**（2026-09-04：去「未保存」/ 展开用 icon 替 tag / 模块间距加大 / 点击高亮 + 即时 reset）+ **编辑卡交互修正 + 影子样式修复**（2026-09-04：属性图标开关替设置图标 / 去收起箭头 / 行激活态真的画出来 / 修「reset 后保存仍出气泡」/ 修 shadow root 里 Tailwind 边框投影整族失效）+ **属性控件收敛 + 二次保存修复**（2026-09-04：单值属性一律折叠下拉 / 默认态零高亮、强调色只给正在调的控件 / 修「重置已保存属性后无法二次保存」）+ **行激活态移除 + 点击外部关闭**（2026-09-04：去掉行容器高亮、只留控件自身 focus ring / Codex 风格点击卡片外部关闭编辑卡 + picker 抑制）+ **Codex UI 对齐 + 锁定按钮 + 行高加大**（2026-09-04：属性精简到 17 项 / 指令移到头部 / 头部布局对齐 / 锁定按钮可点击切换 / 属性行高度加大）+ **编辑卡 Esc 键修复**（2026-09-07：卡片内 Esc 只收起/关闭卡片，不退出注释模式）+ **颜色 RGBA 输入**（2026-09-07：色板 + R/G/B/A 数字输入框替透明度滑块，提交保留半透明 alpha）+ **图标迁移到 Lucide**（2026-09-07：全部图标从 Remix Icon 填充式改为 Lucide 线性/描边式，编辑卡头部下移）+ **Side Panel 363×860 重设计**（2026-09-08：面板按用户 Figma 稿逐元素 1:1 还原——图标换设计稿填充式原生路径、暗色重主题为 #12171f + 白透明度文字阶、新增 `--live` 亮绿、间距与交互态对齐 hover 帧）+ **编辑卡按 Figma 重构 + 语音听写 + 置顶/联动**（2026-09-08/09：编辑卡按 `180:759`/`180:824` 还原紧凑/展开两态、340px/13px 圆角、新增「文本」行与 Web Speech 语音听写、卡片置顶 z-index `2147483647`、锁定比例拖动时联动行保持可见并实时跟随；编辑卡部分 commit `b73e3b1`，侧边栏重设计 + 单条指令还原部分 commit `eb65ef5`）。核心闭环不变，但**样式编辑已从 Side Panel 迁到页面上的编辑卡**：面板只剩「选取/注释列表/Agent/Apply」 |
 | 分支     | **`main`（当前分支）**。`feat/ui-ux-polish`（80 commits）已通过 **PR #1 squash merge** 合入 main（2026-09-07）。远端 `origin` = GitHub 私有仓库 `UIlowen/ui-tuner`。**git 推送/拉取 GitHub 需走本机代理**：`HTTPS_PROXY=http://127.0.0.1:7892 git push`（与 codex 同坑） |
-| 验证     | `pnpm build / test / typecheck / lint` 全绿（**419 例测试**：protocol 26 / inspector 144 / bridge 74 / extension 175）；真机 `.playwright-mcp/verify-codex-card-ui.mjs` **106/106 断言全过**                                              |
-| 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**编辑卡的麦克风是禁用占位**（灰态 + 「语音输入即将上线」，未接语音识别） |
+| 验证     | `pnpm build / test / typecheck / lint` 全绿（**477 例测试**：protocol 26 / inspector 144 / bridge 74 / extension 233）；真机 `.playwright-mcp/verify-codex-card-ui.mjs` **106/106 断言全过**                                              |
+| 已知限制 | 页面刷新/导航后需手动 Reconnect；预览修改随页面刷新消失（§37 跨刷新持久化依赖 HMR 重定位，backlog）；**CLI 未发布 npm——`npx ui-tuner` 不可用**，本地用 `pnpm bridge --cwd <项目路径>`；codex exec 调 MCP 工具需 `--dangerously-bypass-approvals-and-sandbox`；**语音听写依赖 Chrome Web Speech（云端 Google 服务），需科学上网且仅 Chrome/Edge 支持**，不支持的浏览器回退为「语音输入即将上线」禁用占位 |
 
 ## 2. 三十秒上下文
 
@@ -65,7 +65,8 @@ UI Tuner/
                                components/ = ChangesTab / AgentTab / ApplySection）
         style-editor/          样式控件（ScrubInput / rows / StylePanel / StyleEditContext）——
                                从 sidepanel 抽出，供**编辑卡**复用（面板不再直接编辑）
-        ui/                    icons.tsx（Lucide 派生的内联 SVG 组件，MIT 许可）+ REMIXICON-LICENSE（历史许可存档）
+        ui/                    icons.tsx（内联 SVG 组件：`makeIcon`=Lucide 描边式（编辑卡用）+
+                               `makeFillIcon`=Figma 设计稿填充式（面板用），MIT 许可）+ REMIXICON-LICENSE（历史许可存档）
         styles/                sidepanel.css（主题令牌）+ tokens.test.ts（与 card.css 的防漂移守卫）
         i18n/                  messages.ts（zh/en，键必须齐平）+ use-t.ts
         messaging/channel.ts   Port 类型化封装（PortLike 结构接口）
@@ -109,8 +110,8 @@ UI Tuner/
 | **卡片高亮「已改动」属性行**：`changedProperties` 由 content 从 ChangeTracker 去重算出 → `EditorCard` 转成 `StyleEditApi.changed` → `rows.tsx` 的 `useIsChanged()` 给 `Row` 打 `data-changed` + 紫色左边线；卡片挂载时把**第一处**标记 `scrollIntoView({block:"nearest"})` | 几十个属性里看不出上一步改了什么；body 只有 320px 高，不滚动的话标记等于没有。复合控件（间距轴 / 对齐九宫格）一次写多个属性，传全部、命中任一即亮 |
 | **编辑卡就近弹出**：`content/card/placement.ts` 纯函数按「右→左→下→上」四候选取第一个放得下的，**只用「选边那一轴」判定放不放得下，另一轴 clamp**（右/左候选 clamp y，下/上候选 clamp x），四候选都不行才 clamp 首选位；`mount-card.show(props, anchor)` 用 **`flushSync`** 先提交渲染再量 `container.getBoundingClientRect()` | 卡片贴在元素旁边才符合「在元素上调」的心智；不先同步渲染就量尺寸，会拿到未渲染的 0×0 而漏判所有溢出。两轴都要求「完全放得下」会让贴视口底边的元素否决掉所有侧边（差 2px 也算否决），最后回落到 clamp 的首选位——**正好压在元素上**（真机实测：卡片 952..1272 与元素 1132..1272 重叠） |
 | **编辑卡只有紧凑/展开两态**（Codex 式），且**默认态由 props 推出、不记忆**：`number !== null ∨ changedProperties 非空 ∨ 已有指令` → 展开，否则紧凑（单行输入 + ✓） | 新选元素的常见诉求是「写一句话」，紧凑态就够；已注释的元素必须展开，否则上一轮的改动行高亮与自动滚动会被藏在一行输入框后面。由 props 推出 → `types.ts`/`placement.ts`/`content/index.ts` 都不用加接线，`key: elementId` 的 remount 天然按元素重算 |
-| **图标一律来自 `src/ui/icons.tsx`**（Lucide 派生的内联 SVG，`viewBox="0 0 24 24"` + `stroke="currentColor"` + `fill="none"`，MIT 许可；原 Remix Icon 许可存档在 `src/ui/REMIXICON-LICENSE`）；不再用 Unicode 字符当图标 | Lucide 是**描边型**几何，用 `stroke="currentColor"` 跟随主题；Remix 是填充型，需显式 `fill="currentColor"`。不用图标字体是因为 `manifest.json` 没有 `web_accessible_resources`，字体会逼出一次 manifest 变更 |
-| **23 个主题令牌在 `styles/sidepanel.css`（`:root`/`.dark`）与 `content/card/card.css`（`:host`/`:host(.dark)`）之间逐字复制**，3 个圆角（`--radius-card/control/pill`）作为字面量写在各自的 `@theme inline`；`styles/tokens.test.ts` 是唯一的防漂移守卫 | shadow root 里 `:root` 拿不到页面根，所以重复是**必要的**（选择器不同，抽不出共享文件）；但没有任何构建步骤会发现两边漂移——一处改名就让那个界面裸奔，故用测试断言三组令牌名集合相等 |
+| **图标一律来自 `src/ui/icons.tsx`**，两条 helper 并存：`makeIcon(d)` = Lucide **描边型**（`viewBox="0 0 24 24"` + `stroke="currentColor"` + `fill="none"`，编辑卡用）；`makeFillIcon(d, viewBox)` = **Figma 设计稿填充型**（`fill="currentColor"`，Side Panel 用，原生 viewBox 各异）；不再用 Unicode 字符当图标 | 描边型用 `stroke="currentColor"` 跟随主题；设计稿填充型在**原生尺寸**下更精致（描边被扩成实心轮廓，非整数缩放不发虚）。两者都用 currentColor 故 `icons.test.tsx` 断言「stroke 或 fill 任一 currentColor」。不用图标字体是因为 `manifest.json` 没有 `web_accessible_resources`，字体会逼出一次 manifest 变更 |
+| **24 个主题令牌在 `styles/sidepanel.css`（`:root`/`.dark`）与 `content/card/card.css`（`:host`/`:host(.dark)`）之间逐字复制**，3 个圆角（`--radius-card/control/pill`）作为字面量写在各自的 `@theme inline`；`styles/tokens.test.ts` 是唯一的防漂移守卫（**只比令牌名集合相等；值仅圆角比对**，故两边暗色值可独立漂移） | shadow root 里 `:root` 拿不到页面根，所以重复是**必要的**（选择器不同，抽不出共享文件）；但没有任何构建步骤会发现两边漂移——一处改名就让那个界面裸奔，故用测试断言三组令牌名集合相等 |
 | **卡片尺寸变化后必须重新 clamp**：mount 层对 `container` 挂 `ResizeObserver` → `clampOffset()` + `applyOffset()`（`unmount()` 里 disconnect） | 放置只在 `show()` 时按当时量到的尺寸做一次，而紧凑态 40px ↔ 展开态 ~396px 差一个数量级，指令 textarea 还能被用户拖高；贴底元素展开后 footer 会掉到视口外，**取消/保存点不到**（真机验收实测 bottom 916 > 720） |
 | **content 侧监听 `chrome.storage.onChanged` 同步 locale/theme**（`applyStoredPrefs()` 与 connect 时的 hydrate 共用一处） | 面板是另一个 JS 上下文且是唯一写入方；只在 connect 时读一次，切主题/语言后**已打开页面上的卡片会停在旧主题直到刷新**（真机验收实测：面板已暗、卡片仍亮） |
 | **头部一个属性图标开关（`SlidersIcon`，Remix equalizer-line）兼任「展开/收起底部属性区」**：`PropertiesToggle` 组件在紧凑态与展开态头部各出现一次（`aria-label` = 展开/收起 + `aria-expanded`），紧凑态没有徽章时它前面是拖拽把手；tag 名（`div`/`span`）、`SettingsIcon`、右侧 `ChevronUpIcon` 全部删除，`tagName` prop 从 `types.ts`/`mount-card`/`content/index.ts` 整条链路去掉 | 用户要「更简洁」：一个图标控制属性区开合就够，设置图标是纯装饰、tag 名对调样式没帮助，收起箭头与属性图标语义重复。展开态头部因此只剩 1 个按钮（真机断言 `headerButtons === 1`） |
@@ -394,6 +395,31 @@ Backlog 项「色板提交写 `#rrggbb` 丢失半透明 alpha」→ 先用透明
 - 测试：`icons.test.tsx` 断言从 `fill="currentColor"` 改为 `fill="none"` + `stroke="currentColor"`。
 - 编辑卡头部：第一行顶部间距从 `pt-1.5` 增加到 `pt-2.5`，整体往下移动。
 - 验证：`pnpm build/test/typecheck/lint` 全绿，**419 例**（测试数不变，只改断言）。
+
+**Side Panel 363×860 重设计（2026-09-08，对照用户 Figma 设计稿 fileKey `WTdhHPTKNADQiV8hszkMyy` 四帧：`145:16` 空态 / `146:61` 预览 / `147:263` 智能体 / `148:488` hover 交互态）**
+
+用户把 Side Panel 设计稿重做为 **363×860** 并要求逐元素 1:1 还原（多轮带截图验收：「图标不精致」「模块间太拥挤」「交互没参考设计稿」「小字按三行换行」）。这一轮改的全是**面板外观**，store / 协议 / 数据流一行未动。Figma MCP 用 `get_design_context`（`skillNames: "resource:figma-design-to-code"`）拿精确 hex/px + 资源 URL + 截图。
+
+- **图标换设计稿原生路径（关键认知）**：设计稿图标是**填充型**（描边被扩成实心轮廓），在原生尺寸下比描边图标在非整数缩放时更清晰（这就是「精致」的来源）。`src/ui/icons.tsx` 新增 `makeFillIcon(d, viewBox)`（`fill="currentColor"`）与既有 `makeIcon(d)`（Lucide 描边）并存。面板内 8 个图标换成 Figma 导出的精确填充路径：Eye/Bot（预览/智能体 tab，**20×20 原生**，`viewBox 0 0 20 20`）、Cursor/Copy/Send（16×16）、Info/RotateCcw（12×12）、Sun/Moon/Contrast（主题切换三态，14/12/14）。`icons.test.tsx` 断言放宽为「stroke 或 fill 任一 currentColor」（**主题感知才是真不变量**，不再钉死 24×24 / fill=none）。次日补齐 Close（`close-large-line`，198:8）/ Warning（`alert-line`，198:6）——**面板 10 个图标全部为设计稿填充式原生路径**。
+- **暗色重主题（只动 `sidepanel.css` 的 `.dark`）**：底色 `#09090b` → **`#12171f`**（深蓝炭）；文字阶改白透明度（`--text-strong:#fff` / `--text:90%` / `--dim`+`--faint:60%` / `--ghost:52%`）；`--edge/--control/--surface` 改白透明度，卡片趋扁平贴底。**新增 `--live` 令牌**：亮绿 `#4fff38`（亮模式 `#16a34a`），用于「已连接」徽章与「预览 N」计数；localhost 地址仍用 `--ok-text` `#31c58d`，两种绿区分开。
+- **token parity 的真实约束（踩过的坑）**：`styles/tokens.test.ts` 只比对令牌**名字**（两文件 × 亮/暗 × @theme-inline 六处集合相等），**值只对圆角比对**。所以 sidepanel.css 暗色值可以独立于 card.css 暗色值漂移；加新令牌只需在 **6 个块**各加一行（两文件的 light + dark + `@theme` 的 `--color-*` 映射）。
+- **间距（用户第一轮报「模块间太拥挤」）**：header `px-[18px] py-4`；状态区 `px-[18px] py-[14px]` 且**去掉下边框**（设计里状态区只有上分隔线，靠内边距与下方紫 tab 带分开）；tab 带**去掉 border-b**（`bg-brand/8` 紫带本身即分隔）；内容区 `px-4`；卡片 `space-y-4`（设计 gap-16）。
+- **交互态（对照 `148:488` hover 帧）**：语言/主题切换盒子 `bg-control p-[5px]`（≈26px 方块），hover 底色 白5% → **紫 20%**（`hover:bg-brand/20`）；一键还原 / 还原 / ↺ hover 变紫（`hover:text-brand-hover`）；卡片 hover 边框变 `--brand`；按钮 hover 实心紫；**选取中（退出注释）** 按钮改青蓝 `bg-info-text/30 text-info-text`（去掉原 ring）；**页脚两按钮不等宽**（选取 `w-[110px]` / 复制改动 `flex-1`，设计 110/194）；空态提示限宽 `w-[228px]` + 居中 + `tracking-[0.48px]` 自然折成设计稿的三行；各按钮默认文字改 `text-text/90`（≈白 80%）。
+- **tab 标签**：图标 20px（`size-5`）、与文字 `gap-1`、选中横条 `w-[100px]`。
+- **次日布局微调**：断连横幅（`App.tsx`）改**单行**（左 ⚠+文字 `truncate`、右「重新连接」`shrink-0`）并**移出 `main` 钉到面板底部**（页脚之上）；空态内容从垂直居中（flex 2:3，40%）**上移到靠上**（flex 1:5，约 17%，贴近设计稿）。
+- 验证：`pnpm build/test/typecheck/lint` 全绿，**477 例**（protocol 26 / inspector 144 / bridge 74 / extension 233）；新图标经无头 Chrome 渲染核对与设计稿一致。侧边栏部分提交为 `eb65ef5`。
+
+**编辑卡按 Figma 重构 + 语音听写 + 置顶/联动修复（2026-09-08/09，对照 `180:759` 紧凑 / `180:824` 展开，commit `b73e3b1`）**
+
+页面侧编辑卡（属性面板）按用户 Figma 稿逐元素还原两个状态，另加两条用户报的功能修复。改的全是**卡片 + style-editor + 文本/语音通道**，`sidepanel/` 一行未动（侧边栏重设计是另一窗口并行做的，两套改动在本提交里用「HEAD 基座 + 只叠卡片所需」的方式剥开——见下「混杂文件拆分」）。
+
+- **两态外观**：卡宽 320 → **340px**、`rounded-[13px]`、壳 `#2d2d2d`（深色，浅色同布局适配）。紧凑态 = move 拖拽把手（24px 白 80%）+ sliders 圆钮 + 单行指令输入 + mic/✓ 圆钮；展开态 = 头部（sliders 折叠钮 + 输入 + mic/✓）→ **紫色元素条**（tag + move 14px，整条 `data-drag-handle`）→ 6 组属性行（文本/颜色/字体/边框/尺寸间距/布局，30px 行、1px 白 10% 边框、8px 圆角控件）→ 底栏（取消 pill + mic + ✓）。**去掉编号 badge**；占位文案改「这个元素要怎么修改...」。
+- **新增「文本」行**：纯文本元素（`children.length === 0`）可直接改 `textContent`。伪属性 `"text-content"` **不走** StagingEngine/PreviewEngine（它们是 CSS 白名单专用），直接在 `content/index.ts` 会话级捕获原文→实时预览→`changeTracker.record(elementId,"text-content",…)`，取消/还原/删除都补恢复原文；`changedPropertiesFor` 自动带上 → 行高亮白捡。
+- **语音听写（`content/card/speech.ts`，Web Speech API）**：`startDictation`（无 React 的 (webkit)SpeechRecognition 封装，jsdom 注入假构造）+ `useVoiceDictation`（listening/interim/error 状态机）。点麦克风开始听（圆圈变红脉冲 + `aria-pressed`），**临时识别文本实时流进输入框且只读**，落定后**追加**到已有指令（不覆盖）；录音中 Esc 只取消识别、不收起卡片。**临时文本不进已提交指令**，abort 即丢弃。真机 spike 验证 API 可构造、权限可解析、`onstart` 触发；**真机已确认语音转文字可用**（注：Chrome Web Speech 走 Google 云端，需科学上网）。新增 i18n `card.mic/micListening/micDenied/micNoSpeech/micNetwork/micError`。
+- **卡片置顶**：宿主 z-index `2147483645` → **`2147483647`**（> 注释气泡 `…46` > hover/选中覆盖层 `…45`），气泡不再盖住卡片。`packages/inspector/src/styles/overlay.ts` 的覆盖层相应降到 `…45`。
+- **锁定比例联动显示**：`StyleEditContext` 新增 `scrubbing` 状态；拖动某行时卡片收敛只显示该行（其他行 `invisible`），但**锁定的联动对是例外**——`useScrubRow` 让 sibling 行保持浮动可见，且 `ScrubField.apply` 在 preview 帧用 `writeLinkedDisplay`（`getRootNode().querySelector('[data-scrub-property="…"] > span')`）**直写 DOM** 实时更新 sibling 数值（绕过 React snapshot，与 ScrubInput 自己的 displayRef 同套路）。`ScrubInput` 加 `property` prop 盖 `data-scrub-property`。
+- **混杂文件拆分（本次提交的难点）**：`icons.tsx`/`messages.ts`/`content/index.ts`/`index.test.tsx`/`card.css` 都是两窗口都改的文件。拆分法 = 取 HEAD 版本，只叠加卡片所需（7 个卡片填充图标 + `makeFillIcon`、`card.mic*`/宽度/高度/行距/列距键、text-content 通道），把侧边栏的（panel 填充图标、`tab.*`/`hint.*`/`changes.revertInstruction`、`isSidepanelRevertInstructionMessage` 处理）留在工作区给另一窗口提交。**token parity 坑**：侧边栏重设计往 card.css 也塞了 14 个镜像令牌（`--live`/chips/`--brand`…，卡片代码一个不用），唯独元素条借用了 `var(--brand)`；为不碰 sidepanel.css，暂存版 card.css 剥掉这 14 个令牌、元素条改用 Figma 字面色 `rgb(135 117 237/0.10)`（card.css 注释本就允许组件类用字面值「不强迫 sidepanel.css 改动」）。**已于 `eb65ef5` 解决**：侧边栏提交把这 14 个令牌补回 card.css（light/dark/`@theme` 三处），元素条改回 `color-mix(in srgb, var(--brand) …)`，`tokens.test.ts` 转绿。**
+- 验证：隔离 worktree 对「仅卡片」快照单独跑 `typecheck/test(226)/lint/build` 全绿。顺带修了 `speech.test.ts` 一个真实类型错误（`noUncheckedIndexedAccess` 下 `Record<string,…>` 索引返回 `| undefined` → 改有限键 Record）。
 
 ## 7. 项目状态：核心闭环完成，已合并 main
 
